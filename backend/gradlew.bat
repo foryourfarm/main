@@ -70,12 +70,17 @@ echo location of your Java installation. 1>&2
 :execute
 @rem Setup the command line
 
-
+@rem Windows accounts with non-ASCII characters in the user profile path (e.g. Korean)
+@rem break the JVM's @argfile parser when it reads the Gradle Test Executor classpath file
+@rem under %%GRADLE_USER_HOME%%, causing "Could not find or load main class ... GradleWorkerMain".
+@rem Default GRADLE_USER_HOME to an ASCII-only, project-local path so that file never contains
+@rem non-ASCII bytes. Respects an already-set GRADLE_USER_HOME (e.g. in CI).
+if not defined GRADLE_USER_HOME set GRADLE_USER_HOME=%APP_HOME%.gradle-user-home
 
 @rem Execute gradlew
 @rem endlocal doesn't take effect until after the line is parsed and variables are expanded
 @rem which allows us to clear the local environment before executing the java command
-endlocal & "%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %* & call :exitWithErrorLevel
+endlocal & set "GRADLE_USER_HOME=%GRADLE_USER_HOME%" & "%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %* & call :exitWithErrorLevel
 
 :exitWithErrorLevel
 @rem Use "%COMSPEC%" /c exit to allow operators to work properly in scripts
