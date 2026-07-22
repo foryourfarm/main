@@ -21,5 +21,7 @@ server:
 app:
   jwt:
     secret: ${JWT_SECRET:change-me-in-local-env}
-  local-llm:
-    model-path: ${LOCAL_LLM_MODEL_PATH:}
+  llm:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:exaone3.5:7.8b}
+    timeout-ms: ${OLLAMA_TIMEOUT_MS:8000}

@@ -179,7 +179,8 @@ DB_PASSWORD=foryourfarm
 JWT_SECRET=
 SOIL_API_KEY=        # 흙토람 등 — 발급 전까지 비워둠 (배치 스크립트만 사용)
 WEATHER_API_KEY=      # 기상청 — 배치 스크립트만 사용
-LOCAL_LLM_MODEL_PATH=
+OLLAMA_BASE_URL=http://localhost:11434   # GCP는 infra/ollama-vm 참고해 내부 IP로 교체
+OLLAMA_MODEL=exaone3.5:7.8b
 ```
 
 - 비밀값은 절대 커밋하지 않는다. `.env*`는 `.gitignore` 대상.

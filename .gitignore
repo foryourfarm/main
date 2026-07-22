@@ -11,6 +11,7 @@
 # Java / Gradle / Maven
 backend/build/
 backend/out/
+backend/bin/
 backend/.gradle/
 backend/target/
 *.class
