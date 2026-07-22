@@ -11,7 +11,7 @@
 - **마스터 vs 유저 vs 캐시 분리**:
   - 마스터(시드/사전적재): `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`.
   - 유저 데이터: `users`, `user_farm`, `farm_action_log`.
-  - 조회/계산 캐시: `soil_state`, `weather_snapshot`, `suitability_result`, `daily_recommendation`.
+  - 조회/계산 캐시: `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation`.
 - **계산 결정론**: 같은 입력이면 같은 출력(적합도·토양변화·위험판정 전부). LLM은 계산에 관여하지 않는다.
 - **실시간 조회 + 캐싱**: 단기 탭은 기상 실시간 조회가 본질. 같은 지역·같은 발표시각은 캐시로 재사용, 갱신 주기를 제한해 rate limit·성능 방어(`PRD.md` §9). 게임 시절의 "실시간 호출 전면 금지"는 폐기.
 - **현실 시간 사용**: 유저 농사는 실제 캘린더 날짜(`DATE`)로 진행한다. 게임식 주차 카운터·시간 게이팅 없음.
@@ -28,9 +28,11 @@ users 1──N user_farm ──┬──N farm_action_log
                        └──N daily_recommendation
 
 region 1──1 region_grid
-region 1──N weather_snapshot (실황/예보 캐시)
-region 1──N soil_state (지역 기준 토양의 유저 farm별 인스턴스)
+region 1──N weather_snapshot (실황/단기예보 캐시, 작년 실측도 OBS로 재사용)
+region 1──N weather_climatology (월별 평년값 캐시)
+region 1──N weather_outlook (3개월 장기예보 캐시, 범주형)
 crop   1──N crop_growth_guide
+(soil_state는 user_farm에 종속 — 지역 기준값을 밭 인스턴스로 복사 후 행위 반영 추정)
 (region×crop×생육단계) ─→ suitability_result (장기 적합도 캐시)
 soil_change_rule = 행위→지표 변화 계수 (마스터, 토양변화 모델)
 knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
@@ -38,7 +40,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`, `knowledge_chunk` = 마스터/사전적재.
 - `users`, `user_farm`, `farm_action_log` = 유저 데이터.
-- `soil_state`, `weather_snapshot`, `suitability_result`, `daily_recommendation` = 캐시/파생.
+- `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation` = 캐시/파생.
 
 ---
 
@@ -95,6 +97,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - Constraint: `uq_guide (crop_id, growth_stage, indicator)`.
 - **temp_night_min 별도 지표 필수**(야간 최저기온).
+- **indicator 문자열 ↔ 소스 컬럼 매핑 규약(C3)**: `indicator` 값은 실제 데이터 소스 컬럼과 1:1로 대응해야 함. 예) `temp_night_min` → `weather_climatology.temp_night_min_normal` / `weather_snapshot.temp_night_min`, `ph`·`ec`·`p2o5`·`organic` → `soil_state.*`. 이 매핑표를 시드와 함께 코드 상수로 관리(오타 시 지표가 조용히 누락되므로 검증 필요).
 
 ### 3.6 soil_change_rule (토양 변화 계수, 마스터 — 토양변화 모델) ★신규★
 문헌 기반. "어떤 행위가 어떤 지표를 어떻게 바꾸는가"의 계수/공식 파라미터.
@@ -167,8 +170,39 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - Constraint: `uq_weather (region_id, kind, base_at, target_date)`.
 - Index: `ix_weather_region_target (region_id, target_date)`.
 - 같은 (지역, kind, 발표시각) 재조회는 캐시 재사용(§PRD 9). 갱신 주기 제한.
+- **작년 실측 데이터도 이 테이블 재사용**: `kind='OBS'`, `target_date`를 작년 날짜로. 지역 최초 등록 시 과거관측 API로 최근 1년치를 백필해 캐시(§9). 새 테이블 불필요.
 
-### 3.11 suitability_result (장기 적합도 계산 캐시)
+### 3.11 weather_climatology (월별 평년값, 캐시 — 지역 최초 등록 시 확보)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| region_id | INT | FK→region(id), NOT NULL | |
+| month | INT | NOT NULL, CHECK 1..12 | |
+| temp_avg_normal / temp_night_min_normal / rainfall_normal / sunlight_normal | NUMERIC | | 기상청 평년값 |
+| source | VARCHAR(50) | NOT NULL | 출처(기상청 평년값) |
+| fetched_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Constraint: `uq_climatology (region_id, month)`.
+- 장기 탭 적합도 계산의 **기준선(baseline)**(§8.1).
+- **월 단위**라 생육단계(경과일 기반) 기간과 해상도가 다름 → 단계가 걸치는 월들의 평년값을 일수 가중 평균해 단계 기대값 산출(§8.1 B2).
+
+### 3.12 weather_outlook (3개월 장기예보, 캐시 — 범주형)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| region_id | INT | FK→region(id), NOT NULL | |
+| target_month | DATE | NOT NULL | 대상 월(해당 월 1일로 정규화) |
+| indicator | VARCHAR(20) | NOT NULL | temp / rainfall |
+| category | VARCHAR(10) | NOT NULL, CHECK IN('BELOW','NORMAL','ABOVE') | 평년 대비 전망(최빈 확률 구간) |
+| prob_below / prob_normal / prob_above | NUMERIC | | tercile 확률(%) |
+| published_at | TIMESTAMPTZ | NOT NULL | 기상청 발표 시각 |
+| fetched_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Constraint: `uq_outlook (region_id, target_month, indicator, published_at)`.
+- **평년치(§3.11)에 대한 방향성 보정 신호** — 포인트값이 아니라 확률 범주라 `weather_snapshot`과 구조가 달라 별도 테이블(§8.1).
+- **기온·강수만 제공**(KMA 계절전망 특성). 야간최저기온·일조 등 outlook 없는 지표는 평년치 그대로 사용(§8.1 B3).
+
+### 3.13 suitability_result (장기 적합도 baseline 캐시)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
@@ -182,9 +216,10 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 | computed_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
 - Constraint: `uq_suit (region_id, crop_id, growth_stage)`.
-- 평년 데이터 기반이라 (지역,작물,단계) 입력 동일 → 결과 동일. upsert 캐시.
+- **이 캐시는 평년치(climatology) 기준 baseline 점수만 저장한다** → (지역,작물,단계) 입력 동일 → 결과 동일, 진짜 결정론적 캐시.
+- **장기예보(outlook) 보정은 캐시하지 않고 조회 시점에 얹는다**(§8.1). outlook은 발표마다 바뀌어(시변) 캐시 키로 못 잡으므로, 캐시엔 안정적 baseline만 두고 보정은 read-time에 적용 — 이래야 캐시 결정론이 깨지지 않음(B1).
 
-### 3.12 daily_recommendation (단기 일일 추천 저장)
+### 3.14 daily_recommendation (단기 일일 추천 저장)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
@@ -197,8 +232,9 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - Constraint: `uq_daily (user_farm_id, target_date)`.
 - Index: `ix_daily_farm (user_farm_id, target_date)`.
+- **생성 시점(B4)**: 스케줄러가 활성 밭 전체를 대상으로 매일 사전생성이 기본. 단, 방금 등록한 밭은 다음 스케줄러 실행 전까지 행이 없으므로 **최초 조회 시 없으면 온디맨드 생성 후 저장**(이후엔 캐시 읽기).
 
-### 3.13 knowledge_chunk (챗봇 RAG 문서 조각, 마스터 · pgvector) [착수 시 구현]
+### 3.15 knowledge_chunk (챗봇 RAG 문서 조각, 마스터 · pgvector) [착수 시 구현]
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
@@ -217,9 +253,9 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 ## 4. 인덱스 / 제약 요약
 
-- 유니크: users.email, guide(crop,stage,indicator), soil_rule(action,indicator), soil_state(farm), weather(region,kind,base_at,target), suit(region,crop,stage), daily(farm,target).
+- 유니크: users.email, guide(crop,stage,indicator), soil_rule(action,indicator), soil_state(farm), weather(region,kind,base_at,target), climatology(region,month), outlook(region,target_month,indicator,published_at), suit(region,crop,stage), daily(farm,target).
 - 조회 인덱스: region(name), user_farm(user), action(farm,date), weather(region,target), daily(farm,target).
-- CHECK: score 0..100, grade 화이트리스트, weather.kind ∈ {OBS, FORECAST}.
+- CHECK: score 0..100, grade 화이트리스트, weather.kind ∈ {OBS, FORECAST}, outlook.category ∈ {BELOW, NORMAL, ABOVE}.
 - FK: 유저 하위(user_farm/action/soil_state/daily)는 `ON DELETE CASCADE`. 마스터 참조는 RESTRICT.
 
 ---
@@ -259,10 +295,20 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 ### 8.1 적합도 점수 (장기, 기존 재사용)
 입력: region_id, crop_id, growth_stage.
 1. `crop_growth_guide`에서 단계별 지표 (구간, weight) 로드.
-2. 실제값: 토양 = `soil_state`(또는 지역 기준값), 기상 = 평년 데이터.
+2. 실제값(기상) — **[제안] 평년치를 장기예보로 보정, 작년 실측은 점수에 안 섞음**:
+   - **baseline(캐시 대상) = 평년치(`weather_climatology`)만으로 산출.** 이게 `suitability_result`에 저장되는 결정론적 값(§3.13, B1).
+   - **read-time 보정(캐시 안 함) = baseline + 보정치.** 조회 시점 최신 `weather_outlook`으로 얹는다.
+     - **보정치 = P(높음)×(+δ) + P(비슷)×0 + P(낮음)×(−δ)** — tercile 확률 가중.
+     - 왜 셋을 동등 평균 안 하나: 평년치=다년 통계, 장기예보=공식 확률예측(신뢰도 있는 조정 신호)이지만 작년 실측=단 1년 샘플(계절 노이즈 큼)이라 동급으로 섞으면 왜곡.
+     - 확률 33/33/33이면 보정치 0 → 평년치 그대로.
+     - **outlook은 기온·강수만 제공(B3)** → 야간최저기온·일조 등 outlook 없는 지표는 보정 없이 평년치 사용.
+     - `δ` 값은 미결정 — 고정 상수로 시작 후 캘리브레이션(`PRD.md` §11).
+   - **월→단계 해상도 변환(B2)**: 평년치·outlook은 월 단위. 생육단계 기간이 걸치는 월들의 값을 **일수 가중 평균**해 단계 기대값으로 환산.
+   - **작년 실측(`weather_snapshot` OBS)은 점수 계산에 넣지 않고** ①백테스팅(§11) ②유저 리포트 "전망 vs 작년 실제" 병기에만.
+   - 토양 = `soil_state`.
 3. 지표별 이탈도 점수(적정=100 / 허용=거리 비례 감점 / 위험=큰 감점).
 4. 가중 평균 → score, 등급 매핑.
-5. breakdown/risk_flags(JSONB) 기록.
+5. breakdown/risk_flags(JSONB) 기록 — 평년치·보정치·최종 기대값을 분해해 기록(정확도 근거 제시, `PRD.md` §11).
 6. 결측/이상치는 §8.4로 방어.
 
 ### 8.2 토양 변화 추정 (단기, 신규)
@@ -277,7 +323,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 ### 8.4 위험신호 판정
 - **단기**: `weather_snapshot`(예보)에서 작물 위험 조건 감지(야간 저온 N일 지속, 과습 등) → daily risk_flags.
-- **장기**: 평년 데이터에서 시기별 위험 → suitability risk_flags. 예보 아님(평년 근사)임을 고지.
+- **장기**: 평년치+장기예보+작년 실측(§8.1)에서 시기별 위험 → suitability risk_flags. 예보(단기)와 다른 근거(평년 근사+계절전망)임을 고지.
 
 ### 8.5 결측 / 이상치 대체 (Fallback)
 - 물리 불가값(pH<0 또는 >14, 음수 강수 등) → 결측 취급.
@@ -291,14 +337,17 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - 전국 시/군 + 격자 매핑 → `region`, `region_grid`.
 - 작물별 생육 지침 → `crop`, `crop_growth_guide`.
 - 토양 변화 계수(문헌) → `soil_change_rule`.
-- 토양/기상은 유저 등록·조회 시점에 API로 확보해 캐시(사전 전량 적재 아님 — 전국 임의 지역이라).
-- 스키마 변경은 버전 관리 마이그레이션으로만. **게임 시절 V1/V2는 폐기하고 새 스키마로 재작성**(구현 착수 시 정리).
+- 토양/기상(실황·단기예보·평년값·장기예보·작년 실측)은 유저 등록·조회 시점에 API로 확보해 캐시(사전 전량 적재 아님 — 전국 임의 지역이라). 작년 실측은 등록 시 1회 백필.
+- 챗봇 RAG: 농사로 작물별 안내책자(5종 우선)를 청킹·임베딩(bge-m3) → `knowledge_chunk` 적재. pgvector 확장 필요(§3.15).
+- 마이그레이션은 Alembic으로 관리. 현재 baseline은 `backend/alembic/versions/0001_init_schema.py`(게임 시절 Flyway V1/V2는 폐기 완료). 수동 ALTER 금지.
 
 ---
 
 ## 10. 미결정 사항
 
-- 흙토람/기상청 API 반환 스키마 → soil_state/weather_snapshot 컬럼 확정.
+- 흙토람/기상청 API 반환 스키마 → soil_state/weather_snapshot/weather_climatology/weather_outlook 컬럼 확정.
+- **보정 단위 `δ`의 실제 값**(§8.1) — 지표별로 기준편차 비율 등 실제 수치는 캘리브레이션 필요. 결합 구조(평년치+장기예보 보정, 작년은 백테스팅/병기 전용) 자체는 제안 확정.
+- 기상청 장기예보(3개월 전망) API 실제 스펙(발표 주기, tercile 확률 형식).
 - 토양 변화 계수·감쇠식(문헌 조사 결과) → soil_change_rule 값.
 - 지표별 가중치/구간 실제 수치.
 - 생육 단계 구분 기준(경과일 → 단계 매핑 테이블 필요 여부).
