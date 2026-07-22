@@ -8,14 +8,13 @@
 .classpath
 .project
 
-# Java / Gradle / Maven
-backend/build/
-backend/out/
-backend/bin/
-backend/.gradle/
-backend/target/
-*.class
-HELP.md
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
 # Node / Next.js
 frontend/node_modules/
@@ -28,8 +27,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
-application-local.yml
-application-secret.yml
 
 # OS
 .DS_Store

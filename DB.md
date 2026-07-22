@@ -1,38 +1,44 @@
 # DB.md — 데이터베이스 설계 문서
 
-> DBMS: PostgreSQL (GCP Cloud SQL) · ORM: Spring Data JPA · 접근: Spring Boot 경유(클라이언트 직접 접속 없음)
+> DBMS: PostgreSQL (GCP Cloud SQL) · ORM: SQLAlchemy 2.0 · 마이그레이션: Alembic · 접근: FastAPI 경유(클라이언트 직접 접속 없음)
 > 게임 규칙은 `PRD.md`, 코딩 규칙은 `CLAUDE.md` 참조.
+> **주의:** 게임형 스키마(farm_plot 주차 카운터, action_card, crop_type 등)는 폐기되었다. 이 문서가 현재 유효한 설계다.
 
 ---
 
 ## 1. 설계 원칙
 
-- **읽기 중심 + 사전 적재**: 마스터 데이터(지역, 작물, 생육 지침, 토양, 작년 기상)는 마이그레이션/시드로 미리 적재하고 런타임에 수정하지 않는다. 유저 데이터(계정, 세이브, 재배 기록)만 런타임에 쓰인다.
-- **계산 결정론**: 적합도 결과는 (지역, 작물, 주차) 입력이 같으면 항상 같다 → 캐시 테이블로 저장/재사용 가능.
-- **본 프로젝트에 없는 개념**: 지역 이동 그래프(`city_connections`), 시간 게이팅(`next_available_at`), 스폰/포획/전설/천장/해금 계산. Supabase의 RLS/Policy/Edge Function도 사용하지 않음(Spring Boot가 인가 담당).
-- **경제 시스템은 MVP 범위 아님**: `PRD.md` §16(경제 시스템)은 v2 이후 설계 방향만 정리한 문서고, 지금 스키마엔 `cash_balance`/`economy_log` 같은 테이블·컬럼이 없다.
+- **마스터 vs 유저 vs 캐시 분리**:
+  - 마스터(시드/사전적재): `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`.
+  - 유저 데이터: `users`, `user_farm`, `farm_action_log`.
+  - 조회/계산 캐시: `soil_state`, `weather_snapshot`, `suitability_result`, `daily_recommendation`.
+- **계산 결정론**: 같은 입력이면 같은 출력(적합도·토양변화·위험판정 전부). LLM은 계산에 관여하지 않는다.
+- **실시간 조회 + 캐싱**: 단기 탭은 기상 실시간 조회가 본질. 같은 지역·같은 발표시각은 캐시로 재사용, 갱신 주기를 제한해 rate limit·성능 방어(`PRD.md` §9). 게임 시절의 "실시간 호출 전면 금지"는 폐기.
+- **현실 시간 사용**: 유저 농사는 실제 캘린더 날짜(`DATE`)로 진행한다. 게임식 주차 카운터·시간 게이팅 없음.
+- **본 프로젝트에 없는 개념**: 게임 요소(승패/RNG/경제/포획/스폰), 지역 이동 그래프, Supabase RLS/Policy/Edge Function(FastAPI가 인가 담당).
+- **벡터 검색은 pgvector로**: 상담 챗봇 RAG용 임베딩은 별도 벡터DB가 아니라 PostgreSQL `pgvector` 확장으로 처리(`knowledge_chunk` 테이블). 핵심 예측 기능(적합도/추천)은 RAG를 쓰지 않고 정형 데이터 직접 주입(`PRD.md` §10).
 
 ---
 
 ## 2. ERD (개념)
 
 ```
-users 1──N game_save 1──N farm_plot ──┐
-                          │             │ (region_id, crop_id)
-                          │      region 1──N soil_data
-                          │      region 1──N weather_history
-                          │      region 1──1 region_grid
-                          │      crop   1──N crop_growth_guide
-                          │                                  ▼
-                          │                    suitability_result (cache: region×crop×week)
-                          └──N cultivation_log
+users 1──N user_farm ──┬──N farm_action_log
+                       ├──1 soil_state (현재 추정 토양)
+                       └──N daily_recommendation
 
-crop 1──N action_card (applicable_crop_type로 매핑, FK 아님)
+region 1──1 region_grid
+region 1──N weather_snapshot (실황/예보 캐시)
+region 1──N soil_state (지역 기준 토양의 유저 farm별 인스턴스)
+crop   1──N crop_growth_guide
+(region×crop×생육단계) ─→ suitability_result (장기 적합도 캐시)
+soil_change_rule = 행위→지표 변화 계수 (마스터, 토양변화 모델)
+knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 ```
 
-- `region`, `crop`, `crop_growth_guide`, `soil_data`, `weather_history`, `region_grid`, `action_card` = 마스터/사전적재.
-- `users`, `game_save`, `farm_plot`, `cultivation_log` = 유저 데이터.
-- `suitability_result` = 계산 캐시.
+- `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`, `knowledge_chunk` = 마스터/사전적재.
+- `users`, `user_farm`, `farm_action_log` = 유저 데이터.
+- `soil_state`, `weather_snapshot`, `suitability_result`, `daily_recommendation` = 캐시/파생.
 
 ---
 
@@ -43,203 +49,206 @@ crop 1──N action_card (applicable_crop_type로 매핑, FK 아님)
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
 | email | VARCHAR(255) | UNIQUE, NOT NULL | 로그인 ID |
-| password_hash | VARCHAR(255) | NOT NULL | BCrypt 해시(평문 금지) |
+| password_hash | VARCHAR(255) | NOT NULL | 해시(bcrypt/argon2, 평문 금지) |
 | nickname | VARCHAR(50) | NOT NULL | |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
 - Index: `ux_users_email (email)`.
 
-### 3.2 game_save (세이브/진행 상태)
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| id | BIGSERIAL | PK | |
-| user_id | BIGINT | FK→users(id), NOT NULL | |
-| current_week | INT | NOT NULL, DEFAULT 1, CHECK ≥1 | 현재 주차 |
-| season | VARCHAR(10) | NOT NULL | 파생 표시용(봄/여름/가을/겨울) |
-| status | VARCHAR(20) | NOT NULL, DEFAULT 'IN_PROGRESS' | IN_PROGRESS / SEASON_END |
-| version | INT | NOT NULL, DEFAULT 0 | 낙관적 락(§7) |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
-| updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
-
-- Index: `ix_game_save_user (user_id)`.
-- **시간 게이팅 없음**: 주차 진행은 클릭 즉시. `next_available_at` 같은 컬럼은 두지 않는다.
-
-### 3.3 farm_plot (밭 = 지역×작물 관리 슬롯)
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| id | BIGSERIAL | PK | |
-| game_save_id | BIGINT | FK→game_save(id), NOT NULL | |
-| region_id | INT | FK→region(id), NOT NULL | |
-| crop_id | INT | FK→crop(id), NOT NULL | |
-| planted_at_week | INT | NOT NULL, DEFAULT 1 | 이 밭이 심어진 시점의 `game_save.current_week` 스냅샷 |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
-
-- Constraint: `uq_plot (game_save_id, region_id, crop_id)`.
-- 잠금/해금 컬럼 없음(밭 전부 오픈).
-- **한 지역에 여러 밭 가능**: 유니크 키가 `region_id`만이 아니라 `(region_id, crop_id)` 조합이라, 같은 지역에 작물이 다른 밭이 여러 개 공존할 수 있다(예: 청송에 사과밭·상추밭 동시 존재). 토양(`soil_data`)·기상(`weather_history`)은 `region_id` 하나로 조회해 같은 지역의 모든 밭이 공유하고, `crop_growth_guide`만 작물별로 갈라져 적합도가 밭마다 따로 계산된다.
-- **`planted_at_week`은 밭작물형(`crop.crop_type = 'FIELD'`)에만 의미가 있다.** 경과 주수 = `game_save.current_week - planted_at_week`, 이 값이 작물별 수확 주 수(§3.6)에 도달하면 수확 행동카드가 노출된다(`PRD.md` §15). 나무형(`TREE`)은 게임 시작부터 이미 성숙 상태라 이 계산 자체를 쓰지 않는다.
-
-### 3.4 region (지역, 마스터)
+### 3.2 region (지역, 마스터 — 전국 시/군)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | INT | PK | |
 | name | VARCHAR(50) | NOT NULL | 시/군명 |
 | sido | VARCHAR(30) | NOT NULL | 시/도 |
-| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
-### 3.5 region_grid (기상 격자 매핑, 마스터)
+- 전국 시/군을 시드로 적재(자동완성 소스). Index: `ix_region_name (name)`.
+
+### 3.3 region_grid (기상 격자 매핑, 마스터)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | region_id | INT | PK, FK→region(id) | |
 | nx | INT | NOT NULL | 기상청 격자 X |
 | ny | INT | NOT NULL | 기상청 격자 Y |
 
-- 기상 API는 행정구역명이 아닌 격자좌표 기준 → 사전 매핑.
-
-### 3.6 crop (작물, 마스터)
+### 3.4 crop (작물, 마스터)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | INT | PK | |
 | name | VARCHAR(30) | NOT NULL | 사과/배/오이/감자/상추 |
-| crop_type | VARCHAR(10) | NOT NULL, CHECK IN('TREE','FIELD') | TREE=사과·배(이미 성숙 상태로 시작) / FIELD=오이·감자·상추(주차 기반 성장) |
-| season_weeks | INT | | 수확까지 걸리는 주 수. **FIELD만 의미 있음**(상추 4 / 오이 8 / 감자 12 — 1개월=4주 가정, 확정 필요 §10). TREE는 NULL. |
 
-### 3.7 crop_growth_guide (생육 지침, 마스터·직접 제작) ★핵심★
-농사로 PDF에서 수작업 추출. 작물×지표별 3단계 구간 + 가중치 + 민감도.
+- 게임식 `crop_type`(TREE/FIELD)·주차 필드 없음.
+
+### 3.5 crop_growth_guide (생육 지침, 마스터·직접 제작) ★핵심★
+문헌에서 수작업 추출. 작물×지표×생육단계별 3단계 구간 + 가중치.
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
 | crop_id | INT | FK→crop(id), NOT NULL | |
+| growth_stage | VARCHAR(20) | | 생육 단계(발아/생장/개화/결실 등). NULL이면 전 기간 공통 |
 | indicator | VARCHAR(30) | NOT NULL | temp_day / temp_night_min / ph / ec / rainfall / sunlight / p2o5 / organic ... |
-| optimal_min | NUMERIC | | 적정 하한 |
-| optimal_max | NUMERIC | | 적정 상한 |
-| allowed_min | NUMERIC | | 허용 하한 |
-| allowed_max | NUMERIC | | 허용 상한 |
-| weight | NUMERIC | NOT NULL | 이 지표의 작물별 영향도(가중치, 매뉴얼에 정량값 없으면 직접 설정) |
-| week_from | INT | | 특정 주차 구간에만 적용 시 |
-| week_to | INT | | |
+| optimal_min / optimal_max | NUMERIC | | 적정 구간 |
+| allowed_min / allowed_max | NUMERIC | | 허용 구간 (밖 = 위험) |
+| weight | NUMERIC | NOT NULL | 이 지표의 작물별 영향도 |
 
-- Constraint: `uq_guide (crop_id, indicator, week_from, week_to)`.
-- **temp_night_min 별도 지표 필수**(야간 최저기온 — A씨 사례 핵심). 주간 평균과 뭉치지 않는다.
-- 허용 범위 밖 = 위험 구간(별도 컬럼 없이 optimal/allowed로 3단계 판정).
+- Constraint: `uq_guide (crop_id, growth_stage, indicator)`.
+- **temp_night_min 별도 지표 필수**(야간 최저기온).
 
-### 3.8 soil_data (토양, 사전 적재)
+### 3.6 soil_change_rule (토양 변화 계수, 마스터 — 토양변화 모델) ★신규★
+문헌 기반. "어떤 행위가 어떤 지표를 어떻게 바꾸는가"의 계수/공식 파라미터.
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | INT | PK | |
+| action_type | VARCHAR(30) | NOT NULL | IRRIGATION / FERTILIZE_N / LIMING(석회) ... |
+| indicator | VARCHAR(30) | NOT NULL | 영향받는 토양 지표(ph, ec ...) |
+| effect_coeff | NUMERIC | NOT NULL | 단위 행위량당 변화량(문헌치) |
+| decay_days | INT | | 효과 감쇠 기간(지속성 반영). NULL이면 비감쇠 |
+| source_ref | VARCHAR(200) | NOT NULL | 근거 문헌 출처 |
+
+- Constraint: `uq_soil_rule (action_type, indicator)`.
+- 계수는 코드 하드코딩 금지 — 이 테이블(시드)로만 관리(`CLAUDE.md`).
+
+### 3.7 user_farm (유저의 밭 = 실제 농사 단위)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_id | BIGINT | FK→users(id) ON DELETE CASCADE, NOT NULL | |
+| region_id | INT | FK→region(id), NOT NULL | |
+| crop_id | INT | FK→crop(id), NOT NULL | |
+| planting_date | DATE | NOT NULL | 실제 파종/정식일 |
+| label | VARCHAR(50) | | 사용자 지정 이름(선택) |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Index: `ix_user_farm_user (user_id)`.
+- 한 유저가 여러 밭(지역·작물 조합 자유) 등록 가능.
+- **생육 단계**는 저장하지 않고 `planting_date`와 오늘 날짜의 경과일로 파생 계산(§8.3).
+
+### 3.8 farm_action_log (사용자 행동 기록 → 토양변화 입력)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_farm_id | BIGINT | FK→user_farm(id) ON DELETE CASCADE, NOT NULL | |
+| action_type | VARCHAR(30) | NOT NULL | soil_change_rule.action_type와 대응 |
+| amount | NUMERIC | | 행위량(관수량 등, 선택) |
+| acted_on | DATE | NOT NULL | 행위 날짜 |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Index: `ix_action_farm (user_farm_id, acted_on)`.
+
+### 3.9 soil_state (밭별 현재 추정 토양 상태)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_farm_id | BIGINT | FK→user_farm(id) ON DELETE CASCADE, NOT NULL | |
+| soil_texture | VARCHAR(30) | | 토성(기준값, 잘 안 변함) |
+| ph / ec / p2o5 / organic_matter | NUMERIC | | 현재 추정값 |
+| base_source | VARCHAR(50) | NOT NULL | 기준값 출처(흙토람 등) |
+| is_estimated | BOOLEAN | NOT NULL, DEFAULT true | true=행위 반영 추정치(이론), false=실측 기준값 |
+| computed_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Constraint: `uq_soil_state (user_farm_id)` (밭당 현재 상태 1행, 갱신은 upsert).
+- 최초=흙토람 기준값(is_estimated=false), 이후 행동 반영 시 추정치로 갱신(§8.2).
+
+### 3.10 weather_snapshot (기상 실황/예보 캐시)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
 | region_id | INT | FK→region(id), NOT NULL | |
-| soil_texture | VARCHAR(30) | | 토성 |
-| ph | NUMERIC | | 산도 |
-| ec | NUMERIC | | 전기전도도 |
-| p2o5 | NUMERIC | | 유효인산 |
-| organic_matter | NUMERIC | | 유기물함량 |
-| source | VARCHAR(50) | NOT NULL | 출처(흙토람 등) |
-| collected_at | TIMESTAMPTZ | NOT NULL | 수집 시각 |
+| kind | VARCHAR(10) | NOT NULL | OBS(실황) / FORECAST(예보) |
+| base_at | TIMESTAMPTZ | NOT NULL | 발표/관측 시각 |
+| target_date | DATE | NOT NULL | 대상 날짜 |
+| temp_avg / temp_night_min / rainfall / sunlight | NUMERIC | | |
 | is_imputed | BOOLEAN | NOT NULL, DEFAULT false | 결측 대체 여부 |
+| fetched_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 조회 시각 |
 
-- Constraint: `uq_soil (region_id)` (시/군 단위 평균 1행).
+- Constraint: `uq_weather (region_id, kind, base_at, target_date)`.
+- Index: `ix_weather_region_target (region_id, target_date)`.
+- 같은 (지역, kind, 발표시각) 재조회는 캐시 재사용(§PRD 9). 갱신 주기 제한.
 
-### 3.9 weather_history (작년 기상, 사전 적재 CSV)
-| 컬럼 | 타입 | 제약 | 설명 |
-|---|---|---|---|
-| id | BIGSERIAL | PK | |
-| region_id | INT | FK→region(id), NOT NULL | |
-| week_no | INT | NOT NULL, CHECK 1..53 | 연중 주차 |
-| temp_avg | NUMERIC | | 평균기온 |
-| temp_night_min | NUMERIC | | 야간 최저기온 |
-| rainfall | NUMERIC | | 강수량 |
-| sunlight | NUMERIC | | 일조 |
-| is_imputed | BOOLEAN | NOT NULL, DEFAULT false | 결측 대체 여부 |
-| collected_at | TIMESTAMPTZ | NOT NULL | |
-
-- Constraint: `uq_weather (region_id, week_no)`.
-- Index: `ix_weather_region_week (region_id, week_no)`.
-- **정식 설계**: 게임 위험신호는 실시간 예보가 아니라 이 작년 데이터(평년 근사)에서 산출.
-
-### 3.10 suitability_result (적합도 계산 캐시)
+### 3.11 suitability_result (장기 적합도 계산 캐시)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
 | region_id | INT | FK→region(id), NOT NULL | |
 | crop_id | INT | FK→crop(id), NOT NULL | |
-| week_no | INT | NOT NULL | |
+| growth_stage | VARCHAR(20) | NOT NULL | 생육 단계(또는 시즌 시기 키) |
 | score | NUMERIC | NOT NULL, CHECK 0..100 | |
 | grade | CHAR(1) | NOT NULL, CHECK IN('S','A','B','C') | |
 | breakdown | JSONB | | 지표별 점수/게이지 |
 | risk_flags | JSONB | | 위험신호 목록 |
 | computed_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
-- Constraint: `uq_suit (region_id, crop_id, week_no)`.
-- 입력 동일 → 결과 동일이므로 upsert 캐시.
+- Constraint: `uq_suit (region_id, crop_id, growth_stage)`.
+- 평년 데이터 기반이라 (지역,작물,단계) 입력 동일 → 결과 동일. upsert 캐시.
 
-### 3.11 cultivation_log (재배 기록)
+### 3.12 daily_recommendation (단기 일일 추천 저장)
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
-| game_save_id | BIGINT | FK→game_save(id), NOT NULL | |
-| region_id | INT | FK→region(id), NOT NULL | |
-| crop_id | INT | FK→crop(id), NOT NULL | |
-| week_no | INT | NOT NULL | |
-| grade | CHAR(1) | NOT NULL | 그 주차 등급 |
-| risk_summary | JSONB | | 그 주차 위험 요약 |
+| user_farm_id | BIGINT | FK→user_farm(id) ON DELETE CASCADE, NOT NULL | |
+| target_date | DATE | NOT NULL | 추천 대상일 |
+| risk_flags | JSONB | | 그날 위험신호 |
+| advice_text | TEXT | | LLM 생성 행동 가이드(폴백 시 규칙 문구) |
+| is_llm | BOOLEAN | NOT NULL, DEFAULT true | LLM 생성 여부(폴백이면 false) |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
-- Index: `ix_log_save (game_save_id, week_no)`.
+- Constraint: `uq_daily (user_farm_id, target_date)`.
+- Index: `ix_daily_farm (user_farm_id, target_date)`.
 
-### 3.12 action_card (행동카드 카탈로그, 마스터)
+### 3.13 knowledge_chunk (챗봇 RAG 문서 조각, 마스터 · pgvector) [착수 시 구현]
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| id | INT | PK | |
-| code | VARCHAR(30) | UNIQUE, NOT NULL | 예: WATER, PEST_CONTROL, HARVEST_LETTUCE |
-| label | VARCHAR(50) | NOT NULL | 화면 표시명 |
-| applicable_crop_type | VARCHAR(10) | CHECK IN('TREE','FIELD') | NULL이면 모든 유형 공통 |
-| trigger_week_min | INT | | 경과 주수 하한(해당 밭의 `current_week - planted_at_week`). NULL이면 상시 노출 |
-| trigger_week_max | INT | | 경과 주수 상한. NULL이면 하한 이후 계속 노출 |
-| description | TEXT | | |
+| id | BIGSERIAL | PK | |
+| source_ref | VARCHAR(200) | NOT NULL | 출처(문서명·URL·페이지 등) |
+| crop_id | INT | FK→crop(id) | 작물별 안내책자 조각이면 해당 작물(공통 문서면 NULL) |
+| content | TEXT | NOT NULL | 청크 원문 |
+| embedding | vector(1024) | NOT NULL | bge-m3 임베딩 (차원 1024) |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
 
-- 이 테이블이 "행동카드 전부 제시" 요구사항의 데이터 원천이다(`PRD.md` §4.3, §15). 특정 주차에 노출할 카드 목록 = `applicable_crop_type`이 NULL 또는 해당 밭의 crop_type과 일치하고, 경과 주수가 `trigger_week_min`/`max` 범위 안(둘 다 NULL이면 무조건 포함)인 행.
-- LLM 추천은 이 목록을 애플리케이션이 조회한 뒤, 그중 하나를 추천하도록 프롬프트에 주입(LLM이 카드 존재 여부를 만들어내지 않음).
-
-> **[v2 이후 계획]** 경제 시스템(`PRD.md` §16)을 실제로 만들 때는 `game_save.cash_balance`(누적 수지, NUMERIC) 컬럼과 `economy_log`(game_save_id, week_no, amount, reason, created_at) 테이블을 별도 마이그레이션으로 추가한다. 지금 스키마엔 없음.
+- **전제**: `CREATE EXTENSION vector;` 필요 → 로컬/운영 Postgres 이미지를 `pgvector/pgvector:pg16`(또는 Cloud SQL의 pgvector 활성화)로 바꿔야 함. 현재 `docker-compose.yml`의 `postgres:16`엔 없음 → 착수 시 교체.
+- **1차 코퍼스**: 농사로 작물별 안내책자, 제한 5종(사과·배·오이·감자·상추) 우선 적재(`PRD.md` §4.6). `crop_id`로 작물 필터 후 유사도 검색 가능.
+- 검색: 질문 임베딩과 코사인 유사도 상위 K개 조각을 뽑아 프롬프트에 근거로 주입. HNSW/IVFFlat 인덱스는 코퍼스 크기 확정 후 추가.
+- **챗봇 전용** — 핵심 예측 기능은 이 테이블을 쓰지 않는다(`PRD.md` §10).
 
 ---
 
 ## 4. 인덱스 / 제약 요약
 
-- 유니크: users.email, farm_plot(save,region,crop), soil(region), weather(region,week), suit(region,crop,week), action_card.code.
-- 조회 인덱스: game_save(user), weather(region,week), log(save,week).
-- CHECK: score 0..100, grade 화이트리스트, week ≥1, crop.crop_type/action_card.applicable_crop_type ∈ {TREE, FIELD}.
-- FK는 모두 `ON DELETE CASCADE`(유저 삭제 시 하위 세이브/기록 정리). 마스터 참조 FK는 RESTRICT.
+- 유니크: users.email, guide(crop,stage,indicator), soil_rule(action,indicator), soil_state(farm), weather(region,kind,base_at,target), suit(region,crop,stage), daily(farm,target).
+- 조회 인덱스: region(name), user_farm(user), action(farm,date), weather(region,target), daily(farm,target).
+- CHECK: score 0..100, grade 화이트리스트, weather.kind ∈ {OBS, FORECAST}.
+- FK: 유저 하위(user_farm/action/soil_state/daily)는 `ON DELETE CASCADE`. 마스터 참조는 RESTRICT.
 
 ---
 
 ## 5. Function / View / Trigger
 
-- **Trigger**: `updated_at` 자동 갱신 트리거(users, game_save).
-- **View**: `v_plot_current_suitability` — farm_plot과 게임 현재 주차 기준 최신 suitability_result 조인(Lobby 등급 표시용).
-- **Function**: 점수 계산은 애플리케이션(Java 룰 엔진)에서 수행. DB 함수로 복잡 로직을 넣지 않는다(테스트/버전관리 용이성 위해).
+- **Trigger**: `updated_at` 자동 갱신(users).
+- **View**: `v_farm_today` — user_farm + 오늘 날짜 기준 최신 daily_recommendation + soil_state 조인(대시보드 카드용).
+- **Function**: 점수·토양변화 계산은 애플리케이션(Python 룰 엔진)에서. DB 함수로 복잡 로직 넣지 않음.
 
 ---
 
-## 6. 인가 / 계층 역할 (Supabase RLS 대체)
+## 6. 인가 / 계층 역할
 
-- 클라이언트는 DB에 직접 접속하지 않는다. 모든 접근은 Spring Boot 경유.
-- **Controller**: 요청/응답, 입력 검증(지역·작물 화이트리스트).
-- **Service**: 트랜잭션 경계, 유스케이스 조합, 소유권 검증(요청 유저 == game_save.user_id).
-- **Repository/Infra**: JPA 접근, 공공 API 클라이언트, 배치.
-- 행 수준 보안은 Service의 소유권 체크로 구현(RLS 정책 대신).
+- 클라이언트는 DB 직접 접속 금지, 모든 접근은 FastAPI 경유.
+- **api(라우터)**: 요청/응답, 입력 검증(pydantic; 지역·작물 화이트리스트, 날짜 유효성).
+- **services**: 트랜잭션 경계, 유스케이스, 소유권 검증(요청 유저 == user_farm.user_id).
+- **infra**: SQLAlchemy 접근, 공공 API 클라이언트(기상/토양), LLM 클라이언트, 캐시.
+- 행 수준 보안은 서비스 소유권 체크로 구현.
 
 ---
 
-## 7. 트랜잭션 / Lock 전략
+## 7. 트랜잭션 / Lock / 캐시 전략
 
-- **읽기 위주**: 대부분 조회는 트랜잭션 없이/읽기 전용.
-- **주차 진행**: `advanceWeek(saveId)`는 하나의 트랜잭션 — current_week 증가 + 필요한 suitability 계산/캐시 + cultivation_log 기록.
-- **동시성**: 같은 세이브에 대한 중복 "다음 주" 클릭 방지를 위해 game_save 행 갱신 시 낙관적 락(`@Version`) 사용. 충돌 시 재조회 후 무시(멱등 처리).
-- **배치 vs 유저 요청**: 마스터 데이터 배치 적재는 별도 시점/트랜잭션. 유저 조회는 커밋된 데이터만 읽음. 마스터는 읽기전용이라 유저 요청과 락 경합 없음.
-- **캐시 upsert**: suitability_result는 `ON CONFLICT (region,crop,week) DO UPDATE`로 멱등.
+- **읽기 위주**: 대시보드·탭 조회는 캐시 우선.
+- **기상 조회**: `weather_snapshot`에 (region, kind, base_at) 캐시. 미스 시에만 외부 API 호출 후 upsert. 갱신 주기(예: 6h) 내 재요청은 캐시 반환.
+- **행동 기록 → 토양 재추정**: `farm_action_log` 삽입과 `soil_state` upsert를 한 트랜잭션으로(§8.2).
+- **캐시 upsert**: suitability_result / daily_recommendation / soil_state 모두 유니크 키 기준 `ON CONFLICT DO UPDATE` 멱등.
+- **외부 API 실패 방어**: 실패 시 마지막 캐시 사용 + "최신 아님" 플래그, 트랜잭션 롤백으로 사용자 요청이 죽지 않게.
 
 ---
 
@@ -247,60 +256,51 @@ crop 1──N action_card (applicable_crop_type로 매핑, FK 아님)
 
 > 전부 애플리케이션 룰 엔진(결정론). LLM은 계산에 관여하지 않는다.
 
-### 8.1 적합도 점수 계산 (Suitability)
-입력: region_id, crop_id, week_no.
-1. `crop_growth_guide`에서 해당 작물·주차의 지표별 (optimal/allowed, weight) 로드.
-2. 실제값 로드: 토양 = `soil_data`, 기상 = `weather_history(region, week)` (야간최저기온 포함).
-3. 지표별 이탈도 점수:
-   - 적정 구간 내 → 100.
-   - 허용 구간 내(적정 밖) → 이탈 거리에 비례해 감점(선형/구간 감점).
-   - 허용 밖(위험) → 큰 감점(하한 클램프).
-4. 가중 평균: `score = Σ(indicatorScore × weight) / Σ(weight)`.
-5. 등급 매핑(§PRD 8.2).
-6. breakdown/risk_flags(JSONB)로 지표별 결과·위험 기록.
-7. **결측/이상치 방어**: 값 없음/범위 밖이면 대체(§8.4) 후 계산, `is_imputed` 반영, 위험도 산출은 지속.
+### 8.1 적합도 점수 (장기, 기존 재사용)
+입력: region_id, crop_id, growth_stage.
+1. `crop_growth_guide`에서 단계별 지표 (구간, weight) 로드.
+2. 실제값: 토양 = `soil_state`(또는 지역 기준값), 기상 = 평년 데이터.
+3. 지표별 이탈도 점수(적정=100 / 허용=거리 비례 감점 / 위험=큰 감점).
+4. 가중 평균 → score, 등급 매핑.
+5. breakdown/risk_flags(JSONB) 기록.
+6. 결측/이상치는 §8.4로 방어.
 
-### 8.2 위험신호 판정 (Risk, 평년 기반)
-- 해당 주차 및 인접 주차의 작년 데이터에서 작물 위험 조건 감지:
-  - 예: `temp_night_min < 작물 허용 하한`이 N주 연속 → "야간 저온 지속" 플래그.
-  - 과습(강수 과다), 고온 스트레스 등 지표별 규칙.
-- 결과는 risk_flags로. **한계 고지**: 예보 아님, 작년 통상치 기반.
+### 8.2 토양 변화 추정 (단기, 신규)
+입력: `soil_state` 기준값 + 해당 밭의 `farm_action_log` + 기상(강수 등).
+1. 각 행동 로그에 대해 `soil_change_rule`에서 (effect_coeff, decay_days) 조회.
+2. 경과일에 따른 감쇠 적용: 지표 변화량 = amount × effect_coeff × decay(경과일).
+3. 기준값 + Σ변화량 → 현재 추정 지표값. `soil_state`에 upsert(`is_estimated=true`).
+4. **이론 추정치임을 항상 표기** — 실측 아님(`PRD.md` §8, §11).
 
-### 8.3 지역↔작물 추천 (택1)
-- 방향은 메인 디벨로퍼 판단(둘 중 하나만 구현).
-- 지역→작물: 해당 지역에서 5종 각각 현재 주차 기준 score 산출 후 상위 랭킹.
-- 작물→지역: 해당 작물로 지정 지역들 score 산출 후 랭킹.
-- 실제 산출은 §8.1 재사용(별도 알고리즘 없음 — 5종/지정지역 전수 계산 후 정렬).
+### 8.3 생육 단계 파생
+- 경과일 = 오늘 − `user_farm.planting_date`. 경과일 → 작물별 단계 매핑(기준은 미결정 §10). 단계는 저장 안 하고 조회 시 계산.
 
-### 8.4 결측 / 이상치 대체 (Fallback)
-- 이상치: 물리적 불가값(pH<0 또는 >14, 음수 강수 등) → 결측 취급.
-- 결측 대체: 기상은 인접 주차 보간 또는 연평균, 토양은 시/도 평균 등. 대체 시 `is_imputed=true`.
-- 대체 불가 시 해당 지표를 가중 평균에서 제외하고 그 사실을 breakdown에 기록(점수 산출은 계속).
+### 8.4 위험신호 판정
+- **단기**: `weather_snapshot`(예보)에서 작물 위험 조건 감지(야간 저온 N일 지속, 과습 등) → daily risk_flags.
+- **장기**: 평년 데이터에서 시기별 위험 → suitability risk_flags. 예보 아님(평년 근사)임을 고지.
 
-### 8.5 [v2 이후] 경제 계산 (정보성, 승패 무관) — MVP엔 없음
-경제 시스템(`PRD.md` §16)을 만들 때의 계산 방향만 미리 적어둔 것. MVP 스코프가 아니라 지금은 구현하지 않는다.
-1. **유지비**: 밭 개수 등 기준 고정값을 매 주차 차감(`reason='UPKEEP'`, 음수).
-2. **관광객 방문**: 밭의 `suitability_result.grade`(및 계절)가 조건을 만족하면 고정/조건부 금액을 적립(`reason='TOURISM'`, 양수). **랜덤 없음** — 같은 등급·계절 입력이면 항상 같은 결과(§1 계산 결정론과 동일 원칙).
-3. 재료 소모 계산 없음 — 재료는 무제한이라 별도 차감 로직 자체가 존재하지 않는다.
+### 8.5 결측 / 이상치 대체 (Fallback)
+- 물리 불가값(pH<0 또는 >14, 음수 강수 등) → 결측 취급.
+- 대체: 기상은 인접 기간/평년 보간, 토양은 지역/시도 평균. 대체 시 `is_imputed`/`is_estimated` 플래그.
+- 대체 불가 지표는 가중 평균에서 제외 + breakdown에 기록(산출 지속).
 
 ---
 
 ## 9. 시드 / 마이그레이션
 
-- `docs/seed/`의 작물별 JSON/YAML(생육 지침) → `crop`, `crop_growth_guide` 적재.
-- 지역·격자 매핑 → `region`, `region_grid`.
-- 토양·작년 기상 CSV → `soil_data`, `weather_history` (적재 시 §8.4 검증 통과).
-- 행동카드 카탈로그(고정 5~10종 수준) → `action_card` 시드로 적재.
-- 스키마 변경은 버전 관리되는 마이그레이션으로만(수동 ALTER 금지).
+- 전국 시/군 + 격자 매핑 → `region`, `region_grid`.
+- 작물별 생육 지침 → `crop`, `crop_growth_guide`.
+- 토양 변화 계수(문헌) → `soil_change_rule`.
+- 토양/기상은 유저 등록·조회 시점에 API로 확보해 캐시(사전 전량 적재 아님 — 전국 임의 지역이라).
+- 스키마 변경은 버전 관리 마이그레이션으로만. **게임 시절 V1/V2는 폐기하고 새 스키마로 재작성**(구현 착수 시 정리).
 
 ---
 
 ## 10. 미결정 사항
 
-- 작물별 시즌 총 주차 수(`crop.season_weeks`, FIELD 작물 — 1개월=4주 가정 확정 필요).
-- 흙토람 스키마 확정(soil_data 컬럼 조정 가능).
-- 지표별 가중치/구간 실제 수치(생육 지침 제작 결과 반영).
-- 지역↔작물 추천 방향 택1.
-- 관광객 방문 조건의 구체 임계값(적합도 등급/계절 조합).
-- 유지비·관광객 수익 구체 금액.
-- 상점 시스템 필요 여부 및 내용 — 필요해지면 별도 테이블 설계.
+- 흙토람/기상청 API 반환 스키마 → soil_state/weather_snapshot 컬럼 확정.
+- 토양 변화 계수·감쇠식(문헌 조사 결과) → soil_change_rule 값.
+- 지표별 가중치/구간 실제 수치.
+- 생육 단계 구분 기준(경과일 → 단계 매핑 테이블 필요 여부).
+- 기상 캐시 갱신 주기 확정.
+- 챗봇 RAG: 코퍼스 범위, 임베딩 차원(bge-m3=1024 가정), pgvector 인덱스 종류(HNSW/IVFFlat), Postgres 이미지 교체(pgvector).
