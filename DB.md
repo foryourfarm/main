@@ -341,6 +341,17 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - 챗봇 RAG: 농사로 작물별 안내책자(5종 우선)를 청킹·임베딩(bge-m3) → `knowledge_chunk` 적재. pgvector 확장 필요(§3.15).
 - 마이그레이션은 Alembic으로 관리. 현재 baseline은 `backend/alembic/versions/0001_init_schema.py`(게임 시절 Flyway V1/V2는 폐기 완료). 수동 ALTER 금지.
 
+### 9.1 팀 마이그레이션 워크플로 (로컬 각자 진행)
+
+- **도구**: Flyway. 마이그레이션 파일은 `backend/src/main/resources/db/migration/V{n}__{설명}.sql` 명명, 오름차순 버전.
+- **스키마 변경 시**:
+  1. `dev`에서 분기한 브랜치에 새 버전 파일 추가(기존 파일 절대 수정 금지 — 이미 merge된 건 불변).
+  2. PR은 항상 `dev` 대상. 리뷰 승인 후 머지.
+- **버전 번호 충돌**: 두 사람이 동시에 같은 다음 버전 번호를 쓰면 나중에 merge하는 쪽이 로컬에서 번호를 다음 순번으로 바꿔 재푸시.
+- **로컬 반영**: `dev` pull 후 로컬 Spring Boot 앱 기동 시 Flyway가 자동으로 미반영 버전을 적용(`spring.flyway.enabled=true`, 별도 명령 불필요). 앱 기동 전 필히 `git pull origin dev`로 최신 마이그레이션부터 받는다.
+- **주기**: 최소 작업 시작 전 매번 `dev` pull → 로컬 기동으로 최신 스키마 유지. 장기간 안 받은 상태로 작업하면 merge 시 스키마 어긋남 위험.
+- **충돌/실패 시**: 로컬 DB가 깨졌으면(중간 버전 스킵 등) 로컬 DB만 재생성 후 처음부터 재적용(마스터 데이터 아님, 유저 로컬 개발용이라 삭제 가능). 운영 DB는 별도 담당자만 적용.
+
 ---
 
 ## 10. 미결정 사항
