@@ -341,6 +341,17 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - 챗봇 RAG: 농사로 작물별 안내책자(5종 우선)를 청킹·임베딩(bge-m3) → `knowledge_chunk` 적재. pgvector 확장 필요(§3.15).
 - 마이그레이션은 Alembic으로 관리. 현재 baseline은 `backend/alembic/versions/0001_init_schema.py`(게임 시절 Flyway V1/V2는 폐기 완료). 수동 ALTER 금지.
 
+### 9.1 팀 마이그레이션 워크플로 (로컬 각자 진행)
+
+- **도구**: Alembic. 리비전 파일은 `backend/alembic/versions/`, `alembic revision --autogenerate -m "{설명}"`로 생성.
+- **스키마 변경 시**:
+  1. `dev`에서 분기한 브랜치에서 모델 수정 → 리비전 생성(기존 리비전 파일 수정 금지 — 이미 merge된 건 불변, 되돌릴 땐 새 리비전 추가).
+  2. PR은 항상 `dev` 대상. 리뷰 승인 후 머지.
+- **리비전 체인 충돌**: 두 사람이 같은 `down_revision`에서 각자 리비전을 만들면 브랜치 발생 → merge 시 나중 PR이 `down_revision`을 상대 리비전 id로 재작성(rebase)해 단일 체인 유지.
+- **로컬 반영**: `dev` pull 후 `alembic upgrade head`로 반영(자동 실행 아님, 앱 기동 전 수동 1회 필요). 반드시 `git pull origin dev` 먼저.
+- **주기**: 최소 작업 시작 전 매번 `dev` pull → `alembic upgrade head`. 장기간 안 받으면 merge 시 리비전 체인 어긋남 위험.
+- **충돌/실패 시**: 로컬 DB가 깨졌으면(리비전 스킵 등) 로컬 DB만 재생성 후 `alembic upgrade head`로 처음부터 재적용(마스터 데이터 아님, 유저 로컬 개발용이라 삭제 가능). 운영 DB는 별도 담당자만 적용.
+
 ---
 
 ## 10. 미결정 사항
