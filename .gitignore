@@ -1,0 +1,38 @@
+# IDE (개인 설정 — IntelliJ / VS Code 혼용해도 서로 안 섞이게)
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Java / Gradle / Maven
+backend/build/
+backend/out/
+backend/.gradle/
+backend/target/
+*.class
+HELP.md
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+npm-debug.log*
+
+# 환경변수 / 비밀값
+.env
+.env.*
+!.env.example
+application-local.yml
+application-secret.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로컬 DB 볼륨 등
+*.log

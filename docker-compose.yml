@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: foryourfarm-db
+    environment:
+      POSTGRES_DB: foryourfarm
+      POSTGRES_USER: foryourfarm
+      POSTGRES_PASSWORD: foryourfarm
+    ports:
+      - "5432:5432"
+    volumes:
+      - foryourfarm-db-data:/var/lib/postgresql/data
+
+volumes:
+  foryourfarm-db-data:
