@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api import health
+from app.api import chat, health
 from app.schemas.common import ApiResponse
 
 app = FastAPI(title="For Your Farm API", version="0.1.0")
 
 app.include_router(health.router)
+app.include_router(chat.router)
 
 
 @app.exception_handler(Exception)

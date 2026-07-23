@@ -1,41 +1,39 @@
-# 다음 할 일 — 상담 챗봇(RAG) 백엔드 구현
+# 다음 할 일 — 챗봇 히스토리 영속화 + 밭 컨텍스트 주입 (인증 연동)
 
 메인 대시보드 기능이 아니라 UI에서 별도로 클릭해 들어가는 부가 기능. 온디맨드 실시간 스트리밍(사전생성 캐시 아님).
 
-## 이미 정해진 것 (다시 고민하지 말 것)
+## 이미 구현 완료 (feature/chatbot-backend)
 
-- **LLM 모델**: `exaone3.5:7.8b` 그대로 재사용 (챗봇 전용 모델 따로 안 씀). Qwen3 8B와 벤치마크 비교해서 결정함 — 근거: `docs/llm-benchmark-eval.md`, 메모리 `llm_model_choice_exaone`.
-- **임베딩 모델**: `bge-m3` (Ollama, `config.embedding_model`). 1024차원.
-- **벡터 저장소**: pgvector, `knowledge_chunk` 테이블. ChromaDB 등 별도 벡터DB 안 씀(이미 검토 완료, CLAUDE.md/DB.md에 명시). 5작물 172개 청크 이미 임베딩·적재 완료(`scripts/embed_corpus.py`).
-- **모델 상시 로드**: 임베딩(bge-m3)과 생성(exaone) 둘 다 VRAM에 항상 떠 있어야 함(재로딩 비용이 10초 예산을 넘김 — bge-m3 재로딩 +3.4초, exaone 재로딩 +6~7초 실측). **LlmClient/임베딩 클라이언트 코드에서 모든 Ollama API 호출에 `"keep_alive": -1`을 기본값으로 박아넣을 것** — OS 환경변수(OLLAMA_KEEP_ALIVE)에 의존하면 Ollama 재시작 시 초기화되므로 코드에서 명시.
-- **응답 시간 예산**: 총 10초(임베딩+검색+생성 다 포함). exaone 웜 상태 평균 ~3.6초라 여유 있음. `num_predict`는 150~200 정도로 캡 걸기(테스트에서 "3~5문장" 지침을 살짝 넘겨 장황해지는 경향 있었음).
-- **프롬프트 설계 방향**: 역할 지정 + 형식 지정 기법(`#명령문/#제약조건/#입력문/#출력형식`) + 근거 없으면 거절하는 패턴을 few-shot으로 고정. Chain-of-Thought, 멀티 페르소나, 할루시네이션 유도 기법은 이 프로젝트 성격(정확성/환각방지 최우선)과 안 맞아서 안 씀.
+기본 상담 챗봇(RAG) 백엔드가 동작한다. 로컬 스택(Ollama exaone3.5+bge-m3, pgvector 172청크)으로 종단 확인함.
 
-## 구현할 것
+- **검색**: 질문 → bge-m3 임베딩(Ollama `/api/embed`, `keep_alive:-1`) → `knowledge_chunk` pgvector 코사인 top-k(`config.rag_top_k=3`), `crop_id` 필터. (`app/infra/embedding_client.py`, `app/services/chat_service.py::retrieve_chunks`)
+- **LlmClient**: `OllamaClient.generate` / `generate_stream`, `keep_alive:-1` 코드 명시, `num_predict`/`temperature` config 캡. (`app/infra/llm_client.py`)
+- **프롬프트**: 코드 분리·버전 관리(`PROMPT_VERSION=chatbot-v2`). 역할+형식(#명령문/#제약조건/#입력문/#출력형식) + few-shot 3종: 근거기반 답변 / 작물 불명확 시 5종 되묻기 / 근거 없으면 전문가·농사로 안내 거절. (`app/prompts/chatbot.py`)
+- **멀티턴**: 무상태 + 클라이언트 `history` 재전송(서버/DB 세션 없음). 최근 `chat_history_max_messages=6`개만 프롬프트 주입.
+- **폴백**: 임베딩/검색/생성 실패·빈 응답·근거 없음 모두 규칙 기반 문구로 흡수, SSE 스트림 반드시 끝맺음(§13, §18-5).
+- **엔드포인트**: `POST /api/v1/chat` SSE(`text/event-stream`), `ApiResponse` 래퍼 미사용(§6 스트리밍 예외). (`app/api/chat.py`)
+- **테스트**: 프롬프트 조립·history·되묻기·폴백 트리거 9개(네트워크·DB 불필요, `tests/test_chat_service.py`).
 
-- [ ] **검색 함수**: 사용자 질문 → bge-m3 임베딩(Ollama `/api/embed`) → `knowledge_chunk`에서 pgvector 코사인 유사도 top-k(예: k=3) 검색, `crop_id` 필터 옵션
-- [ ] **프롬프트 템플릿 파일**: 코드에 흩뿌리지 말고 템플릿 파일/상수로 버전 관리(CLAUDE.md §13). 위 "프롬프트 설계 방향" 반영
-- [ ] **LlmClient 구현체**: `docs/llm-integration.md` §4 계약대로 `OllamaClient.generate(prompt) -> str`. httpx 호출, `keep_alive:-1`, 타임아웃, `num_predict` 캡
-- [ ] **폴백 규칙**: LLM 실패/빈 응답 시 규칙 기반 기본 문구로 대체(§5), 서비스 안 죽게
-- [ ] **FastAPI 엔드포인트**: `POST /api/v1/.../chat` — SSE 스트리밍, `ApiResponse` 래퍼 안 씀(§6 스트리밍 예외)
-- [ ] **서비스 계층**: 검색+프롬프트조립+LlmClient 호출 묶기. 라우터에 로직 새지 않게(`app/services/`)
-- [ ] **pydantic 스키마**: 요청/응답 DTO, SQLAlchemy 모델 직접 노출 금지
-- [ ] **최소 실행 가능한 테스트** 하나 이상(결정론적 로직 부분 — 예: 프롬프트 조립 함수, 폴백 트리거 조건)
+## 다음 구현 — 인증 도입과 함께 (2026-07-25 시작)
 
-## DB 마이그레이션 — 이 브랜치 받으면 해야 할 것
+> 상세 방향: 메모리 `chat-history-auth-roadmap`. 현재 무상태 인터페이스가 선행호환이라 갈아엎을 필요 없음.
 
-`chatbot` 브랜치에서 마이그레이션 체인이 `0001 → 0002 → 0003`(head)까지 늘어남.
-`0003_knowledge_chunk.py`가 새로 추가됨: `CREATE EXTENSION vector` + `knowledge_chunk` 테이블 생성 + crop 5종 시드.
-이 브랜치를 처음 받는 사람(또는 새 로컬 환경)은 순서대로:
+- [ ] **인증 설계 확정 먼저** — 세션ID 포맷·소유권 규칙이 인증 방식(세션/토큰)에 딸려 정해짐(§11, 미결정 §19).
+- [ ] **`chat_message` 테이블 + Alembic 마이그레이션**: `(user_id, session_id, role, content, created_at)`. 마스터 데이터 아님(런타임 기록) — 시드 아님.
+- [ ] **`ChatRequest.session_id: str | None` 추가**: authed면 서버가 session_id로 DB에서 history 로드/저장, 게스트면 지금처럼 클라 `history` 경로 유지.
+- [ ] **소유권 검증**: 본인 대화만 접근(요청 유저 == chat_message.user_id, §11). 계정삭제 시 대화 삭제(§17 보존정책).
+- [ ] **밭 컨텍스트 주입(핵심 값)**: 로그인+밭이 붙으면 유저의 실제 `farm_id`/`soil_state`/작물을 프롬프트에 주입 → "내 땅 맞춤". 대화 저장보다 이게 우선순위.
+- [ ] 최소 테스트: session_id 기반 history 로드/저장, 소유권 거부 케이스.
 
-1. `docker compose up -d` — `docker-compose.yml` 이미지가 `postgres:16` → `pgvector/pgvector:pg16`으로 바뀜. 이미 떠 있던 컨테이너가 있으면 이미지 교체를 위해 재생성 필요(로컬 개발 DB라 볼륨 삭제해도 무방, DB.md §9.1).
-2. `cd backend && pip install -r requirements.txt` — `pgvector` 파이썬 드라이버 추가됨(SQLAlchemy `Vector` 컬럼 타입에 필요).
-3. `cd backend && alembic upgrade head` — 0001/0002/0003 순서로 적용. 로컬에 처음 반영하는 거면 전부, 이미 0001/0002까지 적용된 로컬이면 0003만 새로 적용됨.
-4. (선택, RAG 데이터 필요할 때만) `backend/.venv/Scripts/python.exe scripts/embed_corpus.py` — bge-m3로 5작물 청크 임베딩해 `knowledge_chunk`에 채움. diff 동기화라 재실행해도 안전(변경분만 처리).
+## 후속 (범위 밖, 별도 PR)
+
+- 답변이 "3~5문장" 지침을 살짝 넘겨 장황해지는 경향 → 프롬프트 미세조정은 §9 골든셋/LLM-as-judge 평가에서.
+- 생략형 후속질문("그럼 물은?") 검색 정확도 한계 — 필요 시 history로 질문 압축(LLM 1콜) 추가(`chat_service` ponytail 주석).
+- **[dev 기존 버그]** `soil_profile_client`가 `Deepsoil_Qlt_Cd`를 읽는데 공식 스펙 XML은 `Deepsoil_Qlt_Code` → `test_public_api_base` 1건 실패. 별도 fix PR.
 
 ## 재개할 때 다시 볼 문서
 
-- `docs/llm-integration.md` (LlmClient 계약, 폴백 규칙, 생성 타이밍)
-- `docs/llm-benchmark-eval.md` (모델 비교 실측 근거)
-- `DB.md` §3.15 (knowledge_chunk 스키마)
-- `CLAUDE.md` §13 (LLM 프롬프트 관리 규칙), §6 (스트리밍 예외)
+- 메모리 `chat-history-auth-roadmap`, `user-verifies-backend`(완료 전 육안 확인)
+- `docs/llm-integration.md` (LlmClient 계약, 폴백 규칙, §2 생성 타이밍)
+- `DB.md` §3.15 (knowledge_chunk), §11 인증/인가
+- `CLAUDE.md` §13(LLM 프롬프트), §6(스트리밍 예외), §11(인가), §10(마이그레이션)
