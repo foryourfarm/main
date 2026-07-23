@@ -2,7 +2,9 @@
 
 필지(PNU) 또는 법정동코드(동/리) 단위 조회 — 최근 3년 이내 최신 검정 결과 1건뿐,
 시계열 아님(DB.md soil_state 초기화용 스냅샷으로만 사용).
-스펙 확인 완료(OPEN API 기술명세서 ver1.0) — placeholder 없음.
+
+기술명세서(V2, ver1.0) 실제 호출로 재검증함 — 요청 파라미터는 PNU_CD/STDG_CD(이전
+PNU_Code/BJD_Code 아님), 응답 필드는 PNU_Nm(이전 Pnu_Nm 아님)·ELCD(이전 SELC 아님).
 """
 
 from pydantic import BaseModel, field_validator
@@ -10,7 +12,7 @@ from pydantic import BaseModel, field_validator
 from app.core.config import settings
 from app.infra.public_api.base import fetch_items
 
-BASE_URL = "http://apis.data.go.kr/1390802/SoilEnviron/SoilExam"
+BASE_URL = "http://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2"
 
 # 경지구분 코드표 (기술명세서 3.1)
 FIELD_TYPE = {
@@ -57,11 +59,11 @@ def _to_float(raw: str | None) -> float | None:
 
 def _parse(item: dict[str, str | None]) -> SoilExam:
     return SoilExam(
-        pnu_code=item.get("PNU_Code") or "",
+        pnu_code=item.get("PNU_Cd") or "",
         sample_year=item.get("Any_Year") or "",
         exam_day=item.get("Exam_Day") or "",
         field_type=FIELD_TYPE.get(item.get("Exam_Type") or ""),
-        address=item.get("Pnu_Nm") or "",
+        address=item.get("PNU_Nm") or "",
         ph=_to_float(item.get("ACID")),
         avail_p=_to_float(item.get("VLDPHA")),
         avail_silica=_to_float(item.get("VLDSIA")),
@@ -69,23 +71,23 @@ def _parse(item: dict[str, str | None]) -> SoilExam:
         mg=_to_float(item.get("POSIFERT_MG")),
         k=_to_float(item.get("POSIFERT_K")),
         ca=_to_float(item.get("POSIFERT_CA")),
-        ec=_to_float(item.get("SELC")),
+        ec=_to_float(item.get("ELCD")),
     )
 
 
 def get_soil_exam(pnu_code: str) -> SoilExam | None:
     """지번코드(PNU) 단위 최신 검정 결과 1건 조회."""
-    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.soil_api_key, "PNU_Code": pnu_code})
+    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.soil_api_key, "PNU_CD": pnu_code})
     return _parse(items[0]) if items else None
 
 
-def get_soil_exam_list(bjd_code: str, page_no: int = 1, page_size: int = 10) -> list[SoilExam]:
+def get_soil_exam_list(stdg_code: str, page_no: int = 1, page_size: int = 10) -> list[SoilExam]:
     """법정동코드(동/리, 10자리) 단위 목록 조회. 지역 기준값 산출 시 사용."""
     items = fetch_items(
         f"{BASE_URL}/getSoilExamList",
         {
             "serviceKey": settings.soil_api_key,
-            "BJD_Code": bjd_code,
+            "STDG_CD": stdg_code,
             "Page_No": str(page_no),
             "Page_Size": str(page_size),
         },
