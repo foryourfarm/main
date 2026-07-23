@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     llm_model: str = "exaone3.5:7.8b"
     llm_timeout_s: float = 8.0
 
+    # 챗봇 RAG 임베딩 — 같은 Ollama 서버, 다른 모델(bge-m3, 1024차원 = knowledge_chunk.embedding과 매칭)
+    embedding_model: str = "bge-m3"
+
     # 공공데이터 API 키 — 발급 전까지 비워둠(배치/조회 코드에서만 사용)
     weather_api_key: str = ""
     soil_api_key: str = ""
