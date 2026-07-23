@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     embedding_model: str = "bge-m3"
     # 질문당 근거로 주입할 문서 조각 수(top-k). 검색 파라미터라 농업 기준값 아님.
     rag_top_k: int = 3
+    # 프롬프트에 넣을 이전 대화 최대 메시지 수(최근 것부터). 프롬프트 길이/응답시간 방어용 캡.
+    chat_history_max_messages: int = 6
 
     # 공공데이터 API 키 — 발급 전까지 비워둠(배치/조회 코드에서만 사용)
     weather_api_key: str = ""

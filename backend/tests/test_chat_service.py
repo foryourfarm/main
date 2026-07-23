@@ -6,7 +6,14 @@
 import unittest
 from collections.abc import Iterator
 
-from app.prompts.chatbot import REFUSAL_TEXT, build_chat_prompt, format_context
+from app.prompts.chatbot import (
+    ASK_CROP_TEXT,
+    REFERRAL_TEXT,
+    build_chat_prompt,
+    format_context,
+    format_crop,
+    format_history,
+)
 from app.services.chat_service import LLM_ERROR_TEXT, SSE_DONE, stream_from_chunks
 
 
@@ -25,24 +32,41 @@ class FakeLlm:
 
 
 class TestPromptAssembly(unittest.TestCase):
-    def test_includes_question_and_evidence(self):
-        prompt = build_chat_prompt("상추 물 언제 줘요?", ["상추는 아침에 물을 준다.", "고온에 약하다."])
-        self.assertIn("상추 물 언제 줘요?", prompt)
+    def test_includes_question_evidence_crop_and_rules(self):
+        prompt = build_chat_prompt(
+            "물 언제 줘요?", ["상추는 아침에 물을 준다."], crop_name="상추"
+        )
+        self.assertIn("물 언제 줘요?", prompt)
         self.assertIn("상추는 아침에 물을 준다.", prompt)
-        self.assertIn("고온에 약하다.", prompt)
-        self.assertIn(REFUSAL_TEXT, prompt)  # 근거 없을 때 거절하라는 지시가 프롬프트에 박혀 있어야 함
+        self.assertIn("[작물] 상추", prompt)
+        self.assertIn(REFERRAL_TEXT, prompt)  # 근거 없을 때 거절 지시가 박혀 있어야 함
+        self.assertIn(ASK_CROP_TEXT, prompt)  # 작물 불명확 시 되묻기 지시가 박혀 있어야 함
 
     def test_empty_context_marker(self):
         self.assertEqual(format_context([]), "(관련 자료 없음)")
+
+    def test_unspecified_crop_marker(self):
+        self.assertEqual(format_crop(None), "(지정 안 됨)")
+        self.assertIn("[작물] (지정 안 됨)", build_chat_prompt("q", ["c"], crop_name=None))
+
+    def test_history_rendered_in_order(self):
+        block = format_history([("user", "상추 키워요"), ("assistant", "네, 상추 상담 도와드릴게요")])
+        self.assertIn("사용자: 상추 키워요", block)
+        self.assertIn("상담사: 네, 상추 상담 도와드릴게요", block)
+        self.assertIn("사용자: 상추 키워요", build_chat_prompt("물은?", ["c"], history=[("user", "상추 키워요")]))
+
+    def test_empty_history_is_blank(self):
+        self.assertEqual(format_history([]), "")
+        self.assertEqual(format_history(None), "")
 
 
 class TestStreamFallback(unittest.TestCase):
     def _collect(self, gen: Iterator[str]) -> str:
         return "".join(gen)
 
-    def test_no_chunks_refuses_without_calling_llm(self):
+    def test_no_chunks_refers_without_calling_llm(self):
         out = self._collect(stream_from_chunks("질문", [], FakeLlm(raises=True)))
-        self.assertIn(REFUSAL_TEXT, out)
+        self.assertIn(REFERRAL_TEXT, out)
         self.assertTrue(out.endswith(SSE_DONE))
 
     def test_normal_tokens_streamed(self):
