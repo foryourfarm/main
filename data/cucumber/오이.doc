@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="http://www.nongsaro.go.kr/ps/css/nongsaro_addPlus.css">
+</head>
+<body>
+<div class="kidoCnArea" style="width: 800px;">
+<br /> 
+<table width="650">
+  <tbody>
+    <tr>
+      <td class="part_title">
+        <p style="text-align: center;">
+          <img width="125" height="125"
+          style="width: 220px; height: 218px;"
+          alt="&#50724;&#51060; &#51060;&#48120;&#51648;"
+          src="http://www.nongsaro.go.kr/mig_img/rda/tech07_image/images/_img/cucumber.gif" />
+        </p>
+        <p>
+          <br />
+        </p>
+        <p>
+          <strong>
+          <img width="10" height="10" alt=""
+          src="http://www.nongsaro.go.kr/mig_img/rda/tech07_image/images/_img/part_title.jpg" />
+          
+          <span
+          style="font-size: 14pt;">&#47749;&#52845;</span></strong>
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<table width="630">
+  <tbody>
+    <tr>
+      <td class="part_content">
+        <table width="620">
+          <tbody>
+            <tr>
+              <td class="content">
+                <table width="46%" class="content_table"
+                style="border-width: 0px; border-style: solid; border-collapse: collapse;"
+                 border="1">
+                  <tbody>
+                    <tr>
+                      <td width="27%" class="content_table_leftac"
+                      style="border-width: 1px; border-style: solid; background-color: rgb(218, 218, 218);">
+                        <p style="text-align: center;">&#54617;
+                        &#47749;</p>
+                      </td>
+                      <td width="73%" class="content_table_textaj"
+                      style="border-width: 1px; border-style: solid;">
+                        <p style="text-align: center;">
+                        <i>Cucumis sativus</i> L.</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="content_table_leftac"
+                      style="border-width: 1px; border-style: solid; background-color: rgb(218, 218, 218);">
+                        <p style="text-align: center;">&#50689;
+                        &#47749;</p>
+                      </td>
+                      <td class="content_table_textaj"
+                      style="border-width: 1px; border-style: solid;">
+                        <p style="text-align: center;">Cucumber</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="content_table_leftac"
+                      style="border-width: 1px; border-style: solid; background-color: rgb(218, 218, 218);">
+                        <p style="text-align: center;">&#46021;
+                        &#51068; &#47749;</p>
+                      </td>
+                      <td class="content_table_textaj"
+                      style="border-width: 1px; border-style: solid;">
+                        <p style="text-align: center;">Gurke</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="content_table_leftac"
+                      style="border-width: 1px; border-style: solid; background-color: rgb(218, 218, 218);">
+                        <p style="text-align: center;">
+                        &#54532;&#46993;&#49828;&#47749;</p>
+                      </td>
+                      <td class="content_table_textaj"
+                      style="border-width: 1px; border-style: solid;">
+                        <p style="text-align: center;">Cocombre</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="content_table_leftac"
+                      style="border-width: 1px; border-style: solid; background-color: rgb(218, 218, 218);">
+                        <p style="text-align: center;">&#54620;
+                        &#47749;</p>
+                      </td>
+                      <td class="content_table_textaj"
+                      style="border-width: 1px; border-style: solid;">
+                        <p style="text-align: center;">
+                        &#32993;&#29916;, &#40643;&#29916;</p>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table></div>
+
+</body>
+</html>
