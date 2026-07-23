@@ -45,6 +45,7 @@ Thumbs.db
 .trash/
 .DS_Store
 # 원본 참고자료 (개인 다운로드 — 시드/파서 소스, 저장소엔 파생 결과물만)
+/20250415.csv
 /20260630.csv
 /Data-Guideline*.md
 /OPENAPI_*.pdf
