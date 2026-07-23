@@ -31,13 +31,29 @@ def load_rows(csv_path: Path) -> list[dict[str, str]]:
 
 
 def build_region_seed(rows: list[dict[str, str]]) -> list[tuple[int, str, str, str]]:
-    """시군구명은 있고 읍면동명은 없는 행 = 시/군 레벨. 법정동코드 오름차순으로 안정적인 id 부여."""
+    """시군구명은 있고 읍면동명은 없는 행 = 시/군 레벨. 법정동코드 오름차순으로 안정적인 id 부여.
+
+    수원시처럼 구로 분리된 시는 원본 파일에 상위 "수원시" 행과 "수원시장안구" 등 구 행이
+    둘 다 시군구 레벨로 따로 존재한다 — 구 행이 있으면 상위 시 행은 실제 최소 행정단위가
+    아니므로 제외한다(같은 시도 안에서 다른 시군구명이 이 이름으로 시작하면 상위 시로 간주).
+    """
     region_rows = [r for r in rows if r["시군구명"] and not r["읍면동명"]]
     region_rows.sort(key=lambda r: r["법정동코드"])
+
+    names_by_sido: dict[str, set[str]] = {}
+    for r in region_rows:
+        names_by_sido.setdefault(r["시도명"], set()).add(r["시군구명"])
+
+    def has_sub_district(r: dict[str, str]) -> bool:
+        names = names_by_sido[r["시도명"]]
+        return any(n != r["시군구명"] and n.startswith(r["시군구명"]) for n in names)
+
     seen: set[tuple[str, str]] = set()
     seed: list[tuple[int, str, str, str]] = []
     next_id = 1
     for r in region_rows:
+        if has_sub_district(r):
+            continue  # 구로 분리된 시의 상위 aggregate 행 — 구 단위 행이 실제 시드로 쓰임
         key = (r["시군구명"], r["시도명"])
         if key in seen:
             continue  # 동명 시군구가 광역시 산하 자치구 개편 등으로 중복 등장하는 경우 방어
