@@ -32,13 +32,14 @@ class SoilProfile(BaseModel):
 
 def get_soil_profile(pnu_code: str) -> SoilProfile | None:
     """PNU(19자리 지번코드) 단위 조회. 결과 없으면 None(§8.5 결측 방어는 호출부에서)."""
-    items = fetch_items(BASE_URL, {"serviceKey": settings.soil_api_key, "PNU_Code": pnu_code})
+    # 요청 파라미터/응답 필드명은 기술명세서(ver1.0) 3p 기준 — "PNU_Code"가 아니라 "PNU_CD"/"*_Cd".
+    items = fetch_items(BASE_URL, {"serviceKey": settings.soil_api_key, "PNU_CD": pnu_code})
     if not items:
         return None
     item = items[0]
     return SoilProfile(
-        pnu_code=item.get("PNU_Code") or pnu_code,
-        deepsoil_texture=DEEPSOIL_TEXTURE.get(item.get("Deepsoil_Qlt_Code") or ""),
-        deepsoil_gravel=DEEPSOIL_GRAVEL.get(item.get("Deepsoil_Ston_Code") or ""),
-        soil_slope=SOIL_SLOPE.get(item.get("Soilslope_Code") or ""),
+        pnu_code=item.get("PNU_Cd") or pnu_code,
+        deepsoil_texture=DEEPSOIL_TEXTURE.get(item.get("Deepsoil_Qlt_Cd") or ""),
+        deepsoil_gravel=DEEPSOIL_GRAVEL.get(item.get("Deepsoil_Ston_Cd") or ""),
+        soil_slope=SOIL_SLOPE.get(item.get("Soilslope_Cd") or ""),
     )
