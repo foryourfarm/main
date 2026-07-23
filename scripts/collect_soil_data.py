@@ -76,11 +76,35 @@ def load_stdg_codes(path: Path) -> list[str]:
     return list(seen.keys())
 
 
+class QuotaExceeded(Exception):
+    """429가 반복 재시도로도 안 풀림 — 서비스키 일일/분당 한도 초과로 간주하고 전체 중단."""
+
+
+# 연속 429 실패가 이 횟수를 넘으면 재시도로 풀릴 일시적 문제가 아니라고 보고 즉시 중단(CLAUDE.md §12:
+# 무분별 재호출 금지 — 한도 초과 상태에서 계속 두드리는 건 그 자체가 무분별 호출임).
+MAX_CONSECUTIVE_429 = 5
+_consecutive_429 = 0
+
+
 def call(url: str, params: dict) -> tuple[str, str, ElementTree.Element | None]:
-    """공통 호출. (result_code, result_msg, body_element) 반환. 실패해도 예외로 죽지 않음."""
+    """공통 호출. (result_code, result_msg, body_element) 반환.
+
+    429(요청 한도 초과)는 몇 초 기다린다고 풀리는 경우가 거의 없어서 재시도하지 않고
+    바로 "429"로 반환한다 — 호출부가 이 코드를 "실패"로 취급해서 완료 기록을 안 남기게(재실행 시 재조회).
+    """
+    global _consecutive_429
     for attempt in range(MAX_RETRIES):
         try:
             resp = httpx.get(url, params=params, timeout=10.0)
+            if resp.status_code == 429:
+                _consecutive_429 += 1
+                if _consecutive_429 > MAX_CONSECUTIVE_429:
+                    raise QuotaExceeded(
+                        f"429가 {_consecutive_429}회 연속 발생(서비스키 요청 한도 초과로 보고 중단합니다). "
+                        "잠시 후(또는 다음날 한도 리셋 후) 같은 명령으로 재실행하면 실패한 코드부터 이어서 받습니다."
+                    )
+                return "429", "Too Many Requests", None
+            _consecutive_429 = 0
             resp.raise_for_status()
             root = ElementTree.fromstring(resp.text)
             header = root.find(".//header")
@@ -135,14 +159,22 @@ def collect_farm_stat(service_key: str, stdg_codes: list[str]) -> None:
     interval = 1.0 / STAT_TPS
     for i, code in enumerate(todo, 1):
         merged: dict[str, str] = {"stdg_cd": code}
+        failed = False
         for op in STAT_OPERATIONS:
-            result_code, result_msg, body = call(
-                f"{STAT_BASE}/{op}", {"serviceKey": service_key, "STDG_CD": code}
-            )
+            try:
+                result_code, result_msg, body = call(
+                    f"{STAT_BASE}/{op}", {"serviceKey": service_key, "STDG_CD": code}
+                )
+            except QuotaExceeded as e:
+                print(f"  {e}")
+                return
             time.sleep(interval)
-            if result_code not in ("200",):
-                if result_code != "301":  # OK_NO_DATA_ERROR는 그냥 데이터 없음
-                    print(f"  [{op}] {code}: {result_code} {result_msg}")
+            if result_code not in ("200", "301"):
+                # ERROR/429 등 진짜 실패 — 이 코드는 완료 기록을 남기지 않고 다음 실행 때 재시도
+                print(f"  [{op}] {code}: {result_code} {result_msg}")
+                failed = True
+                continue
+            if result_code == "301":
                 continue
             item = body.find(".//item") if body is not None else None
             if item is None:
@@ -150,8 +182,12 @@ def collect_farm_stat(service_key: str, stdg_codes: list[str]) -> None:
             for child in item:
                 merged[child.tag.lower()] = child.text
 
+        if failed:
+            continue  # 기록 안 함 -> 다음 실행 때 이 코드부터 다시 시도
         if len(merged) > 1:  # stdg_cd 말고 실제 값이 하나라도 들어왔으면
             write_rows(out_path, [merged], append=True)
+        else:
+            write_rows(out_path, [{"stdg_cd": code}], append=True)  # 진짜 데이터 없음(301) 확인됨
         if i % 20 == 0 or i == len(todo):
             print(f"  진행 {i}/{len(todo)}")
 
@@ -168,20 +204,28 @@ def collect_soil_exam(service_key: str, stdg_codes: list[str]) -> None:
         page_no = 1
         total_count = None
         rows: list[dict] = []
+        failed = False
         while total_count is None or len(rows) < total_count:
-            result_code, result_msg, body = call(
-                f"{EXAM_BASE}/getSoilExamList",
-                {
-                    "serviceKey": service_key,
-                    "Page_Size": PAGE_SIZE,
-                    "Page_No": page_no,
-                    "STDG_CD": code,
-                },
-            )
+            try:
+                result_code, result_msg, body = call(
+                    f"{EXAM_BASE}/getSoilExamList",
+                    {
+                        "serviceKey": service_key,
+                        "Page_Size": PAGE_SIZE,
+                        "Page_No": page_no,
+                        "STDG_CD": code,
+                    },
+                )
+            except QuotaExceeded as e:
+                print(f"  {e}")
+                return
             time.sleep(interval)
+            if result_code == "301":
+                break  # 진짜 데이터 없음 — 확정
             if result_code != "200":
-                if result_code != "301":
-                    print(f"  [getSoilExamList] {code} p{page_no}: {result_code} {result_msg}")
+                # ERROR/429 등 진짜 실패 — 완료 기록 안 남기고 다음 실행 때 재시도
+                print(f"  [getSoilExamList] {code} p{page_no}: {result_code} {result_msg}")
+                failed = True
                 break
             total_count = int(body.findtext("Total_Count") or "0")
             items = body.findall(".//item")
@@ -195,15 +239,17 @@ def collect_soil_exam(service_key: str, stdg_codes: list[str]) -> None:
                 rows.append(row)
             page_no += 1
 
-        # 코드 하나라도 조회를 시도했으면 기록(데이터 없음도 다음 실행에 재조회 안 하게)
+        if failed:
+            continue  # 기록 안 함 -> 다음 실행 때 이 코드부터 다시 시도
         write_rows(out_path, rows or [{"stdg_cd": code}], append=True)
         if i % 20 == 0 or i == len(todo):
             print(f"  진행 {i}/{len(todo)} (누적 레코드: 최근 코드 {len(rows)}건)")
 
 
 def main() -> None:
-    if len(sys.argv) != 2:
-        print(f"사용법: python {Path(__file__).name} <법정동코드_파일>")
+    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != "--exam-only"):
+        print(f"사용법: python {Path(__file__).name} <법정동코드_파일> [--exam-only]")
+        print("  --exam-only: getSoilExamList만 돌림(동/리 단위 코드로 재수집할 때 farm_stat 중복 호출 방지)")
         sys.exit(1)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -211,7 +257,8 @@ def main() -> None:
     stdg_codes = load_stdg_codes(Path(sys.argv[1]))
     print(f"법정동코드 {len(stdg_codes)}개 로드")
 
-    collect_farm_stat(service_key, stdg_codes)
+    if len(sys.argv) == 2:
+        collect_farm_stat(service_key, stdg_codes)
     collect_soil_exam(service_key, stdg_codes)
 
 

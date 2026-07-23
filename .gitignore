@@ -48,3 +48,6 @@ Thumbs.db
 /20260630.csv
 /Data-Guideline*.md
 /OPENAPI_*.pdf
+
+# 오픈API 벌크 수집 결과물(ML용 원본 데이터) — 스크립트만 레포에 넣고 CSV는 로컬 보관
+/data/soil/
