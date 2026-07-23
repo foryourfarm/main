@@ -34,3 +34,13 @@ Thumbs.db
 
 # 로컬 DB 볼륨 등
 *.log
+
+# 개인용
+.obsidian/
+
+.obsidian/workspace-mobile.json
+.obsidian/workspace.json
+.obsidian/app.json
+
+.trash/
+.DS_Store
