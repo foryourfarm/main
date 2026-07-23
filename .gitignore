@@ -35,6 +35,15 @@ Thumbs.db
 # 로컬 DB 볼륨 등
 *.log
 
+# 개인용
+.obsidian/
+
+.obsidian/workspace-mobile.json
+.obsidian/workspace.json
+.obsidian/app.json
+
+.trash/
+.DS_Store
 # 원본 참고자료 (개인 다운로드 — 시드/파서 소스, 저장소엔 파생 결과물만)
 /20260630.csv
 /Data-Guideline*.md
