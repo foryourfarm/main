@@ -125,8 +125,8 @@ foryourfarm/
 **요구 사항**
 - Node.js 20+
 - Python 3.11+ (개발 환경은 3.14 확인됨)
-- Docker Desktop (로컬 PostgreSQL 구동용)
-- 로컬 LLM 런타임 (Ollama, 모델 확정 후 갱신)
+- Docker Desktop (로컬 PostgreSQL 구동용 — `pgvector/pgvector:pg16` 이미지, 챗봇 RAG용 벡터 확장 포함)
+- 로컬 LLM 런타임 (Ollama) — 생성 `exaone3.5:7.8b` + 임베딩 `bge-m3`. 아래 [로컬 LLM · 챗봇(RAG) 준비](#로컬-llm--챗봇rag-준비) 참고
 
 ```bash
 git clone <repo-url>
@@ -203,6 +203,28 @@ npm run dev
 
 - 셸에 따라 `source .venv/bin/activate` 후 `alembic`/`uvicorn`을 바로 써도 된다.
 - 마스터 데이터(지역/작물/생육지침/토양변화계수) 시드는 `DB.md` §9 참고(아직 미적재).
+
+---
+
+## 로컬 LLM · 챗봇(RAG) 준비
+
+챗봇/행동추천은 로컬 Ollama로 구동한다. 모델이 **두 개**(생성 + 검색 임베딩) 필요하다.
+
+```bash
+# 1. Ollama 설치(https://ollama.com) 후 모델 받기
+ollama pull exaone3.5:7.8b   # 생성(답변) — 모델 선택 근거: docs/llm-benchmark-eval.md
+ollama pull bge-m3           # 검색 임베딩(1024차원) — 챗봇 RAG 필수
+
+# 2. Ollama 서버(11434) 확인
+curl http://localhost:11434/api/tags
+
+# 3. 챗봇 검색 근거(knowledge_chunk) 채우기 — `alembic upgrade head` 이후 1회
+backend/.venv/Scripts/python.exe scripts/embed_corpus.py   # 5작물 청크 임베딩·적재(재실행 안전, diff 동기화)
+```
+
+- 두 모델은 코드에서 `keep_alive:-1`로 VRAM에 상주시킨다(재로딩이 응답 예산 초과). `EMBEDDING_MODEL`은 `backend/.env.example` 참고.
+- 챗봇 엔드포인트: `POST /api/v1/chat` (SSE 스트리밍, `ApiResponse` 래퍼 미사용). 상세 설계는 [`docs/llm-integration.md`](./docs/llm-integration.md).
+- **Ollama/모델·임베딩 데이터가 없어도 백엔드는 뜬다** — 챗봇 호출만 규칙 기반 폴백 문구로 응답하고 서비스는 죽지 않는다(`CLAUDE.md` §13, §18-5).
 
 ---
 
