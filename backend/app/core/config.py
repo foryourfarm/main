@@ -13,8 +13,9 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434"
     llm_model: str = "exaone3.5:7.8b"
     llm_timeout_s: float = 8.0
-    # 생성 길이 캡 — "3~5문장" 지침을 살짝 넘겨 장황해지는 경향이 있어 토큰 상한을 건다(nexttodo).
-    llm_num_predict: int = 200
+    # 생성 길이 캡. 200은 한국어 답변(3~5문장 + 목록)엔 부족해 문장 중간에 잘렸다 → 512로 상향.
+    # 스트리밍은 read(청크 간격) 타임아웃이라 총 생성시간이 길어도 안전(llm_timeout_s는 총 시간 아님).
+    llm_num_predict: int = 512
     # 사실 기반이라 일관성 우선으로 낮게(docs/llm-integration.md §6).
     llm_temperature: float = 0.4
 
