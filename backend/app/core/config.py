@@ -29,5 +29,17 @@ class Settings(BaseSettings):
     weather_api_key: str = ""
     soil_api_key: str = ""
 
+    # 인증 — 분리 토큰 JWT(docs/auth-security.md). 시크릿은 운영에서 반드시 env로 덮어쓴다(§17).
+    jwt_secret: str = "dev-only-insecure-secret-change-in-prod-min-32-bytes"
+    jwt_algorithm: str = "HS256"
+    # 만료시간: access는 짧게(탈취 피해창 최소), refresh는 길게(로그인 유지). 하드코딩 금지라 config로(§4).
+    access_token_expire_min: int = 30
+    refresh_token_expire_days: int = 14
+    # 쿠키 속성 — Secure는 HTTPS에서만 전송되므로 로컬(http localhost)은 False, 운영은 env로 True.
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
+    # CORS 허용 오리진 — refresh 쿠키가 크로스오리진으로 오가려면 명시 허용 + credentials 필요.
+    cors_origins: list[str] = ["http://localhost:3000"]
+
 
 settings = Settings()
