@@ -1,0 +1,28 @@
+{
+  "model_version": "soil_delta_ridge_conformal_test",
+  "data_version": "test-fixture",
+  "features": [
+    "ph_t0",
+    "organic_matter_t0",
+    "available_p_t0",
+    "interval_days"
+  ],
+  "feature_medians": {
+    "ph_t0": 6.0,
+    "organic_matter_t0": 25.0,
+    "available_p_t0": 300.0,
+    "interval_days": 333.0
+  },
+  "targets": {
+    "delta_ph": {
+      "coef": [0.0, 0.0, 0.0, 0.0],
+      "intercept": 0.1,
+      "conformal_q": 1.2
+    },
+    "delta_organic_matter": {
+      "coef": [0.0, 0.0, 0.0, 0.0],
+      "intercept": -2.0,
+      "conformal_q": 30.0
+    }
+  }
+}
