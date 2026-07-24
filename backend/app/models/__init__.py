@@ -5,10 +5,12 @@ from app.models.crop_growth_guide import CropGrowthGuide
 from app.models.daily_recommendation import DailyRecommendation
 from app.models.farm_action_log import FarmActionLog
 from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.prediction_shadow import PredictionShadow
 from app.models.region import Region
 from app.models.region_grid import RegionGrid
 from app.models.soil_change_rule import SoilChangeRule
 from app.models.soil_state import SoilState
+from app.models.soil_state_snapshot import SoilStateSnapshot
 from app.models.suitability_result import SuitabilityResult
 from app.models.user import User
 from app.models.user_farm import UserFarm
@@ -27,6 +29,8 @@ __all__ = [
     "UserFarm",
     "FarmActionLog",
     "SoilState",
+    "SoilStateSnapshot",
+    "PredictionShadow",
     "WeatherSnapshot",
     "WeatherClimatology",
     "WeatherOutlook",
