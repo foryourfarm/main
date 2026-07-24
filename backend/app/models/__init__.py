@@ -2,6 +2,7 @@ from app.models.base import Base
 from app.models.chat_message import ChatMessage
 from app.models.crop import Crop
 from app.models.crop_growth_guide import CropGrowthGuide
+from app.models.crop_growth_stage import CropGrowthStage
 from app.models.daily_recommendation import DailyRecommendation
 from app.models.farm_action_log import FarmActionLog
 from app.models.knowledge_chunk import KnowledgeChunk
@@ -24,6 +25,7 @@ __all__ = [
     "RegionGrid",
     "Crop",
     "CropGrowthGuide",
+    "CropGrowthStage",
     "SoilChangeRule",
     "User",
     "UserFarm",
