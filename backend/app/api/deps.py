@@ -29,3 +29,17 @@ def get_current_user(
     if user is None:
         raise AppError(401, "UNAUTHORIZED", "인증이 필요합니다.")
     return user
+
+
+def get_current_user_optional(
+    cred: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """게스트도 쓰는 엔드포인트(챗봇)용. 토큰 없거나 무효면 401 대신 None(게스트)으로 흘려보낸다."""
+    if cred is None:
+        return None
+    try:
+        user_id = decode_token(cred.credentials, "access")
+    except (jwt.PyJWTError, ValueError):
+        return None
+    return auth_service.get_user(db, user_id)

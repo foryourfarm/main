@@ -11,7 +11,10 @@ few-shot으로 고정한 세 가지 행동:
 프롬프트를 바꾸면 PROMPT_VERSION을 올린다(품질 비교·재현용, docs/llm-integration.md §9).
 """
 
-PROMPT_VERSION = "chatbot-v2"  # v1 -> v2: 멀티턴 맥락 + 작물 되묻기 + 농사로 안내 추가
+from dataclasses import dataclass
+from decimal import Decimal
+
+PROMPT_VERSION = "chatbot-v3"  # v2 -> v3: 로그인+밭이면 회원 밭 컨텍스트(작물/토양 추정치) 주입
 
 CROPS = "사과·배·오이·감자·상추"
 
@@ -32,6 +35,7 @@ _SYSTEM = f"""#명령문
 - 참고자료에 없는 내용은 절대 지어내지 마라. 근거가 부족해 답할 수 없으면 다른 말 붙이지 말고 정확히 이렇게만 답하라: "{REFERRAL_TEXT}"
 - 작물에 따라 답이 달라지는 질문인데 [작물]이 '(지정 안 됨)'이고 대화에서도 어떤 작물인지 알 수 없으면, 추측하지 말고 답하기 전에 이렇게 되물어라: "{ASK_CROP_TEXT}"
 - EC, 유효인산 같은 전문용어는 초보자가 이해할 쉬운 말을 괄호로 병기하되 원래 의미를 왜곡하지 마라.
+- [회원 밭 정보]가 주어지면 참고자료와 연결해 "회원님 밭 기준"으로 설명하라. 단 그 토양 수치는 추정치이며, 참고자료에 없는 임계값이나 좋다/나쁘다 판정을 지어내지 마라.
 - 3~5문장으로 간결하게, 오늘 뭘 하면 되는지 행동 위주로 답하라.
 
 #출력형식
@@ -72,6 +76,56 @@ _FEWSHOT = f"""#입력문
 {REFERRAL_TEXT}"""
 
 
+@dataclass
+class FarmContext:
+    """프롬프트에 주입할 회원 밭 정보. 토양 수치는 soil_state의 추정치(is_estimated)다."""
+
+    crop_id: int
+    crop_name: str | None
+    region_name: str | None
+    days_since_planting: int
+    soil_texture: str | None = None
+    ph: Decimal | None = None
+    ec: Decimal | None = None
+    p2o5: Decimal | None = None
+    organic_matter: Decimal | None = None
+
+
+# 토양 지표 표시 순서·단위(ML 인계 §7.2: OM g/kg, 유효인산 mg/kg. pH·토성은 무단위/텍스트).
+_SOIL_FIELDS: list[tuple[str, str, str]] = [
+    ("ph", "pH", ""),
+    ("ec", "EC", " dS/m"),
+    ("p2o5", "유효인산", " mg/kg"),
+    ("organic_matter", "유기물", " g/kg"),
+    ("soil_texture", "토성", ""),
+]
+
+
+def _fmt_soil_value(v: object) -> str:
+    """토양 수치 표시 정리 — DB Numeric이 돌려주는 꼬리 0 제거(5.3000000000 -> 5.3). 토성 등 문자열은 그대로."""
+    if isinstance(v, Decimal):
+        return format(v.normalize(), "f")
+    return str(v)
+
+
+def format_farm_context(fc: FarmContext | None) -> str:
+    """회원 밭 정보 -> 프롬프트 블록. 없으면 빈 문자열(비로그인/밭 없음 경로는 기존과 동일)."""
+    if fc is None:
+        return ""
+    # 작물은 기존 #입력문의 [작물]로 표시(farm.crop_id로 자동설정) — 여기서 중복 표기하지 않는다.
+    lines: list[str] = []
+    if fc.region_name:
+        lines.append(f"[지역] {fc.region_name}")
+    lines.append(f"[파종 후 경과일] {fc.days_since_planting}일")
+    soil = [
+        f"{label} {_fmt_soil_value(getattr(fc, attr))}{unit}"
+        for attr, label, unit in _SOIL_FIELDS
+        if getattr(fc, attr) is not None
+    ]
+    lines.append(f"[토양(추정치)] {', '.join(soil) if soil else '정보 없음'}")
+    return "#회원 밭 정보\n" + "\n".join(lines) + "\n\n"
+
+
 def format_context(chunks: list[str]) -> str:
     """검색된 근거 조각을 프롬프트에 넣을 형태로. 없으면 few-shot과 같은 '(관련 자료 없음)' 마커."""
     if not chunks:
@@ -97,11 +151,13 @@ def build_chat_prompt(
     chunks: list[str],
     history: list[tuple[str, str]] | None = None,
     crop_name: str | None = None,
+    farm: "FarmContext | None" = None,
 ) -> str:
-    """정형 근거(chunks) + 작물 + 이전 대화 + 질문 -> 단일 프롬프트 문자열. 결정론적."""
+    """정형 근거(chunks) + 작물 + 회원 밭 정보 + 이전 대화 + 질문 -> 단일 프롬프트 문자열. 결정론적."""
     return (
         f"{_SYSTEM}\n\n"
         f"{_FEWSHOT}\n\n"
+        f"{format_farm_context(farm)}"
         f"#입력문\n"
         f"{format_history(history)}"
         f"[작물] {format_crop(crop_name)}\n"

@@ -12,14 +12,15 @@
 
 import json
 from collections.abc import Iterator
+from datetime import date
 
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.infra.embedding_client import EmbeddingClient
 from app.infra.llm_client import LlmClient, OllamaClient
-from app.models import Crop, KnowledgeChunk
-from app.prompts.chatbot import REFERRAL_TEXT, build_chat_prompt
+from app.models import Crop, KnowledgeChunk, Region, SoilState, User, UserFarm
+from app.prompts.chatbot import REFERRAL_TEXT, FarmContext, build_chat_prompt
 
 # 생성 자체가 실패(타임아웃/연결불가/빈 응답)했을 때. 근거 없음(REFERRAL_TEXT)과는 구분한다.
 LLM_ERROR_TEXT = "일시적으로 답변을 만들지 못했어요. 잠시 후 다시 시도해 주세요."
@@ -55,12 +56,40 @@ def resolve_crop_name(db: Session, crop_id: int | None) -> str | None:
     return db.query(Crop.name).filter(Crop.id == crop_id).scalar()
 
 
+def load_farm_context(db: Session, user_id: int, farm_id: int | None = None) -> FarmContext | None:
+    """로그인 유저의 밭 컨텍스트. farm_id 주면 소유권(user_id 필터) 확인 후 그 밭,
+    없으면 유저 밭이 하나뿐일 때만 그 밭. 소유 아님/여러 개 미지정이면 None(밭 컨텍스트 없음)."""
+    q = db.query(UserFarm).filter(UserFarm.user_id == user_id)  # 소유권: 항상 요청 유저로 스코프(§11)
+    if farm_id is not None:
+        farm = q.filter(UserFarm.id == farm_id).first()
+    else:
+        farms = q.limit(2).all()
+        farm = farms[0] if len(farms) == 1 else None
+    if farm is None:
+        return None
+    crop_name = db.query(Crop.name).filter(Crop.id == farm.crop_id).scalar()
+    region_name = db.query(Region.name).filter(Region.id == farm.region_id).scalar()
+    soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
+    return FarmContext(
+        crop_id=farm.crop_id,
+        crop_name=crop_name,
+        region_name=region_name,
+        days_since_planting=(date.today() - farm.planting_date).days,
+        soil_texture=soil.soil_texture if soil else None,
+        ph=soil.ph if soil else None,
+        ec=soil.ec if soil else None,
+        p2o5=soil.p2o5 if soil else None,
+        organic_matter=soil.organic_matter if soil else None,
+    )
+
+
 def stream_from_chunks(
     question: str,
     chunks: list[str],
     llm: LlmClient,
     history: list[tuple[str, str]] | None = None,
     crop_name: str | None = None,
+    farm: FarmContext | None = None,
 ) -> Iterator[str]:
     """근거 조각이 주어졌을 때의 스트리밍 + 폴백. DB/임베딩과 분리돼 테스트 가능(결정론 경계)."""
     if not chunks:
@@ -69,7 +98,7 @@ def stream_from_chunks(
         yield SSE_DONE
         return
 
-    prompt = build_chat_prompt(question, chunks, history=history, crop_name=crop_name)
+    prompt = build_chat_prompt(question, chunks, history=history, crop_name=crop_name, farm=farm)
     produced = False
     try:
         for token in llm.generate_stream(prompt):
@@ -90,13 +119,24 @@ def stream_answer(
     crop_id: int | None = None,
     history: list[tuple[str, str]] | None = None,
     *,
+    user: User | None = None,
+    farm_id: int | None = None,
     llm: LlmClient | None = None,
     embedder: EmbeddingClient | None = None,
 ) -> Iterator[str]:
-    """엔드포인트가 부르는 진입점. 임베딩+검색 실패도 폴백으로 흡수해 스트림을 반드시 끝맺는다."""
+    """엔드포인트가 부르는 진입점. 임베딩+검색 실패도 폴백으로 흡수해 스트림을 반드시 끝맺는다.
+    로그인 유저면 밭 컨텍스트를 주입하고, 밭 작물로 crop_id를 자동설정해 되묻기를 건너뛴다."""
     llm = llm or _llm
     embedder = embedder or _embedder
     history = (history or [])[-settings.chat_history_max_messages :]  # 최근 N개만(프롬프트 길이 방어)
+    farm = None
+    if user is not None:
+        try:
+            farm = load_farm_context(db, user.id, farm_id)
+        except Exception:
+            farm = None  # 밭 로드 실패가 챗봇을 막지 않는다(§18-5)
+    if farm is not None:
+        crop_id = farm.crop_id  # 내 밭 작물로 자동설정 -> 작물 되묻기 제거
     try:
         embedding = embedder.embed_query(question)
         chunks = retrieve_chunks(db, embedding, crop_id)
@@ -105,4 +145,4 @@ def stream_answer(
         yield _sse(LLM_ERROR_TEXT)
         yield SSE_DONE
         return
-    yield from stream_from_chunks(question, chunks, llm, history=history, crop_name=crop_name)
+    yield from stream_from_chunks(question, chunks, llm, history=history, crop_name=crop_name, farm=farm)
