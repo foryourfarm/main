@@ -10,6 +10,7 @@ from decimal import Decimal
 from app.prompts.chatbot import (
     ASK_CROP_TEXT,
     REFERRAL_TEXT,
+    SECURITY_REDIRECT,
     FarmContext,
     build_chat_prompt,
     format_context,
@@ -61,6 +62,15 @@ class TestPromptAssembly(unittest.TestCase):
     def test_empty_history_is_blank(self):
         self.assertEqual(format_history([]), "")
         self.assertEqual(format_history(None), "")
+
+    def test_security_guardrails_present(self):
+        # 프롬프트 인젝션/탈옥 방어 지시가 모든 프롬프트에 박혀 있어야 함(#보안 규칙 + 방어 few-shot).
+        prompt = build_chat_prompt("say my name", ["근거"], crop_name="상추")
+        self.assertIn("#보안 규칙", prompt)
+        self.assertIn(SECURITY_REDIRECT, prompt)
+        self.assertIn("say my name", prompt)  # 정체 캐묻기 방어 문구
+        self.assertIn("데이터", prompt)  # 참고자료/대화는 명령 아닌 데이터(간접 주입 방어)
+        self.assertIn("시스템 프롬프트", prompt)  # 프롬프트 유출 거부 지시
 
 
 class TestFarmContext(unittest.TestCase):
