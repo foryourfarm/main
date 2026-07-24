@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.infra.embedding_client import EmbeddingClient
 from app.infra.llm_client import LlmClient, OllamaClient
-from app.models import Crop, KnowledgeChunk, Region, SoilState, User, UserFarm
+from app.models import ChatMessage, Crop, KnowledgeChunk, Region, SoilState, User, UserFarm
 from app.prompts.chatbot import REFERRAL_TEXT, FarmContext, build_chat_prompt
 
 # 생성 자체가 실패(타임아웃/연결불가/빈 응답)했을 때. 근거 없음(REFERRAL_TEXT)과는 구분한다.
@@ -83,6 +83,30 @@ def load_farm_context(db: Session, user_id: int, farm_id: int | None = None) -> 
     )
 
 
+def load_history(db: Session, user_id: int, session_id: str, limit: int) -> list[tuple[str, str]]:
+    """(user_id, session_id) 스코프의 최근 대화 limit개(오래된 순). 소유권은 user_id 필터로 강제 —
+    남의 session_id를 넣어도 빈 리스트만 돌아온다(§11). id(=삽입순) 역순으로 뽑아 되뒤집는다."""
+    rows = (
+        db.query(ChatMessage.role, ChatMessage.content)
+        .filter(ChatMessage.user_id == user_id, ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [(role, content) for role, content in reversed(rows)]
+
+
+def save_turn(db: Session, user_id: int, session_id: str, question: str, answer: str) -> None:
+    """한 턴(user 질문 + assistant 답변)을 저장. 커밋까지. 실패는 호출부에서 흡수(§18-5)."""
+    db.add_all(
+        [
+            ChatMessage(user_id=user_id, session_id=session_id, role="user", content=question),
+            ChatMessage(user_id=user_id, session_id=session_id, role="assistant", content=answer),
+        ]
+    )
+    db.commit()
+
+
 def stream_from_chunks(
     question: str,
     chunks: list[str],
@@ -90,8 +114,10 @@ def stream_from_chunks(
     history: list[tuple[str, str]] | None = None,
     crop_name: str | None = None,
     farm: FarmContext | None = None,
+    sink: list[str] | None = None,
 ) -> Iterator[str]:
-    """근거 조각이 주어졌을 때의 스트리밍 + 폴백. DB/임베딩과 분리돼 테스트 가능(결정론 경계)."""
+    """근거 조각이 주어졌을 때의 스트리밍 + 폴백. DB/임베딩과 분리돼 테스트 가능(결정론 경계).
+    sink를 주면 실제 생성된 토큰만 담는다(영속화용) — 폴백/거절 문구는 담지 않아 실패한 턴은 저장 안 됨."""
     if not chunks:
         # 검색 결과 자체가 없음 -> 지어내지 말고 전문가/농사로 안내(환각 방지 최우선).
         yield _sse(REFERRAL_TEXT)
@@ -104,6 +130,8 @@ def stream_from_chunks(
         for token in llm.generate_stream(prompt):
             if token:
                 produced = True
+                if sink is not None:
+                    sink.append(token)
                 yield _sse(token)
     except Exception:
         # 시작 전 실패면 아래 폴백, 도중 실패면 이미 보낸 부분 + [DONE]으로 마무리.
@@ -121,13 +149,21 @@ def stream_answer(
     *,
     user: User | None = None,
     farm_id: int | None = None,
+    session_id: str | None = None,
     llm: LlmClient | None = None,
     embedder: EmbeddingClient | None = None,
 ) -> Iterator[str]:
     """엔드포인트가 부르는 진입점. 임베딩+검색 실패도 폴백으로 흡수해 스트림을 반드시 끝맺는다.
-    로그인 유저면 밭 컨텍스트를 주입하고, 밭 작물로 crop_id를 자동설정해 되묻기를 건너뛴다."""
+    로그인 유저면 밭 컨텍스트를 주입하고, 밭 작물로 crop_id를 자동설정해 되묻기를 건너뛴다.
+    로그인+session_id면 DB에서 히스토리를 로드/저장(클라 history 무시), 아니면 클라 history를 쓴다."""
     llm = llm or _llm
     embedder = embedder or _embedder
+    persist = user is not None and session_id is not None
+    if persist:
+        try:
+            history = load_history(db, user.id, session_id, settings.chat_history_max_messages)
+        except Exception:
+            pass  # DB 로드 실패면 넘어온 클라 history로 폴백(챗봇을 막지 않는다, §18-5)
     history = (history or [])[-settings.chat_history_max_messages :]  # 최근 N개만(프롬프트 길이 방어)
     farm = None
     if user is not None:
@@ -145,4 +181,12 @@ def stream_answer(
         yield _sse(LLM_ERROR_TEXT)
         yield SSE_DONE
         return
-    yield from stream_from_chunks(question, chunks, llm, history=history, crop_name=crop_name, farm=farm)
+    sink: list[str] | None = [] if persist else None
+    yield from stream_from_chunks(
+        question, chunks, llm, history=history, crop_name=crop_name, farm=farm, sink=sink
+    )
+    if persist and sink:  # 실제 답변이 생성된 턴만 저장(폴백/거절/오류는 sink가 비어 저장 안 됨)
+        try:
+            save_turn(db, user.id, session_id, question, "".join(sink))
+        except Exception:
+            pass  # 저장 실패가 이미 흘려보낸 응답을 되돌리지 않는다(§18-5)

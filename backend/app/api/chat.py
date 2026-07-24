@@ -23,7 +23,13 @@ def chat(
     history = [(m.role, m.content) for m in req.history]
     return StreamingResponse(
         chat_service.stream_answer(
-            db, req.question, req.crop_id, history, user=current, farm_id=req.farm_id
+            db,
+            req.question,
+            req.crop_id,
+            history,
+            user=current,
+            farm_id=req.farm_id,
+            session_id=req.session_id,
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
