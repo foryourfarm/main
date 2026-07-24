@@ -1,46 +1,82 @@
-# 다음 할 일 — 챗봇 히스토리 영속화 + 밭 컨텍스트 주입 (인증 연동)
+# 다음 할 일
 
-메인 대시보드 기능이 아니라 UI에서 별도로 클릭해 들어가는 부가 기능. 온디맨드 실시간 스트리밍(사전생성 캐시 아님).
+> 갱신: 2026-07-25. "✅ 완료 (dev 머지)"는 실제로 dev에 머지된 것만. 아래 "🔶 작업 완료 (미커밋)"는
+> `feature/soil-delta-shadow-p0` 브랜치에 로컬로만 있고 아직 커밋도 안 된 상태 — PR 분할해서 올려야 함.
+> 상세 방향은 메모리/`docs/` 참고.
 
-## 이미 구현 완료 (feature/chatbot-backend)
+## 🔶 작업 완료 (미커밋 — `feature/soil-delta-shadow-p0` 브랜치)
 
-기본 상담 챗봇(RAG) 백엔드가 동작한다. 로컬 스택(Ollama exaone3.5+bge-m3, pgvector 172청크)으로 종단 확인함.
+**P0: 토양변화 shadow 추론 — 뼈대만**
+- 모델 `soil_state_snapshot`/`prediction_shadow` + `0006` 마이그레이션(DB 적용됨)
+- 경량 추론 `infra/ml/soil_delta.py`(artifact 로더+검증+Ridge 한 줄 추론, sklearn 불필요)
+- 서비스 `soil_delta_service.py`(입력검증→추론→폴백→shadow 로그), DTO `schemas/soil_delta.py`
+- 테스트 fixture artifact로 12개 검증(결정론·중앙값대치·폴백·available_p 항상 미채택)
+- **exporter(①)만 못 함** — `scripts/ml/final_model.py`+`data/ml/training_rows.csv`가 `.gitignore` 대상이라 이 리포에 실물 없음. 진짜 artifact 생성 불가, fixture로만 검증된 상태.
 
-- **검색**: 질문 → bge-m3 임베딩(Ollama `/api/embed`, `keep_alive:-1`) → `knowledge_chunk` pgvector 코사인 top-k(`config.rag_top_k=3`), `crop_id` 필터. (`app/infra/embedding_client.py`, `app/services/chat_service.py::retrieve_chunks`)
-- **LlmClient**: `OllamaClient.generate` / `generate_stream`, `keep_alive:-1` 코드 명시, `num_predict`/`temperature` config 캡. (`app/infra/llm_client.py`)
-- **프롬프트**: 코드 분리·버전 관리(`PROMPT_VERSION=chatbot-v2`). 역할+형식(#명령문/#제약조건/#입력문/#출력형식) + few-shot 3종: 근거기반 답변 / 작물 불명확 시 5종 되묻기 / 근거 없으면 전문가·농사로 안내 거절. (`app/prompts/chatbot.py`)
-- **멀티턴**: 무상태 + 클라이언트 `history` 재전송(서버/DB 세션 없음). 최근 `chat_history_max_messages=6`개만 프롬프트 주입.
-- **폴백**: 임베딩/검색/생성 실패·빈 응답·근거 없음 모두 규칙 기반 문구로 흡수, SSE 스트림 반드시 끝맺음(§13, §18-5).
-- **엔드포인트**: `POST /api/v1/chat` SSE(`text/event-stream`), `ApiResponse` 래퍼 미사용(§6 스트리밍 예외). (`app/api/chat.py`)
-- **테스트**: 프롬프트 조립·history·되묻기·폴백 트리거 9개(네트워크·DB 불필요, `tests/test_chat_service.py`).
+**P2: 작물 적합도 룰 API 연결 — 완료**
+- 결정 확정: temp_day=월평년(`temp_avg_normal`) 근사(한계 병기) / 생육단계 resolver(2모드: 연중일자·파종후경과일) / 60점 경계 유지
+- 시드 `crop_growth_stage`(6행, 농촌진흥청 농사로 근거) + `0007` 마이그레이션(DB 적용됨)
+- `growth_stage_service.resolve_growth_stage` + `suitability_service.compute_farm_suitability`
+- `GET /api/v1/farms/{farm_id}/suitability`(소유권 스코프, 404/401 검증됨)
+- **suitability_result 캐시 write는 의도적으로 생략** — 지역 baseline 캐시인데 `region_soil_profile` 모델·테이블이 없어 밭 고유 결과를 넣으면 클로버링 버그. region 데이터 갖춰지면 별도 PR.
 
-## 다음 구현 — 인증 도입과 함께 (2026-07-24 진행 중)
+**대시보드 집계 + 평년치 적재 — 완료**
+- `GET /api/v1/dashboard`(작물 카드: crop/region명+생육단계 한글라벨+과수🌳/밭🌾 타입(시드에서 파생)+적합도)
+- region 마스터 256개 시드 `0008`(CSV에서 프로그램 생성, DB 적용됨 — **기존 강릉 id 1→226으로 바뀜, region_id=1 참조하던 데이터 있으면 재확인 필요**)
+- `scripts/load_weather_climatology.py`(관측 5년 평균 근사, 102지역×12월=1224행, `source='obs_mean_2021_2025'`, temp_avg+rainfall만 — night_min/sunlight 소스 없어 null)
+- 실동작 검증: 테스트 밭을 커버지역(순천시)으로 옮겨 대시보드 카드 75.6점 A 등급 확인. 전체 66개 테스트 2회 통과.
 
-> 상세 방향: 메모리 `chat-history-auth-roadmap`. 현재 무상태 인터페이스가 선행호환이라 갈아엎을 필요 없음.
+**PR 분할 권장 순서**: 1) P0 모델+마이그레이션 → 2) P0 DTO+추론+서비스+테스트 → 3) P2 전체 → 4) region 시드 → 5) 대시보드+weather ETL.
 
-- [x] **인증 설계 확정** — 분리 토큰 JWT(access 메모리 + refresh httpOnly 쿠키). 이메일 인증 안 함. **PR #12 머지 완료**. 계약: `docs/auth-security.md`, 근거: 메모리 `auth-method-jwt-httponly-cookie`.
-- [x] **인증 백엔드 구현** — signup·login·refresh·logout·me + bcrypt + `get_current_user`. **PR #12 머지 완료**.
-- [x] **밭 컨텍스트 주입(핵심 값)** — 로그인+밭이면 `user_farm`/`soil_state`를 프롬프트에 주입("내 땅 맞춤"), 밭 작물로 crop_id 자동설정(되묻기 제거), 토양=추정치 표기, 생육단계는 경과일만(매핑 §19 미확정). **PR #14 (오픈, 머지 대기)**. FE 계약: `docs/llm-integration.md` §10.
-  - 종단 검증 완료(Postgres 172청크 + Ollama exaone3.5+bge-m3): 로그인 시 pH 5.3 추정치를 매뉴얼(적정 6.5~7.0)과 엮어 석회 처방까지. 더미 검증 중 토양 수치 꼬리 0 표시 버그 발견·수정(`Decimal.normalize`).
-- [x] **`chat_message` 테이블 + Alembic 마이그레이션(0005)**: `(user_id, session_id, role, content, created_at)`. 런타임 기록 — 시드 아님. `DB.md` §3.16 명세 추가. 모델 `app/models/chat_message.py`.
-- [x] **`ChatRequest.session_id: str | None` 추가**: authed+session_id면 서버가 DB에서 history 로드/저장(body history 무시), 아니면 지금처럼 클라 `history`. session_id는 클라가 uuid4 생성. 형식검증 `^[0-9a-fA-F-]{8,64}$`.
-- [x] **소유권 검증**: `load_history`/`save_turn`가 항상 `(user_id, session_id)` 스코프 → 남의 session_id는 빈 히스토리. 계정삭제 시 대화 삭제(FK CASCADE). 성공한 턴만 저장(sink 비면 미저장).
-- [x] 최소 테스트: `tests/test_chat_persistence.py` — 로드/저장 라운드트립, limit 최근순, 소유권 거부, 세션 격리(sqlite 인메모리, 5개 통과).
+## ✅ 완료 (dev 머지)
 
-> **PR 2 미검증 잔여(육안 확인 필요, 메모리 `user-verifies-backend`)**: 아직 실스택 종단 확인 안 함. 확인 절차 = ①`alembic upgrade head`로 0005 적용 → `\d chat_message` ②로그인 access 토큰으로 `session_id` 붙여 `/chat` 2연속 호출 → 2번째가 1번째 맥락 이어받는지 + `chat_message`에 4행 쌓이는지 ③다른 유저 토큰 + 같은 session_id → 히스토리 안 새는지.
+**챗봇(상담 RAG)**
+- 백엔드 RAG: bge-m3 임베딩 → `knowledge_chunk` pgvector top-k(`rag_top_k=3`, crop 필터) → exaone3.5 스트리밍. 폴백(임베딩/검색/생성 실패·근거없음)으로 SSE 반드시 끝맺음. (`chat_service`, `llm_client`, `api/chat.py`)
+- 밭 컨텍스트 주입("내 땅 맞춤") — 로그인+밭이면 `user_farm`/`soil_state`(추정치) 프롬프트 주입, 밭 작물로 crop_id 자동설정. **PR #14**.
+- **대화 영속화** — `chat_message(user_id,session_id,role,content,created_at)` + Alembic 0005(FK CASCADE). authed+`session_id`면 서버가 `(user_id,session_id)` 스코프로 DB 로드/저장, 게스트는 클라 history. 소유권·저장정책(성공 턴만). **PR #16**. `DB.md` §3.16.
+  - 실스택 종단 검증 완료(멀티턴 맥락 로드·4행 적재·읽기/쓰기 소유권 격리). 계정삭제 시 대화 CASCADE 삭제 실동작 확인.
+- **프롬프트 인젝션/탈옥 방어**(`chatbot-v4`) — #보안 규칙 + 방어 few-shot. 정체노출/프롬프트유출/규칙초기화/간접주입 차단. 라이브 8종 공격 거부·정상질문 회귀없음. **PR #19**. `docs/llm-integration.md` §11.
+- 답변 절단 수정: `llm_num_predict` 200→512(한국어 답변 문장 중간 절단). **PR #17**.
 
-> **재개 메모(2026-07-24)**: 위 미완 3개 = "PR 2(대화 영속화)". dev는 `0cdf013`(PR #11 ML·#12 auth·#13 soil-fix 머지됨). PR #14(밭 컨텍스트)만 머지 확인하면 됨. Docker/Ollama 켜둔 상태로 마지막 세션 종료 → 재개 시 `docker ps`로 확인. 마이그레이션 head=0004 → 새 건 0005. 참고 커밋: auth `1af78d3`, 밭 컨텍스트 `4b7365d`+`2f3d971`.
-> 밭 컨텍스트 구현 위치: `chat_service.load_farm_context`, `prompts/chatbot.py`(FarmContext/format_farm_context), `api/deps.get_current_user_optional`, `schemas/chat.ChatRequest.farm_id`.
+**인증**
+- 백엔드: 분리 토큰 JWT(access 메모리 + refresh httpOnly 쿠키), signup/login/refresh/logout/me + bcrypt. **PR #12**. 계약 `docs/auth-security.md`.
+- 프론트 연동: `lib/auth`(토큰스토어+authFetch 401인터셉터), `AuthProvider`(세션복구), login/signup 페이지, AuthBar. 크로스오리진 종단 검증. **PR #18**.
+
+**프론트엔드(Next.js)**
+- Next 16 App Router + React 19 + TS strict 스캐폴드. 챗봇 상담 화면(`/chat`) 게스트 모드 SSE 연결, 생각중 표시. **PR #17**. (스택 결정: 메모리 `frontend-stack-nextjs`)
+
+**문서/정리**
+- 팀원용 메인로직 구현 가이드 `docs/main-logic-guide.md`(P0~P3 + ML 데이터 최신화 지속반영). 루트 문서/PDF를 `docs/{design,data,api-specs}`로 정리. `docs/README.md` 인덱스. **PR #20**.
+
+## ⏭️ 미착수 / 다음
+
+**커밋/PR (가장 먼저 — 위 "🔶 작업 완료" 5분할해서 dev로)**
+
+**메인 로직 백엔드 — 블로킹된 것**
+- P0 exporter: `scripts/ml/final_model.py` + `data/ml/training_rows.csv`를 리포에 넣어야 진짜 artifact 생성 가능(둘 다 현재 없음)
+- P1 노출 게이트: 라이브 실측(예측↔재검정 쌍)이 쌓여야 MAE·구간포함률 재계산 가능 — 지금은 데이터 자체가 없음
+- P3 first-party 수집: `crop_outcome_record`(수확기 입력) + `farm_action_log` 성분 보강 — **"수집 그릇"은 지금 코드로 만들 수 있음**(데이터 자체는 유저가 써야 쌓임), 아직 미착수
+
+**기상 데이터 — 다음 자연스러운 확장**
+- 기상청 공식 30년 평년값 + 야간최저·일조 API 발급(현재는 관측 5년 평균 근사로 2개 지표만 대체 중)
+- 단기 탭(당일 실시간 기상·위험배너·오늘의 추천행동) — weather_snapshot 연동 전무, API 키 미발급
+
+**대시보드/FE 남은 위젯** — `docs/design/` 대시보드 스펙 대비
+- 데이터 신뢰도 배지(출처 N/3, 토양=흙토람/기상=평년 표기) — 백엔드 토양 provenance는 지금도 가능, 기상 부분은 위 항목 선행
+- 장기 탭 월별 전망 히트맵 — 로직은 가능(compute_farm_suitability를 월별 루프), 미착수
+- 시기별 커리큘럼/자연어 설명(LLM) — 정형데이터 준비됨, LLM 연결 미착수
+- 로그인 게이팅 미들웨어, 온보딩(지역/작물 등록) 페이지, 대시보드/밭상세 화면 자체(백엔드 API는 준비됨)
+- 챗봇 로그인 모드 연결: FE에서 access 첨부 + `session_id` + `farm_id` 전달 — 백엔드는 이미 준비됨
+
+**배포** — GCP(프론트/백엔드 Cloud Run + Cloud SQL + 로컬 LLM은 GPU VM). 별도 논의 예정.
 
 ## 후속 (범위 밖, 별도 PR)
 
-- 답변이 "3~5문장" 지침을 살짝 넘겨 장황해지는 경향 → 프롬프트 미세조정은 §9 골든셋/LLM-as-judge 평가에서.
-- 생략형 후속질문("그럼 물은?") 검색 정확도 한계 — 필요 시 history로 질문 압축(LLM 1콜) 추가(`chat_service` ponytail 주석).
-- ~~**[dev 기존 버그]** `soil_profile_client`가 `Deepsoil_Qlt_Cd`를 읽는데 공식 스펙 XML은 `Deepsoil_Qlt_Code`~~ → **해결(PR #13 머지)**. 응답 필드 4개 `_Cd`→`_Code`. get_soil_profile 미호출이라 저장 데이터 손상 없었음.
+- 답변 장황함 프롬프트 미세조정 → §9 골든셋/LLM-as-judge 평가에서.
+- 생략형 후속질문("그럼 물은?") 검색 정확도 — 필요 시 history로 질문 압축(LLM 1콜)(`chat_service` ponytail 주석).
 
-## 재개할 때 다시 볼 문서
+## 참고 문서
 
-- 메모리 `chat-history-auth-roadmap`, `user-verifies-backend`(완료 전 육안 확인)
-- `docs/llm-integration.md` (LlmClient 계약, 폴백 규칙, §2 생성 타이밍)
-- `DB.md` §3.15 (knowledge_chunk), §11 인증/인가
-- `CLAUDE.md` §13(LLM 프롬프트), §6(스트리밍 예외), §11(인가), §10(마이그레이션)
+- 메모리: `chat-history-auth-roadmap`(챗봇 완성), `frontend-stack-nextjs`, `user-verifies-backend`(백엔드 완료 전 육안 확인), `auth-method-jwt-httponly-cookie`, `llm_model_choice_exaone`, `soil-delta-p0-shadow-state`(P0/P2/대시보드/평년치 상세 근거·블로커)
+- `docs/main-logic-guide.md`, `docs/ml/backend_ml_handoff.md`, `docs/auth-security.md`, `docs/llm-integration.md`, `docs/design/`(대시보드 UI 스펙)
+- `DB.md`(§3.15 knowledge_chunk, §3.16 chat_message, §11 인증/인가), `CLAUDE.md` §6/§10/§11/§13

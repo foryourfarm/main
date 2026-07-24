@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import auth, chat, farms, health
+from app.api import auth, chat, dashboard, farms, health
 from app.core.config import settings
 from app.schemas.common import ApiResponse
 
@@ -23,6 +23,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(farms.router)
+app.include_router(dashboard.router)
 
 
 @app.exception_handler(StarletteHTTPException)
