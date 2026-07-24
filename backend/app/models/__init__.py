@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.chat_message import ChatMessage
 from app.models.crop import Crop
 from app.models.crop_growth_guide import CropGrowthGuide
 from app.models.daily_recommendation import DailyRecommendation
@@ -32,4 +33,5 @@ __all__ = [
     "SuitabilityResult",
     "DailyRecommendation",
     "KnowledgeChunk",
+    "ChatMessage",
 ]
