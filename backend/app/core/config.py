@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     weather_api_key: str = ""
     soil_api_key: str = ""
 
+    # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.
+    # 비어 있으면 미로드 → 모든 예측이 Δ=0 폴백(서비스는 죽지 않음, 가이드 §2.2). 실제 artifact는
+    # scripts/ml/export_model.py가 만들며, 백엔드는 읽기만 한다(런타임 재학습 금지, 핸드오프 §3).
+    soil_delta_artifact_path: str = ""
+
     # 인증 — 분리 토큰 JWT(docs/auth-security.md). 시크릿은 운영에서 반드시 env로 덮어쓴다(§17).
     jwt_secret: str = "dev-only-insecure-secret-change-in-prod-min-32-bytes"
     jwt_algorithm: str = "HS256"
