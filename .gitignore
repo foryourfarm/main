@@ -52,3 +52,21 @@ Thumbs.db
 
 # 오픈API 벌크 수집 결과물(ML용 원본 데이터) — 스크립트만 레포에 넣고 CSV는 로컬 보관
 /data/soil/
+
+# 로컬 ML 연구 산출물 — 백엔드 인계서와 실제 backend 구현은 커밋
+/ML-Plan.md
+/crop-domain-knowledge.md
+/data/05_soil_test_actual.csv
+/data/07_crop_outcome.csv
+/data/crop_outcome_raw/
+/data/kosis_raw/
+/data/ml/
+/data/region_soil_profile_seed.csv
+/data/soil_farm_stat.csv
+/docs/ml/*
+!/docs/ml/backend_ml_handoff.md
+/scripts/ml/
+/scripts/build_crop_outcome*.py
+/scripts/build_soil_*.py
+/.claude/agents/soil-ml-*.md
+/.codex/agents/soil-ml-*.toml
