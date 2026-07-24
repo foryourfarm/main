@@ -101,6 +101,13 @@ _SOIL_FIELDS: list[tuple[str, str, str]] = [
 ]
 
 
+def _fmt_soil_value(v: object) -> str:
+    """토양 수치 표시 정리 — DB Numeric이 돌려주는 꼬리 0 제거(5.3000000000 -> 5.3). 토성 등 문자열은 그대로."""
+    if isinstance(v, Decimal):
+        return format(v.normalize(), "f")
+    return str(v)
+
+
 def format_farm_context(fc: FarmContext | None) -> str:
     """회원 밭 정보 -> 프롬프트 블록. 없으면 빈 문자열(비로그인/밭 없음 경로는 기존과 동일)."""
     if fc is None:
@@ -111,7 +118,7 @@ def format_farm_context(fc: FarmContext | None) -> str:
         lines.append(f"[지역] {fc.region_name}")
     lines.append(f"[파종 후 경과일] {fc.days_since_planting}일")
     soil = [
-        f"{label} {getattr(fc, attr)}{unit}"
+        f"{label} {_fmt_soil_value(getattr(fc, attr))}{unit}"
         for attr, label, unit in _SOIL_FIELDS
         if getattr(fc, attr) is not None
     ]

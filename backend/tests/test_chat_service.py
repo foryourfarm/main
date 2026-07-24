@@ -81,6 +81,13 @@ class TestFarmContext(unittest.TestCase):
         self.assertIn("pH 5.3", block)
         self.assertIn("유기물 25 g/kg", block)  # 단위 병기(ML §7.2)
 
+    def test_numeric_trailing_zeros_stripped(self):
+        # DB Numeric의 꼬리 0(5.3000000000)이 사용자 눈높이로 정리돼야(§2)
+        block = format_farm_context(self._fc(ph=Decimal("5.3000000000"), p2o5=Decimal("350.0000000000")))
+        self.assertIn("pH 5.3", block)
+        self.assertNotIn("5.30", block)
+        self.assertIn("유효인산 350 mg/kg", block)
+
     def test_missing_soil_says_no_info(self):
         # soil_state 전부 None이면 지어내지 않고 '정보 없음'
         self.assertIn("정보 없음", format_farm_context(self._fc()))
