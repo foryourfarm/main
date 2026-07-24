@@ -5,13 +5,16 @@
 
 import unittest
 from collections.abc import Iterator
+from decimal import Decimal
 
 from app.prompts.chatbot import (
     ASK_CROP_TEXT,
     REFERRAL_TEXT,
+    FarmContext,
     build_chat_prompt,
     format_context,
     format_crop,
+    format_farm_context,
     format_history,
 )
 from app.services.chat_service import LLM_ERROR_TEXT, SSE_DONE, stream_from_chunks
@@ -58,6 +61,34 @@ class TestPromptAssembly(unittest.TestCase):
     def test_empty_history_is_blank(self):
         self.assertEqual(format_history([]), "")
         self.assertEqual(format_history(None), "")
+
+
+class TestFarmContext(unittest.TestCase):
+    def _fc(self, **kw) -> FarmContext:
+        base = dict(crop_id=3, crop_name="상추", region_name="강릉시", days_since_planting=45)
+        base.update(kw)
+        return FarmContext(**base)
+
+    def test_none_is_blank(self):
+        self.assertEqual(format_farm_context(None), "")
+
+    def test_block_has_region_days_and_estimate_caveat(self):
+        block = format_farm_context(self._fc(ph=Decimal("5.3"), organic_matter=Decimal("25")))
+        self.assertIn("#회원 밭 정보", block)
+        self.assertIn("[지역] 강릉시", block)
+        self.assertIn("파종 후 경과일] 45일", block)
+        self.assertIn("추정치", block)  # 실측 아님 표기(§1-4)
+        self.assertIn("pH 5.3", block)
+        self.assertIn("유기물 25 g/kg", block)  # 단위 병기(ML §7.2)
+
+    def test_missing_soil_says_no_info(self):
+        # soil_state 전부 None이면 지어내지 않고 '정보 없음'
+        self.assertIn("정보 없음", format_farm_context(self._fc()))
+
+    def test_injected_into_prompt(self):
+        prompt = build_chat_prompt("물 언제?", ["근거"], crop_name="상추", farm=self._fc(ph=Decimal("6.1")))
+        self.assertIn("#회원 밭 정보", prompt)
+        self.assertIn("pH 6.1", prompt)
 
 
 class TestStreamFallback(unittest.TestCase):

@@ -17,3 +17,6 @@ class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
     crop_id: int | None = Field(default=None, ge=1)
     history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    # 로그인 유저가 특정 밭 기준 답변을 원할 때. 소유권 검증 후 밭 작물/토양을 프롬프트에 주입("내 땅 맞춤").
+    # 게스트는 무시된다(밭 컨텍스트는 인증 유저만).
+    farm_id: int | None = Field(default=None, ge=1)
