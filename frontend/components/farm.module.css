@@ -163,6 +163,135 @@
   color: var(--muted);
 }
 
+/* 장기/단기 탭 */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.tab {
+  border: 1px solid var(--card);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tab:hover {
+  border-color: var(--primary);
+}
+.tabActive {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.tabHint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 지속 위험 배너 — 이 탭에서 가장 먼저 보여야 한다 */
+.alertBanner {
+  border: 1px solid var(--bad);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #fdf4f4;
+}
+.alertTitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bad);
+}
+.alertList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.alertDates {
+  color: var(--muted);
+  font-size: 12px;
+}
+.calmBanner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f2f5ef;
+  color: var(--primary);
+  font-size: 13px;
+}
+.staleTag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fdf4f4;
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 단기 날짜 카드 */
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.dayCard {
+  border: 1px solid var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+.dayHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+.dayDate {
+  font-size: 13px;
+  font-weight: 700;
+}
+.dayStage {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--card);
+}
+.metrics > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.metrics dt {
+  color: var(--muted);
+}
+.metrics dd {
+  margin: 0;
+  font-weight: 700;
+}
+.dayRisks {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--bad);
+  line-height: 1.6;
+}
+
 /* 히트맵 */
 .heatmap {
   display: grid;

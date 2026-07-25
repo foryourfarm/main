@@ -6,6 +6,7 @@ import type {
   FarmCreated,
   FarmCreateInput,
   FarmMonthlyOutlook,
+  FarmShortTerm,
   Region,
 } from "@/types/farm";
 
@@ -18,6 +19,10 @@ export function fetchDashboard(): Promise<DashboardResponse> {
 
 export function fetchMonthlyOutlook(farmId: number): Promise<FarmMonthlyOutlook> {
   return authFetch<FarmMonthlyOutlook>(`/api/v1/farms/${farmId}/monthly-outlook`);
+}
+
+export function fetchShortTerm(farmId: number): Promise<FarmShortTerm> {
+  return authFetch<FarmShortTerm>(`/api/v1/farms/${farmId}/short-term`);
 }
 
 // 온보딩 선택지. regions/crops/districts는 공개 마스터지만 같은 래퍼로 통일한다.

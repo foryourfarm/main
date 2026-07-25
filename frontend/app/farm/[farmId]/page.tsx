@@ -2,81 +2,49 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { gradeTone } from "@/components/GradeBadge";
-import Limitations from "@/components/Limitations";
+import LongTermPanel from "@/components/LongTermPanel";
 import RequireAuth from "@/components/RequireAuth";
+import ShortTermPanel from "@/components/ShortTermPanel";
 import styles from "@/components/farm.module.css";
-import { fetchMonthlyOutlook } from "@/lib/farm";
-import type { FarmMonthlyOutlook, MonthlyOutlookEntry } from "@/types/farm";
-import { describeRiskFlag, stageLabel, statusLabel } from "@/types/farm";
 
-function MonthCell({ entry }: { entry: MonthlyOutlookEntry }) {
-  const tone = gradeTone(entry.grade);
-  return (
-    <div className={styles.cell}>
-      <div className={styles.cellMonth}>{entry.month}월</div>
-      <div className={`${styles.cellScore} ${tone}`}>{entry.score ?? "—"}</div>
-      <div className={`${styles.cellGrade} ${tone}`}>
-        {entry.grade ?? statusLabel(entry.status)}
-      </div>
-      <div className={styles.cellStage}>{stageLabel(entry.growth_stage, entry.status)}</div>
-      {/* 어느 칸이 전망 반영인지 구분해 보여준다 — 나머지는 평년치만 쓴 칸이다. */}
-      {entry.outlook_applied && <div className={styles.cellOutlook}>전망 반영</div>}
-    </div>
-  );
-}
+/** 장기(시즌 커리큘럼·예방) / 단기(당일~3일 대응) 분리 제공 — PRD.md §4.4~4.5. */
+const TABS = [
+  { key: "short", label: "단기 (오늘~며칠)", hint: "실시간 예보 기반 위험 대응" },
+  { key: "long", label: "장기 (올해 월별)", hint: "평년치·3개월전망 기반 시즌 조망" },
+] as const;
 
-/** 주의가 필요한 달만 모아 이유를 사람 말로 풀어준다(선제적 안내 — PRD 철학 3). */
-function RiskSummary({ months }: { months: MonthlyOutlookEntry[] }) {
-  const risky = months.filter(
-    (m) => m.status === "ok" && m.risk_flags.some((f) => f.endsWith(":outside_allowed")),
-  );
-  if (risky.length === 0) return null;
-  return (
-    <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>주의가 필요한 시기</h2>
-      <ul className={styles.riskList}>
-        {risky.map((m) => (
-          <li key={m.month}>
-            <strong>{m.month}월</strong> ({stageLabel(m.growth_stage, m.status)}) —{" "}
-            {m.risk_flags
-              .filter((f) => f.endsWith(":outside_allowed"))
-              .map(describeRiskFlag)
-              .join(", ")}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+type TabKey = (typeof TABS)[number]["key"];
 
-function OutlookBody({ farmId }: { farmId: number }) {
-  const [data, setData] = useState<FarmMonthlyOutlook | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchMonthlyOutlook(farmId)
-      .then(setData)
-      .catch(() => setError("월별 전망을 가져오지 못했어요. 잠시 후 다시 시도해 주세요."));
-  }, [farmId]);
-
-  if (error !== null) return <p className={styles.error}>{error}</p>;
-  if (data === null) return <p className={styles.notice}>불러오는 중…</p>;
+function FarmDetail({ farmId }: { farmId: number }) {
+  // 단기를 먼저 보여준다 — "오늘 뭘 해야 하나"가 매일 접속하는 이유다.
+  const [tab, setTab] = useState<TabKey>("short");
+  const active = TABS.find((t) => t.key === tab) ?? TABS[0];
 
   return (
     <>
-      <p className={styles.sub}>
-        {data.year}년 · {data.label}
-      </p>
-      <div className={styles.heatmap}>
-        {data.months.map((m) => (
-          <MonthCell key={m.month} entry={m} />
+      <div className={styles.tabs} role="tablist" aria-label="밭 상세 보기">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={t.key === tab}
+            className={`${styles.tab} ${t.key === tab ? styles.tabActive : ""}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
         ))}
       </div>
-      <RiskSummary months={data.months} />
-      <Limitations items={data.limitations} />
+      <p className={styles.tabHint}>{active.hint}</p>
+      {/* 탭 전환 시 언마운트해 각 패널이 자기 데이터만 조회하게 둔다(불필요한 호출 방지). */}
+      {tab === "short" ? (
+        <ShortTermPanel farmId={farmId} />
+      ) : (
+        <LongTermPanel farmId={farmId} />
+      )}
     </>
   );
 }
@@ -91,10 +59,10 @@ export default function FarmDetailPage() {
         <Link href="/dashboard" className={styles.backLink}>
           ← 내 밭
         </Link>
-        <h1 className={styles.h1}>월별 전망</h1>
+        <h1 className={styles.h1}>밭 상세</h1>
         <RequireAuth>
           {Number.isInteger(farmId) && farmId > 0 ? (
-            <OutlookBody farmId={farmId} />
+            <FarmDetail farmId={farmId} />
           ) : (
             <p className={styles.error}>잘못된 밭 주소입니다.</p>
           )}
