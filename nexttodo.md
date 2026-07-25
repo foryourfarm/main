@@ -1,10 +1,22 @@
 # 다음 할 일
 
-> 갱신: 2026-07-25. "✅ 완료 (dev 머지)"는 실제로 dev에 머지된 것만. 아래 "🔶 작업 완료 (미커밋)"는
-> `feature/soil-delta-shadow-p0` 브랜치에 로컬로만 있고 아직 커밋도 안 된 상태 — PR 분할해서 올려야 함.
+> 갱신: 2026-07-25. "✅ 완료 (dev 머지)"는 실제로 dev에 머지된 것만.
 > 상세 방향은 메모리/`docs/` 참고.
 
-## 🔶 작업 완료 (미커밋 — `feature/soil-delta-shadow-p0` 브랜치)
+## 🔶 커밋·PR 완료, dev 반영 대기 (5분할 중 1개만 dev 도달)
+
+**stacked PR 사고**: PR #21~25로 5분할해 올렸으나 #22~25가 dev가 아니라 **직전 feature 브랜치를
+base로** 머지돼서(#22→models, #23→service, #24→suitability, #25→region) dev엔 #21만 들어갔다.
+나머지 4개 커밋은 `feature/dashboard-weather-climatology`에 dev 위 선형으로 쌓여 있어, 이 브랜치를
+dev로 한 번 더 PR해서 회수한다(내용은 #22~25에서 이미 리뷰됨).
+
+| 커밋 | 내용 | dev 반영 |
+|---|---|---|
+| `95f1cee` | P0 토양변화 shadow 로그 모델 + 마이그레이션 | ✅ PR #21 |
+| `4c2afa7` | P0 shadow 추론 서비스 + 테스트 | ⏳ 회수 PR |
+| `4b7e105` | P2 생육단계 resolver + 적합도 API | ⏳ 회수 PR |
+| `1472b72` | region 마스터 256개 시드 | ⏳ 회수 PR |
+| `a37a800` | 대시보드 집계 API + 기상 평년치 ETL | ⏳ 회수 PR |
 
 **P0: 토양변화 shadow 추론 — 뼈대만**
 - 모델 `soil_state_snapshot`/`prediction_shadow` + `0006` 마이그레이션(DB 적용됨)
@@ -26,7 +38,7 @@
 - `scripts/load_weather_climatology.py`(관측 5년 평균 근사, 102지역×12월=1224행, `source='obs_mean_2021_2025'`, temp_avg+rainfall만 — night_min/sunlight 소스 없어 null)
 - 실동작 검증: 테스트 밭을 커버지역(순천시)으로 옮겨 대시보드 카드 75.6점 A 등급 확인. 전체 66개 테스트 2회 통과.
 
-**PR 분할 권장 순서**: 1) P0 모델+마이그레이션 → 2) P0 DTO+추론+서비스+테스트 → 3) P2 전체 → 4) region 시드 → 5) 대시보드+weather ETL.
+전체 66개 백엔드 테스트 통과(`backend/.venv/Scripts/python.exe -m unittest discover -s tests`).
 
 ## ✅ 완료 (dev 머지)
 
@@ -49,8 +61,6 @@
 - 팀원용 메인로직 구현 가이드 `docs/main-logic-guide.md`(P0~P3 + ML 데이터 최신화 지속반영). 루트 문서/PDF를 `docs/{design,data,api-specs}`로 정리. `docs/README.md` 인덱스. **PR #20**.
 
 ## ⏭️ 미착수 / 다음
-
-**커밋/PR (가장 먼저 — 위 "🔶 작업 완료" 5분할해서 dev로)**
 
 **메인 로직 백엔드 — 블로킹된 것**
 - P0 exporter: `scripts/ml/final_model.py` + `data/ml/training_rows.csv`를 리포에 넣어야 진짜 artifact 생성 가능(둘 다 현재 없음)
