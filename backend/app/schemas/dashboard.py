@@ -1,0 +1,29 @@
+from datetime import date
+from typing import Literal
+
+from pydantic import BaseModel
+
+
+class DashboardCard(BaseModel):
+    """대시보드 작물 카드 1장. 적합도 요약 + 헤더(작물·지역·단계) + 타입 배지.
+
+    단기(당일 기상·위험·행동)는 이 카드에 없다 — 기상 실시간 연동 전이라 별도(단기 탭).
+    """
+
+    farm_id: int
+    crop_id: int
+    crop_name: str | None
+    region_name: str | None
+    crop_type: Literal["orchard", "field"]  # 🌳 과수 / 🌾 밭
+    growth_stage: str | None
+    growth_stage_label: str | None
+    score: float | None
+    grade: str | None  # S | A | B | C | null
+    status: Literal["ok", "out_of_season", "insufficient_data"]
+    label: str  # 항상 "문헌 기반 예상 적합도"
+    limitations: list[str]
+
+
+class DashboardResponse(BaseModel):
+    as_of: date
+    farms: list[DashboardCard]

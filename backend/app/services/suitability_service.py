@@ -1,13 +1,23 @@
-"""DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진."""
+"""DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
 from collections.abc import Mapping, Sequence
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models import CropGrowthGuide
+from app.core.errors import AppError
+from app.models import CropGrowthGuide, SoilState, UserFarm, WeatherClimatology
+from app.services.growth_stage_service import resolve_growth_stage
 
-ALLOWED_BOUNDARY_SCORE = 60.0  # [확인 필요] B등급 하한을 허용구간 끝점으로 사용.
+ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
+
+# 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
+SUITABILITY_LABEL = "문헌 기반 예상 적합도"
+# temp_day는 일 실측 컬럼이 없어 월평년으로 근사(승인됨). 조용한 대체 아님 — 응답/UI에 병기.
+TEMP_DAY_LIMITATION = "일 기온(temp_day)은 실측이 아니라 월평년(temp_avg_normal) 근사입니다."
+# 사과 착색/성숙은 문헌이 한 구간이라 근사 분리(품종 정보 부재 → 이론 추정).
+APPLE_STAGE_LIMITATION = "사과 착색/성숙 단계 구분은 품종 정보 부재로 이론 추정입니다."
 
 # DB.md §3.5 C3. temp_day는 현재 캐시에 대응 컬럼이 없어 호출자가 별도 공급해야 한다.
 INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
@@ -117,4 +127,84 @@ def calculate_suitability(
         "grade": _grade(score),
         "breakdown": breakdown,
         "risk_flags": risk_flags,
+    }
+
+
+def gather_indicator_values(
+    soil: SoilState | None, clim: WeatherClimatology | None
+) -> dict[str, float | Decimal | None]:
+    """지표 값을 데이터원에서 모은다. 토양은 밭 실측 추정, 기상은 지역 월평년.
+
+    temp_day는 월평년 근사(승인됨). 결측은 None으로 두고 룰 엔진이 제외한다(§12 결측 방어).
+    """
+    return {
+        "temp_day": clim.temp_avg_normal if clim else None,  # 월평년 근사
+        "temp_night_min": clim.temp_night_min_normal if clim else None,
+        "rainfall": clim.rainfall_normal if clim else None,
+        "sunlight": clim.sunlight_normal if clim else None,
+        "ph": soil.ph if soil else None,
+        "ec": soil.ec if soil else None,
+        "p2o5": soil.p2o5 if soil else None,
+        "organic": soil.organic_matter if soil else None,
+    }
+
+
+def derive_status(has_guides: bool, score: float | None) -> str:
+    """적합도 결과의 상태. 지침 없음=out_of_season(예: 배 겨울), 점수 없음=insufficient_data."""
+    if not has_guides:
+        return "out_of_season"
+    if score is None:
+        return "insufficient_data"
+    return "ok"
+
+
+def compute_farm_suitability(
+    db: Session, user_id: int, farm_id: int, on_date: date
+) -> dict[str, object]:
+    """밭 단위 '문헌 기반 예상 적합도'. 소유권 스코프 → 단계 resolve → 값 수집 → 룰 계산.
+
+    소유권: user_id로 스코프해 없으면 404(남의 밭 존재를 노출하지 않음, §11).
+    캐시(suitability_result)는 (지역,작물,단계) baseline 전용이라 밭 고유 토양 결과를 넣지 않는다
+    (지역 baseline은 region_soil_profile+기상 적재 후 별도 upsert, §17).
+    """
+    farm = (
+        db.query(UserFarm)
+        .filter(UserFarm.user_id == user_id, UserFarm.id == farm_id)
+        .first()
+    )
+    if farm is None:
+        raise AppError(404, "FARM_NOT_FOUND", "밭을 찾을 수 없습니다.")
+
+    stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, on_date)
+    guides = load_guides(db, farm.crop_id, stage or "")
+    soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
+    clim = (
+        db.query(WeatherClimatology)
+        .filter(
+            WeatherClimatology.region_id == farm.region_id,
+            WeatherClimatology.month == on_date.month,
+        )
+        .first()
+    )
+
+    result = calculate_suitability(guides, gather_indicator_values(soil, clim))
+    status = derive_status(bool(guides), result["score"])
+
+    limitations = [TEMP_DAY_LIMITATION]
+    if stage in ("coloring", "maturity"):
+        limitations.append(APPLE_STAGE_LIMITATION)
+
+    return {
+        "farm_id": farm.id,
+        "crop_id": farm.crop_id,
+        "region_id": farm.region_id,
+        "growth_stage": stage,
+        "as_of": on_date,
+        "status": status,
+        "score": result["score"],
+        "grade": result["grade"],
+        "label": SUITABILITY_LABEL,
+        "breakdown": result["breakdown"],
+        "risk_flags": result["risk_flags"],
+        "limitations": limitations,
     }
