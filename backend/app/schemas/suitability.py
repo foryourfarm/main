@@ -11,6 +11,9 @@ class IndicatorBreakdown(BaseModel):
     score: float | None = None
     weight: float | None = None
     status: str  # optimal | allowed | risk | missing | invalid | invalid_guide
+    # 장기예보 보정이 적용된 지표만 채워진다(value = baseline + correction). 근거 제시용.
+    baseline: float | None = None
+    correction: float | None = None
 
 
 class FarmSuitability(BaseModel):
@@ -42,6 +45,8 @@ class MonthlyOutlookEntry(BaseModel):
     score: float | None
     grade: str | None
     risk_flags: list[str]
+    # 그 달 기온·강수에 3개월전망 보정이 반영됐는지. false면 평년치만 쓴 칸이다.
+    outlook_applied: bool = False
 
 
 class FarmMonthlyOutlook(BaseModel):

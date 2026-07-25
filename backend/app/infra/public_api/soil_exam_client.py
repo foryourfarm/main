@@ -77,7 +77,7 @@ def _parse(item: dict[str, str | None]) -> SoilExam:
 
 def get_soil_exam(pnu_code: str) -> SoilExam | None:
     """지번코드(PNU) 단위 최신 검정 결과 1건 조회."""
-    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.soil_api_key, "PNU_CD": pnu_code})
+    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.chemistry_api, "PNU_CD": pnu_code})
     return _parse(items[0]) if items else None
 
 
@@ -86,7 +86,7 @@ def get_soil_exam_list(stdg_code: str, page_no: int = 1, page_size: int = 10) ->
     items = fetch_items(
         f"{BASE_URL}/getSoilExamList",
         {
-            "serviceKey": settings.soil_api_key,
+            "serviceKey": settings.chemistry_api,
             "STDG_CD": stdg_code,
             "Page_No": str(page_no),
             "Page_Size": str(page_size),

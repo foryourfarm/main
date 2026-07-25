@@ -43,7 +43,7 @@ def _to_float(raw: str | None) -> float | None:
 def get_daily_weather(point_code: str, year: str) -> list[WeatherObservation]:
     """관측지점×연도 단위 조회. 실패 시 지수 백오프로 재시도(CLAUDE.md §12)."""
     params = {
-        "serviceKey": settings.weather_api_key,
+        "serviceKey": settings.weather_api,
         "Site": point_code,  # [확인 필요] 실제 파라미터명
         "Year": year,  # [확인 필요] 실제 파라미터명
     }
