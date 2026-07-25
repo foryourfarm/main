@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Your Farm - 농사 도우미</title>
+
+    <!--
+    ========== 폰트 임베드 코드 안내 ==========
+    아래 주석 위치에 Google Fonts의 'get embed code' 코드를 붙여넣으세요.
+
+    1. https://fonts.google.com 접속
+    2. "Noto Sans KR" 검색
+    3. 가중치: Regular (400), Bold (700) 선택
+    4. "Embed code" 클릭
+    5. <link ...> 코드를 아래에 붙여넣기
+
+    예시:
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    ======================================== -->
+
+    <!-- [PASTE GOOGLE FONTS EMBED CODE HERE] -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Semantic Colors */
+            --color-safe: #4CAF50;
+            --color-warning: #FDD835;
+            --color-danger: #F44336;
+            --color-info: #2196F3;
+
+            /* Backgrounds */
+            --color-safe-light: #C8E6C9;
+            --color-warning-light: #FFF9C4;
+            --color-danger-light: #FFCDD2;
+            --color-info-light: #BBDEFB;
+
+            /* Neutral */
+            --color-white: #FFFFFF;
+            --color-light-gray: #F0F0F0;
+            --color-medium-gray: #9E9E9E;
+            --color-dark-gray: #616161;
+            --color-black: #212121;
+
+            /* Font */
+            --font-main: 'Noto Sans KR', sans-serif;
+
+            /* Spacing (시작: 16px) */
+            --spacing-sm: 12px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --spacing-2xl: 48px;
+            --spacing-3xl: 64px;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--color-white);
+            color: var(--color-black);
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #f5f5f5;
+        }
+
+        /* ===== 헤더 ===== */
+        .header {
+            background: var(--color-safe);
+            color: var(--color-white);
+            padding: var(--spacing-lg) var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .user-status {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .voice-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: var(--color-white);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .voice-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* ===== 음성 자막 박스 ===== */
+        .voice-subtitle {
+            background: var(--color-light-gray);
+            padding: var(--spacing-md);
+            margin: var(--spacing-md);
+            border-radius: 8px;
+            border-left: 4px solid var(--color-info);
+            font-size: 16px;
+            color: var(--color-dark-gray);
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.dark-mode .voice-subtitle {
+            background: #2a2a2a;
+            color: #e0e0e0;
+        }
+
+        .voice-subtitle.voice-active {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* ===== 네비게이션 ===== */
+        .nav-tabs {
+            display: flex;
+            background: var(--color-white);
+            border-bottom: 3px solid var(--color-light-gray);
+            overflow-x: auto;
+            padding: 0 var(--spacing-md);
+        }
+
+        body.dark-mode .nav-tabs {
+            background: #1a1a1a;
+            border-bottom-color: #3a3a3a;
+        }
+
+        .nav-tab {
+            padding: var(--spacing-lg) var(--spacing-md);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-main);
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-medium-gray);
+            border-bottom: 4px solid transparent;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            min-height: 64px;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        body.dark-mode .nav-tab {
+            color: #999;
+        }
+
+        .nav-tab:hover {
+            color: var(--color-safe);
+        }
+
+        .nav-tab.active {
+            color: var(--color-safe);
+            border-bottom-color: var(--color-safe);
+        }
+
+        /* ===== 메인 콘텐츠 ===== */
+        .container {
+            max-width: 100%;
+            padding: var(--spacing-lg) var(--spacing-md);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--spacing-md) var(--spacing-md);
+            }
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+            animation: slideUp 0.4s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== 카드 ===== */
+        .card {
+            background: var(--color-white);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .card {
+            background: #2a2a2a;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+
+        /* ===== 적합도 카드 (거대) ===== */
+        .suitability-card {
+            text-align: center;
+            padding: var(--spacing-xl);
+            border-radius: 16px;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .suitability-emoji {
+            font-size: 64px;
+            margin-bottom: var(--spacing-lg);
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .suitability-card.grade-safe {
+            background: var(--color-safe-light);
+            color: #1B5E20;
+        }
+
+        .suitability-card.grade-warning {
+            background: var(--color-warning-light);
+            color: #F57F17;
+        }
+
+        .suitability-card.grade-danger {
+            background: var(--color-danger-light);
+            color: #B71C1C;
+        }
+
+        .suitability-card.grade-info {
+            background: var(--color-info-light);
+            color: #0D47A1;
+        }
+
+        .suitability-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .suitability-score {
+            font-size: 56px;
+            font-weight: 700;
+            margin: var(--spacing-xl) 0;
+        }
+
+        .suitability-description {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: var(--spacing-lg);
+            max-width: 100%;
+        }
+
+        /* ===== 경고 배너 ===== */
+        .alert-banner {
+            padding: var(--spacing-xl) var(--spacing-lg);
+            border-radius: 12px;
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+        }
+
+        .alert-banner.danger {
+            background: var(--color-danger);
+            color: var(--color-white);
+        }
+
+        .alert-banner.warning {
+            background: var(--color-warning);
+            color: var(--color-black);
+        }
+
+        .alert-banner.safe {
+            background: var(--color-safe-light);
+            color: #1B5E20;
+        }
+
+        .alert-icon {
+            font-size: 40px;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .alert-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .alert-text {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .alert-banner.danger .alert-text {
+            font-weight: 700;
+        }
+
+        /* ===== 버튼 ===== */
+        .button {
+            padding: var(--spacing-lg) var(--spacing-xl);
+            border: none;
+            border-radius: 12px;
+            font-family: var(--font-main);
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-md);
+            min-height: 56px;
+            min-width: 100%;
+        }
+
+        @media (min-width: 768px) {
+            .button {
+                min-width: auto;
+                width: auto;
+            }
+        }
+
+        .button-primary {
+            background: var(--color-safe);
+            color: var(--color-white);
+        }
+
+        .button-primary:hover {
+            background: #388E3C;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .button-primary:active {
+            transform: translateY(0);
+        }
+
+        .button-secondary {
+            background: var(--color-white);
+            color: var(--color-safe);
+            border: 2px solid var(--color-safe);
+        }
+
+        .button-secondary:hover {
+            background: var(--color-safe-light);
+            transform: translateY(-2px);
+        }
+
+        .button-warning {
+            background: var(--color-warning);
+            color: var(--color-black);
+        }
+
+        .button-warning:hover {
+            background: #F9A825;
+            transform: translateY(-2px);
+        }
+
+        /* ===== 데이터 항목 ===== */
+        .data-item {
+            padding: var(--spacing-lg);
+            background: var(--color-light-gray);
+            border-radius: 12px;
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+        }
+
+        body.dark-mode .data-item {
+            background: #2a2a2a;
+        }
+
+        .data-label {
+            font-size: 14px;
+            color: var(--color-dark-gray);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .data-value {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--color-safe);
+        }
+
+        .data-value.warning {
+            color: var(--color-warning);
+        }
+
+        .data-value.danger {
+            color: var(--color-danger);
+        }
+
+        .data-value.info {
+            color: var(--color-info);
+        }
+
+        /* ===== 폼 ===== */
+        .form-group {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .form-label {
+            display: block;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-md);
+            color: var(--color-black);
+        }
+
+        body.dark-mode .form-label {
+            color: var(--color-white);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--spacing-lg);
+            border: 2px solid var(--color-medium-gray);
+            border-radius: 12px;
+            font-family: var(--font-main);
+            font-size: 16px;
+            color: var(--color-black);
+            transition: all 0.3s ease;
+            min-height: 56px;
+        }
+
+        body.dark-mode .form-input {
+            background: #2a2a2a;
+            border-color: #4a4a4a;
+            color: var(--color-white);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-safe);
+            box-shadow: 0 0 0 4px var(--color-safe-light);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+            padding: var(--spacing-md);
+            background: var(--color-light-gray);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .checkbox-item {
+            background: #2a2a2a;
+        }
+
+        .checkbox-item:hover {
+            transform: translateX(4px);
+        }
+
+        .checkbox-item input {
+            width: 32px;
+            height: 32px;
+            cursor: pointer;
+            accent-color: var(--color-safe);
+        }
+
+        .checkbox-label {
+            font-size: 16px;
+            font-weight: 600;
+            flex: 1;
+        }
+
+        /* ===== 채팅 ===== */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+            background: var(--color-white);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        body.dark-mode .chat-container {
+            background: #2a2a2a;
+        }
+
+        .chat-header {
+            background: var(--color-safe);
+            color: var(--color-white);
+            padding: var(--spacing-lg);
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-lg);
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .message.bot {
+            justify-content: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: var(--spacing-lg);
+            border-radius: 12px;
+            font-size: 16px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message.bot .message-bubble {
+            background: var(--color-light-gray);
+            color: var(--color-black);
+        }
+
+        body.dark-mode .message.bot .message-bubble {
+            background: #3a3a3a;
+            color: var(--color-white);
+        }
+
+        .message.user .message-bubble {
+            background: var(--color-safe);
+            color: var(--color-white);
+        }
+
+        .chat-input {
+            padding: var(--spacing-lg);
+            border-top: 2px solid var(--color-light-gray);
+            display: flex;
+            gap: var(--spacing-md);
+        }
+
+        body.dark-mode .chat-input {
+            border-top-color: #3a3a3a;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: 2px solid var(--color-medium-gray);
+            border-radius: 10px;
+            font-family: var(--font-main);
+            font-size: 16px;
+            color: var(--color-black);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .chat-input input {
+            background: #3a3a3a;
+            border-color: #4a4a4a;
+            color: var(--color-white);
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: var(--color-safe);
+            box-shadow: 0 0 0 4px var(--color-safe-light);
+        }
+
+        .chat-input button {
+            padding: var(--spacing-lg) var(--spacing-xl);
+            background: var(--color-safe);
+            color: var(--color-white);
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        .chat-input button:hover {
+            background: #388E3C;
+            transform: scale(1.05);
+        }
+
+        /* ===== 그리드 ===== */
+        .grid {
+            display: grid;
+            gap: var(--spacing-lg);
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== 페이지 제목 ===== */
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xl);
+            color: var(--color-black);
+        }
+
+        body.dark-mode .page-title {
+            color: var(--color-white);
+        }
+
+        /* ===== 오프라인 배지 ===== */
+        .offline-badge {
+            position: fixed;
+            bottom: var(--spacing-lg);
+            right: var(--spacing-lg);
+            background: var(--color-warning);
+            color: var(--color-black);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            display: none;
+            z-index: 100;
+        }
+
+        .offline-badge.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="logo">🌾 For Your Farm</div>
+        <div class="header-right">
+            <div class="user-info">
+                <div class="user-name">김귀농</div>
+                <div class="user-status">서울 강서구 · 오이</div>
+            </div>
+            <button class="voice-toggle" id="voiceToggle" title="음성 가이드">🔊</button>
+        </div>
+    </header>
+
+    <!-- 음성 자막 -->
+    <div class="voice-subtitle" id="voiceSubtitle" style="display: none;">
+        🔊 음성 가이드: 오이 밭의 상태를 확인해보세요. 지금 안전합니다.
+    </div>
+
+    <!-- 네비게이션 -->
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard">📊 대시보드</button>
+        <button class="nav-tab" data-tab="longterm">📈 장기</button>
+        <button class="nav-tab" data-tab="shortterm">⚡ 단기</button>
+        <button class="nav-tab" data-tab="chat">💬 상담</button>
+        <button class="nav-tab" data-tab="settings">⚙️ 설정</button>
+    </div>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="container">
+        <!-- 대시보드 탭 -->
+        <div id="dashboard" class="content active">
+            <h1 class="page-title">오늘의 농사</h1>
+
+            <!-- 적합도 카드 - S 등급 -->
+            <div class="suitability-card grade-safe">
+                <div class="suitability-emoji">🟢</div>
+                <div class="suitability-title">적합도 우수</div>
+                <div class="suitability-score">85</div>
+                <div class="suitability-description">
+                    오이 재배<br>지금 좋은 날씨입니다.
+                </div>
+                <button class="button button-primary" onclick="showVoiceGuide('현재 오이 생육 조건이 최적입니다. 점수 85점으로 우수합니다.')">
+                    ℹ️ 자세히 보기
+                </button>
+            </div>
+
+            <!-- 위험 신호 -->
+            <div class="alert-banner danger">
+                <div class="alert-icon">🔴⚠️</div>
+                <div class="alert-title">폭우 경보!</div>
+                <div class="alert-text">
+                    지금 바로 밭의 물을 빼세요!<br>
+                    오후 2시 ~ 7시에 폭우가 옵니다.
+                </div>
+                <button class="button button-primary" onclick="showVoiceGuide('폭우 경보가 발표되었습니다. 지금 바로 밭의 물을 정리해야 합니다.')">
+                    🚨 지금 확인하기
+                </button>
+            </div>
+
+            <!-- 주의 신호 -->
+            <div class="alert-banner warning">
+                <div class="alert-icon">🟡⚠️</div>
+                <div class="alert-title">내일 기온이 내려갑니다</div>
+                <div class="alert-text">
+                    환기를 더 많이 해주세요.<br>
+                    예상: 12°C → 5°C
+                </div>
+                <button class="button button-secondary">더 알아보기</button>
+            </div>
+
+            <!-- 안전 신호 -->
+            <div class="alert-banner safe">
+                <div class="alert-icon">🟢✓</div>
+                <div class="alert-title">기상 조건 최적!</div>
+                <div class="alert-text">
+                    앞으로 5일은 맑은 날씨가 계속됩니다.<br>
+                    거름을 주어도 좋은 시기입니다.
+                </div>
+            </div>
+
+            <!-- 오늘의 할 일 -->
+            <div class="card">
+                <h2 style="font-size: 24px; font-weight: 700; margin-bottom: var(--spacing-lg);">
+                    🎯 오늘의 할 일
+                </h2>
+                <button class="button button-primary" onclick="showVoiceGuide('오늘의 추천 행동입니다. 첫째: 밭의 물을 뺀다. 둘째: 환기 시간을 늘린다. 셋째: 해가 질 때 물을 한 번 더 준다.')">
+                    📝 추천 행동 3가지 보기
+                </button>
+            </div>
+        </div>
+
+        <!-- 장기 탭 -->
+        <div id="longterm" class="content">
+            <h1 class="page-title">📅 시즌 전망</h1>
+
+            <div class="card">
+                <h2 style="font-size: 20px; font-weight: 700; margin-bottom: var(--spacing-lg);">
+                    7월 ~ 9월 오이 재배
+                </h2>
+
+                <div class="suitability-card grade-safe" style="margin-bottom: var(--spacing-lg);">
+                    <div class="suitability-emoji">🟢</div>
+                    <div class="suitability-score">76</div>
+                    <p style="font-size: 16px; margin: var(--spacing-lg) 0;">
+                        올해 여름이 길어질 것 같습니다.<br>
+                        수확량이 많을 가능성이 높습니다.
+                    </p>
+                </div>
+
+                <h3 style="font-size: 20px; font-weight: 700; margin: var(--spacing-lg) 0 var(--spacing-md);">
+                    📊 월별 전망
+                </h3>
+
+                <div class="grid grid-2">
+                    <div class="data-item">
+                        <div class="data-label">7월 (현재)</div>
+                        <div style="font-size: 32px; margin: var(--spacing-md) 0;">🟢</div>
+                        <div class="data-label">우수</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-label">8월</div>
+                        <div style="font-size: 32px; margin: var(--spacing-md) 0;">🟡</div>
+                        <div class="data-label">주의</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-label">9월</div>
+                        <div style="font-size: 32px; margin: var(--spacing-md) 0;">🟡</div>
+                        <div class="data-label">주의</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 단기 탭 -->
+        <div id="shortterm" class="content">
+            <h1 class="page-title">⚡ 오늘의 기상</h1>
+
+            <div class="grid grid-2">
+                <div class="data-item">
+                    <div class="data-label">🌡️ 기온</div>
+                    <div class="data-value">28°C</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">💧 습도</div>
+                    <div class="data-value">68%</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">💨 풍속</div>
+                    <div class="data-value">3.5m</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">🌧️ 강수</div>
+                    <div class="data-value warning">15mm</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="font-size: 24px; font-weight: 700; margin-bottom: var(--spacing-lg);">
+                    💧 물 주기
+                </h2>
+
+                <div class="suitability-card grade-safe">
+                    <div class="suitability-emoji">✓</div>
+                    <div class="suitability-title">오늘 물을 주세요</div>
+                    <div class="suitability-description">
+                        토양 수분이 필요합니다<br>
+                        아침 8시 또는 저녁 6시에
+                    </div>
+                </div>
+
+                <h3 style="font-size: 20px; font-weight: 700; margin: var(--spacing-lg) 0 var(--spacing-md);">
+                    추천
+                </h3>
+
+                <div class="grid grid-2">
+                    <div class="data-item">
+                        <div class="data-label">시간</div>
+                        <div class="data-value info">아침 8시</div>
+                    </div>
+                    <div class="data-item">
+                        <div class="data-label">양</div>
+                        <div class="data-value info">20L/평</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상담 탭 -->
+        <div id="chat" class="content">
+            <h1 class="page-title">💬 농사 상담</h1>
+
+            <div class="chat-container">
+                <div class="chat-header">
+                    농사 도우미 🌾
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message bot">
+                        <div class="message-bubble">
+                            👋 안녕하세요!<br>
+                            농사 궁금한 점을 물어보세요.
+                        </div>
+                    </div>
+                    <div class="message bot">
+                        <div class="message-bubble">
+                            현재 오이 재배 중이신데,<br>
+                            뭔가 도와드릴까요?
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="messageInput" placeholder="여기에 입력..." />
+                    <button id="sendMessage">📤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 설정 탭 -->
+        <div id="settings" class="content">
+            <h1 class="page-title">⚙️ 설정</h1>
+
+            <div class="card">
+                <h2 style="font-size: 24px; font-weight: 700; margin-bottom: var(--spacing-lg);">
+                    밭 정보
+                </h2>
+
+                <div class="form-group">
+                    <label class="form-label">밭 이름</label>
+                    <input type="text" class="form-input" value="강서구 뒷산밭" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">주요 작물 (모두 고르세요)</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" checked />
+                            <span class="checkbox-label">🥒 오이</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" />
+                            <span class="checkbox-label">🥬 배추</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" />
+                            <span class="checkbox-label">🌶️ 고추</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" />
+                            <span class="checkbox-label">🥬 상추</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" />
+                            <span class="checkbox-label">🥔 감자</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: var(--spacing-lg); margin-top: var(--spacing-xl);">
+                    <button class="button button-primary" style="flex: 1;">💾 저장</button>
+                    <button class="button button-secondary" style="flex: 1;">❌ 취소</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 style="font-size: 20px; font-weight: 700; margin-bottom: var(--spacing-lg);">
+                    음성 설정
+                </h2>
+
+                <label class="checkbox-item">
+                    <input type="checkbox" id="voiceEnabled" checked />
+                    <span class="checkbox-label">음성 가이드 켜기</span>
+                </label>
+
+                <div style="margin-top: var(--spacing-lg); padding: var(--spacing-lg); background: var(--color-light-gray); border-radius: 12px;">
+                    <p style="font-size: 16px; color: var(--color-dark-gray);">
+                        💡 팁: 음성 가이드를 켜면 주요 정보가 자동으로 읽어집니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 오프라인 배지 -->
+    <div class="offline-badge" id="offlineBadge">
+        📡 오프라인 모드
+    </div>
+
+    <script>
+        // 탭 전환
+        const tabs = document.querySelectorAll('.nav-tab');
+        const contents = document.querySelectorAll('.content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+
+                tab.classList.add('active');
+                const tabName = tab.getAttribute('data-tab');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+
+        // 음성 가이드
+        const voiceToggle = document.getElementById('voiceToggle');
+        const voiceSubtitle = document.getElementById('voiceSubtitle');
+        let voiceEnabled = true;
+
+        voiceToggle.addEventListener('click', () => {
+            voiceEnabled = !voiceEnabled;
+            voiceToggle.style.opacity = voiceEnabled ? '1' : '0.5';
+        });
+
+        function showVoiceGuide(text) {
+            if (voiceEnabled) {
+                voiceSubtitle.textContent = '🔊 음성 가이드: ' + text;
+                voiceSubtitle.classList.add('voice-active');
+                voiceSubtitle.style.display = 'flex';
+
+                setTimeout(() => {
+                    voiceSubtitle.classList.remove('voice-active');
+                    voiceSubtitle.style.display = 'none';
+                }, 4000);
+            }
+        }
+
+        // 초기 음성 가이드
+        setTimeout(() => {
+            showVoiceGuide('오이 밭의 상태를 확인해보세요. 현재 안전합니다.');
+        }, 500);
+
+        // 챗봇
+        const messageInput = document.getElementById('messageInput');
+        const sendMessage = document.getElementById('sendMessage');
+        const chatMessages = document.getElementById('chatMessages');
+
+        sendMessage.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        function sendChatMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.innerHTML = `<div class="message-bubble">${message}</div>`;
+            chatMessages.appendChild(userMsg);
+
+            messageInput.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            setTimeout(() => {
+                const botMsg = document.createElement('div');
+                botMsg.className = 'message bot';
+                const responses = [
+                    '좋은 질문이에요! 오이 재배에서는...',
+                    '그렇습니다. 이 시기가 매우 중요합니다.',
+                    '네, 토양 상태를 고려하면...'
+                ];
+                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                botMsg.innerHTML = `<div class="message-bubble">${randomResponse}</div>`;
+                chatMessages.appendChild(botMsg);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 600);
+        }
+
+        // 이벤트 리스너 수정
+        document.getElementById('sendMessage').addEventListener('click', sendChatMessage);
+    </script>
+</body>
+</html>

@@ -70,3 +70,16 @@ Thumbs.db
 /scripts/build_soil_*.py
 /.claude/agents/soil-ml-*.md
 /.codex/agents/soil-ml-*.toml
+
+# 개인용
+.obsidian/
+
+.obsidian/workspace-mobile.json
+.obsidian/workspace.json
+.obsidian/app.json
+.obsidian/appearance.json
+.obsidian/community-plugins.json
+.obsidian/core-plugins.json
+.obsidian/graph.json
+
+.obsidian/plugins\obsidian-git/

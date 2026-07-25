@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For Your Farm - 맞춤형 농사 가이드</title>
+
+    <!-- Font 1: Pretendard + Inter (현대적 미니멀) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Colors - Design01 팔레트 */
+            --primary: #2D5016;
+            --secondary: #D4AF37;
+            --tertiary: #8B6F47;
+            --success: #A4D65E;
+            --warning: #E8A76B;
+            --error: #C54245;
+            --bg-main: #FAFAF7;
+            --bg-card: #E8E6E1;
+            --text-primary: #1A1815;
+            --text-secondary: #4A4643;
+            --border: #D0CEC9;
+
+            /* Dark mode */
+            --dark-bg: #1A1815;
+            --dark-text: #F5F3F0;
+
+            /* Fonts - Font 1: 현대적 미니멀 */
+            --font-body: 'Pretendard', sans-serif;
+            --font-heading: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.6;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode {
+            background-color: var(--dark-bg);
+            color: var(--dark-text);
+        }
+
+        /* ===== 헤더 ===== */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1f3d0f 100%);
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(45, 80, 22, 0.1);
+        }
+
+        .logo {
+            font-family: var(--font-heading);
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .user-location {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .dark-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .dark-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* ===== 네비게이션 ===== */
+        .nav {
+            display: flex;
+            background: var(--bg-main);
+            border-bottom: 2px solid var(--bg-card);
+            padding: 0 32px;
+        }
+
+        body.dark-mode .nav {
+            background: var(--dark-bg);
+            border-bottom-color: #3A3A35;
+        }
+
+        .nav-item {
+            padding: 16px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .nav-item {
+            color: #AAA;
+        }
+
+        .nav-item:hover {
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        /* ===== 페이지 콘텐츠 ===== */
+        .content {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 32px;
+            min-height: calc(100vh - 200px);
+        }
+
+        .content.active {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== 온보딩 ===== */
+        .onboarding {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .onboarding h2 {
+            font-family: var(--font-heading);
+            font-size: 28px;
+            margin-bottom: 40px;
+            color: var(--text-primary);
+        }
+
+        .onboarding-form {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        body.dark-mode .onboarding-form {
+            background: #2A2925;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 700;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--bg-card);
+            border-radius: 8px;
+            font-family: var(--font-body);
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .form-input {
+            background: #3A3A35;
+            border-color: #4A4643;
+            color: var(--dark-text);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        body.dark-mode .checkbox-item {
+            background: #3A3A35;
+        }
+
+        .checkbox-item input {
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .button {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            background: #1f3d0f;
+            transform: translateY(-2px);
+        }
+
+        /* ===== 작물 카드 그리드 (대시보드) ===== */
+        .crop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .crop-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .crop-card {
+            background: #2A2925;
+            border-color: #4A4643;
+        }
+
+        .crop-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-4px);
+        }
+
+        .crop-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .crop-type {
+            background: var(--bg-card);
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        body.dark-mode .crop-type {
+            background: #3A3A35;
+            color: #CCC;
+        }
+
+        .crop-title {
+            font-family: var(--font-heading);
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .crop-grade {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 10px;
+        }
+
+        body.dark-mode .crop-grade {
+            background: #3A3A35;
+        }
+
+        .grade-badge {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            flex-shrink: 0;
+            position: relative;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .grade-s { background: linear-gradient(135deg, var(--success) 0%, #8AC24C 100%); }
+        .grade-a { background: linear-gradient(135deg, var(--secondary) 0%, #C9A436 100%); }
+        .grade-b { background: linear-gradient(135deg, var(--warning) 0%, #D68D53 100%); }
+        .grade-c { background: linear-gradient(135deg, var(--error) 0%, #B53A3D 100%); }
+
+        .grade-number {
+            font-family: var(--font-mono);
+            font-size: 40px;
+            line-height: 1;
+        }
+
+        .grade-label {
+            font-size: 16px;
+            margin-top: 6px;
+            font-weight: 700;
+        }
+
+        .grade-text {
+            flex: 1;
+        }
+
+        .grade-text div:first-child {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .grade-text div:last-child {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        /* 진행률 바 */
+        .progress-bar-container {
+            width: 100%;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        body.dark-mode .progress-bar {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            transition: width 0.5s ease;
+            border-radius: 6px;
+        }
+
+        .crop-description {
+            padding: 12px;
+            background: var(--bg-card);
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+            min-height: 40px;
+        }
+
+        body.dark-mode .crop-description {
+            background: #3A3A35;
+        }
+
+        .card-link {
+            display: inline-block;
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ===== 모달 ===== */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 1000px;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        body.dark-mode .modal-content {
+            background: #2A2925;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-heading);
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        body.dark-mode .modal-header {
+            border-bottom-color: #4A4643;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .modal-tabs {
+            display: flex;
+            padding: 0 24px;
+            border-bottom: 2px solid var(--bg-card);
+        }
+
+        body.dark-mode .modal-tabs {
+            border-bottom-color: #4A4643;
+        }
+
+        .modal-tab {
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .modal-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .modal-body {
+            display: none;
+            padding: 24px;
+        }
+
+        .modal-body.active {
+            display: block;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .data-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .data-item {
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        body.dark-mode .data-item {
+            background: #3A3A35;
+        }
+
+        .data-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .data-value {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        /* ===== 상담 탭 ===== */
+        .chatbot-section {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .chatbot-character {
+            width: 140px;
+            height: 140px;
+            background: linear-gradient(135deg, var(--primary) 0%, #1f3d0f 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            flex-shrink: 0;
+        }
+
+        .chatbot-info h3 {
+            font-family: var(--font-heading);
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .chatbot-info p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        .chat-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-button:hover {
+            background: #1f3d0f;
+        }
+
+        /* ===== 설정 탭 ===== */
+        .settings-form {
+            max-width: 500px;
+        }
+
+        .settings-form .form-group {
+            margin-bottom: 32px;
+        }
+
+        .settings-footer {
+            background: var(--text-primary);
+            color: white;
+            padding: 24px;
+            border-radius: 8px;
+            margin-top: 40px;
+            font-size: 11px;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .button-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+        }
+
+        .button-secondary:hover {
+            background: var(--border);
+        }
+
+        .button-flex {
+            flex: 1;
+        }
+
+        /* ===== 반응형 ===== */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .nav {
+                padding: 0 16px;
+                overflow-x: auto;
+            }
+
+            .content {
+                padding: 20px 16px;
+            }
+
+            .crop-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chatbot-section {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="logo">🌾 For Your Farm</div>
+        <div class="header-right">
+            <div class="user-info">
+                <div class="user-name" id="userName">김귀농</div>
+                <div class="user-location" id="userLocation">서울시 강서구</div>
+            </div>
+            <button class="dark-toggle" id="darkToggle">🌙</button>
+        </div>
+    </header>
+
+    <!-- 네비게이션 -->
+    <nav class="nav">
+        <button class="nav-item active" onclick="showPage('dashboard')">📊 대시보드</button>
+        <button class="nav-item" onclick="showPage('chat')">💬 상담</button>
+        <button class="nav-item" onclick="showPage('settings')">⚙️ 설정</button>
+    </nav>
+
+    <!-- 페이지 콘텐츠 -->
+
+    <!-- 대시보드 -->
+    <div id="dashboard" class="content active">
+        <div id="onboarding" class="onboarding" style="display: none;">
+            <h2>농사하시는 지역과 작물을 알려주세요</h2>
+            <form class="onboarding-form" onsubmit="saveOnboarding(event)">
+                <div class="form-group">
+                    <label class="form-label">지역 (시/군)</label>
+                    <input type="text" class="form-input" id="location" placeholder="예: 서울시 강서구" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">재배 작물 (다중선택)</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="crops" value="apple"> 사과 🌳
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="crops" value="pear"> 배 🌳
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="crops" value="cucumber" checked> 오이 🌾
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" name="crops" value="potato"> 감자 🌾
+                        </label>
+                        <label class="checkbox-item" style="grid-column: 1;">
+                            <input type="checkbox" name="crops" value="lettuce"> 상추 🌾
+                        </label>
+                    </div>
+                </div>
+                <button type="submit" class="button">시작하기</button>
+            </form>
+        </div>
+
+        <div id="dashboard-content" style="display: none;">
+            <div class="crop-grid" id="cropGrid"></div>
+        </div>
+    </div>
+
+    <!-- 상담 -->
+    <div id="chat" class="content">
+        <div class="chatbot-section">
+            <div class="chatbot-character">🧑‍🌾</div>
+            <div class="chatbot-info">
+                <h3>텃밭이</h3>
+                <p>농사 관련 질문을 물어보세요. 나는 당신의 밭에서 함께 일하는 이웃이에요.</p>
+                <p>생육 단계, 토양 관리, 기후 대응 등 궁금한 점을 편하게 질문해보세요.</p>
+                <button class="chat-button" onclick="startChat()">💬 채팅 시작하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 설정 -->
+    <div id="settings" class="content">
+        <form class="settings-form" onsubmit="saveSettings(event)">
+            <div class="form-group">
+                <label class="form-label">지역 (시/군)</label>
+                <input type="text" class="form-input" id="settingsLocation" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">재배 작물 (다중선택)</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="settingsCrops" value="apple"> 사과 🌳
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="settingsCrops" value="pear"> 배 🌳
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="settingsCrops" value="cucumber"> 오이 🌾
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="settingsCrops" value="potato"> 감자 🌾
+                    </label>
+                    <label class="checkbox-item" style="grid-column: 1;">
+                        <input type="checkbox" name="settingsCrops" value="lettuce"> 상추 🌾
+                    </label>
+                </div>
+            </div>
+            <div class="button-group">
+                <button type="submit" class="button button-flex">저장</button>
+                <button type="button" class="button button-secondary button-flex" onclick="resetSettings()">취소</button>
+            </div>
+        </form>
+
+        <div class="settings-footer">
+            <strong>정보 출처</strong><br>
+            기상 데이터: 기상청 실시간·단기예보 | 토양 데이터: 국가 토양도 | 작물 기준: 농사로 생육 지침
+        </div>
+    </div>
+
+    <!-- 상세 정보 모달 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle">오이</span>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-tabs">
+                <button class="modal-tab active" onclick="switchTab('short')">⚡ 단기 (당일~3일)</button>
+                <button class="modal-tab" onclick="switchTab('long')">📈 장기 (시즌)</button>
+            </div>
+
+            <!-- 단기 탭 -->
+            <div id="short-tab" class="modal-body active">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+                    <div>
+                        <h3 style="margin-bottom: 16px; font-family: var(--font-heading); font-size: 16px;">오늘의 적합도</h3>
+                        <div style="background: linear-gradient(135deg, var(--success) 0%, #8AC24C 100%); border-radius: 12px; padding: 24px; text-align: center; color: white; box-shadow: 0 4px 12px rgba(164, 214, 94, 0.2); height: 100%;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">현재 생육 적합도</div>
+                            <div style="font-family: var(--font-mono); font-size: 48px; font-weight: 700; margin-bottom: 8px;">85</div>
+                            <div style="font-size: 14px; font-weight: 700;">S등급 (최적)</div>
+                            <div style="margin-top: 12px; height: 6px; background: rgba(255, 255, 255, 0.3); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; background: rgba(255, 255, 255, 0.9); width: 85%; border-radius: 3px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="margin-bottom: 16px; font-family: var(--font-heading); font-size: 16px;">기상 정보</h3>
+                        <div class="data-grid" style="grid-template-columns: repeat(2, 1fr);">
+                            <div class="data-item">
+                                <div class="data-label">🌡️ 온도</div>
+                                <div class="data-value">28°C</div>
+                            </div>
+                            <div class="data-item">
+                                <div class="data-label">💧 습도</div>
+                                <div class="data-value">68%</div>
+                            </div>
+                            <div class="data-item">
+                                <div class="data-label">🌧️ 강수</div>
+                                <div class="data-value">15mm</div>
+                            </div>
+                            <div class="data-item">
+                                <div class="data-label">💨 풍속</div>
+                                <div class="data-value">3.5m/s</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3 style="margin-bottom: 12px; font-family: var(--font-heading); font-size: 16px;">⚠️ 위험 신호</h3>
+                        <div style="background: #FFCDD2; border-left: 4px solid #C54245; padding: 14px; border-radius: 6px;">
+                            <div style="font-weight: 700; margin-bottom: 6px; color: #B71C1C; font-size: 13px;">🔴 폭우 경보</div>
+                            <div style="font-size: 12px; color: #B71C1C; line-height: 1.5;">오후 2시~7시 예상. 배수 준비 필요!</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="margin-bottom: 12px; font-family: var(--font-heading); font-size: 16px;">✅ 추천 행동</h3>
+                        <div style="background: var(--bg-card); padding: 14px; border-radius: 6px; border-left: 4px solid var(--primary);">
+                            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                                • 지표수 정리<br>
+                                • 배수로 점검<br>
+                                • 배수 준비 완료
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary);">
+                    출처: 기상청 실시간 데이터 · 단기예보
+                </div>
+            </div>
+
+            <!-- 장기 탭 -->
+            <div id="long-tab" class="modal-body">
+                <h3 style="margin-bottom: 20px; font-family: var(--font-heading); font-size: 18px;">시즌 적합도 분석</h3>
+                <div style="background: linear-gradient(135deg, var(--secondary) 0%, #C9A436 100%); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px; color: white; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">7월 ~ 9월 오이 재배</div>
+                    <div style="font-family: var(--font-mono); font-size: 48px; font-weight: 700; margin-bottom: 8px;">76</div>
+                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">A등급 (양호)</div>
+                    <div style="margin-top: 12px; height: 6px; background: rgba(255, 255, 255, 0.3); border-radius: 3px; overflow: hidden;">
+                        <div style="height: 100%; background: rgba(255, 255, 255, 0.9); width: 76%; border-radius: 3px;"></div>
+                    </div>
+                    <div style="font-size: 12px; margin-top: 12px; opacity: 0.95;">예년보다 여름이 길어질 예상. 수확량 증가 가능!</div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3 style="margin-bottom: 16px; font-family: var(--font-heading); font-size: 16px;">📅 월별 전망</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                                <span style="font-weight: 700; min-width: 35px; font-size: 14px;">7월</span>
+                                <span style="font-size: 24px;">🟢</span>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; font-size: 12px;">S등급</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">최적</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                                <span style="font-weight: 700; min-width: 35px; font-size: 14px;">8월</span>
+                                <span style="font-size: 24px;">🟡</span>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; font-size: 12px;">A등급</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">양호</div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                                <span style="font-weight: 700; min-width: 35px; font-size: 14px;">9월</span>
+                                <span style="font-size: 24px;">🟡</span>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; font-size: 12px;">B등급</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);">주의</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="margin-bottom: 16px; font-family: var(--font-heading); font-size: 16px;">🌱 시기별 가이드</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="border-left: 4px solid var(--primary); padding: 12px 0 12px 12px; background: var(--bg-card); padding: 12px 12px 12px 12px; border-left: 4px solid var(--primary); border-radius: 6px;">
+                                <div style="font-weight: 700; font-size: 12px; margin-bottom: 6px;">초기 생육 (7월)</div>
+                                <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
+                                    물주기 ↑ | 질소 비료 | 햇빛 충분
+                                </div>
+                            </div>
+
+                            <div style="border-left: 4px solid var(--secondary); padding: 12px 0 12px 12px; background: var(--bg-card); padding: 12px 12px 12px 12px; border-left: 4px solid var(--secondary); border-radius: 6px;">
+                                <div style="font-weight: 700; font-size: 12px; margin-bottom: 6px;">개화 관리 (8월~)</div>
+                                <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
+                                    질소 ↓ | 칼리 ↑ | 과습 주의
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary);">
+                    출처: 평년치 + 장기예보 보정 | 참고: 작년 실측
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 작물 데이터
+        const cropData = {
+            apple: { name: '사과', type: '🌳 과수원', grade: 'A', score: 72, description: '기온이 안정적이에요. 생육에 좋은 시기입니다.' },
+            pear: { name: '배', type: '🌳 과수원', grade: 'B', score: 65, description: '관수와 병해 관리에 주의하세요.' },
+            cucumber: { name: '오이', type: '🌾 밭', grade: 'S', score: 85, description: '기후가 최적입니다. 물을 충분히 주세요!' },
+            potato: { name: '감자', type: '🌾 밭', grade: 'A', score: 78, description: '토양 수분이 적당합니다. 상태 좋아요.' },
+            lettuce: { name: '상추', type: '🌾 밭', grade: 'A', score: 74, description: '생장 속도가 빨라요. 잦은 물주기 필요합니다.' }
+        };
+
+        const gradeColors = {
+            'S': 'grade-s',
+            'A': 'grade-a',
+            'B': 'grade-b',
+            'C': 'grade-c'
+        };
+
+        // 초기 로드
+        function init() {
+            const user = JSON.parse(localStorage.getItem('farmUser') || '{}');
+            if (user.location && user.crops && user.crops.length > 0) {
+                showDashboard();
+            } else {
+                showOnboarding();
+            }
+            loadSettings();
+        }
+
+        function showOnboarding() {
+            document.getElementById('onboarding').style.display = 'block';
+            document.getElementById('dashboard-content').style.display = 'none';
+        }
+
+        function showDashboard() {
+            document.getElementById('onboarding').style.display = 'none';
+            document.getElementById('dashboard-content').style.display = 'block';
+            renderCrops();
+        }
+
+        function saveOnboarding(e) {
+            e.preventDefault();
+            const location = document.getElementById('location').value;
+            const crops = Array.from(document.querySelectorAll('input[name="crops"]:checked')).map(c => c.value);
+
+            if (crops.length === 0) {
+                alert('최소 하나의 작물을 선택해주세요.');
+                return;
+            }
+
+            const userData = { location, crops };
+            localStorage.setItem('farmUser', JSON.stringify(userData));
+
+            document.getElementById('userName').textContent = '김귀농';
+            document.getElementById('userLocation').textContent = location;
+
+            showDashboard();
+        }
+
+        function renderCrops() {
+            const user = JSON.parse(localStorage.getItem('farmUser') || '{}');
+            const grid = document.getElementById('cropGrid');
+            grid.innerHTML = '';
+
+            if (!user.crops) return;
+
+            user.crops.forEach(cropKey => {
+                const crop = cropData[cropKey];
+                if (!crop) return;
+
+                const card = document.createElement('div');
+                card.className = 'crop-card';
+                card.onclick = () => openModal(cropKey);
+
+                card.innerHTML = `
+                    <div class="crop-header">
+                        <span>${crop.name} · 생육 중기</span>
+                        <span class="crop-type">${crop.type}</span>
+                    </div>
+                    <div class="crop-title">${crop.name}</div>
+                    <div class="crop-grade">
+                        <div class="grade-badge ${gradeColors[crop.grade]}">
+                            <div class="grade-number">${crop.score}</div>
+                            <div class="grade-label">${crop.grade}</div>
+                        </div>
+                        <div class="grade-text">
+                            <div>${crop.grade}등급 (생육 적합)</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-label">
+                                    <span>적합도</span>
+                                    <span>${crop.score}/100</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${crop.score}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="crop-description">${crop.description}</div>
+                    <a class="card-link">자세히 보기 →</a>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function openModal(cropKey) {
+            const crop = cropData[cropKey];
+            document.getElementById('modalTitle').textContent = crop.name;
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.modal-body').forEach(b => b.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tab + '-tab').classList.add('active');
+        }
+
+        function showPage(page) {
+            document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+            document.getElementById(page).classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function startChat() {
+            alert('채팅 기능은 백엔드 연동 후 구현됩니다.');
+        }
+
+        function loadSettings() {
+            const user = JSON.parse(localStorage.getItem('farmUser') || '{}');
+            if (user.location) {
+                document.getElementById('settingsLocation').value = user.location;
+            }
+            if (user.crops) {
+                document.querySelectorAll('input[name="settingsCrops"]').forEach(c => {
+                    c.checked = user.crops.includes(c.value);
+                });
+            }
+        }
+
+        function saveSettings(e) {
+            e.preventDefault();
+            const location = document.getElementById('settingsLocation').value;
+            const crops = Array.from(document.querySelectorAll('input[name="settingsCrops"]:checked')).map(c => c.value);
+
+            if (crops.length === 0) {
+                alert('최소 하나의 작물을 선택해주세요.');
+                return;
+            }
+
+            const userData = { location, crops };
+            localStorage.setItem('farmUser', JSON.stringify(userData));
+
+            document.getElementById('userLocation').textContent = location;
+
+            showPage(event.target);
+            showDashboard();
+            document.querySelector('.nav-item').click();
+
+            alert('설정이 저장되었습니다.');
+        }
+
+        function resetSettings() {
+            loadSettings();
+        }
+
+        // 다크모드
+        document.getElementById('darkToggle').addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        });
+
+        // 다크모드 복원
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // 모달 바깥 클릭 시 닫기
+        document.getElementById('detailModal').addEventListener('click', (e) => {
+            if (e.target.id === 'detailModal') {
+                closeModal();
+            }
+        });
+
+        // 초기화
+        init();
+    </script>
+</body>
+</html>
