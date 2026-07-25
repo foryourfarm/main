@@ -78,6 +78,41 @@ export interface MonthlyOutlookEntry {
   outlook_applied: boolean;
 }
 
+/** 단기 탭 하루치. 계약: docs/long-term-tab-api.md + PR #33 */
+export interface ShortTermDay {
+  target_date: string;
+  growth_stage: string | null;
+  status: SuitabilityStatus;
+  score: number | null;
+  grade: Grade | null;
+  temp_avg: string | null;
+  temp_night_min: string | null;
+  rainfall: string | null;
+  risk_flags: string[];
+}
+
+/** 연속 지속되는 기상 위험. 하루짜리 노이즈와 구분된 선제 경보 대상. */
+export interface PersistentRisk {
+  flag: string;
+  days: number;
+  dates: string[];
+}
+
+export interface FarmShortTerm {
+  farm_id: number;
+  crop_id: number;
+  region_id: number;
+  as_of: string;
+  /** 예보 발표시각(UTC). 화면에는 KST로 변환해 표시해야 한다. */
+  base_at: string | null;
+  /** true면 조회 실패로 직전 캐시를 쓴 것 — "최신 아님"을 표시해야 한다. */
+  is_stale: boolean;
+  label: string;
+  days: ShortTermDay[];
+  persistent_risks: PersistentRisk[];
+  limitations: string[];
+}
+
 export interface FarmMonthlyOutlook {
   farm_id: number;
   crop_id: number;
@@ -117,7 +152,10 @@ export function statusLabel(status: SuitabilityStatus): string {
 const INDICATOR_NAMES: Record<string, string> = {
   temp_day: "낮 기온",
   temp_night_min: "야간 최저기온",
-  rainfall: "강수량",
+  // 강수는 단위별로 지표가 나뉜다(월평년 vs 예보 일누적). 단위를 문구에 드러내
+  // "비 안 온 날이 과습 위험"으로 읽히는 혼동을 막는다.
+  rainfall_monthly: "월 강수량",
+  rainfall_daily: "일 강수량",
   sunlight: "일조",
   ph: "토양 산도(pH)",
   ec: "토양 염류(EC)",
@@ -137,4 +175,21 @@ export function describeRiskFlag(flag: string): string {
   const name = INDICATOR_NAMES[indicator] ?? indicator;
   const why = REASON_NAMES[reason] ?? reason;
   return `${name} — ${why}`;
+}
+
+/** 예보 발표시각(UTC ISO) → "7월 25일 17시 발표". 백엔드가 UTC로 주므로 변환이 필요하다. */
+export function formatBaseAt(iso: string | null): string {
+  if (iso === null) return "발표시각 미확인";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "발표시각 미확인";
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours()}시 발표`;
+}
+
+/** "2026-07-25" → "7/25 (금)". 요일이 있으면 며칠 뒤인지 직관적으로 읽힌다. */
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+export function formatDayLabel(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
 }

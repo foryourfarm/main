@@ -1,106 +1,97 @@
 # 다음 할 일
 
-> 갱신: 2026-07-25. "✅ 완료 (dev 머지)"는 실제로 dev에 머지된 것만.
+> 갱신: 2026-07-25 (야간). "✅ 완료 (dev 머지)"는 실제로 dev에 머지된 것만.
 > 상세 방향은 메모리/`docs/` 참고.
 
-## 🔶 커밋·PR 완료, dev 반영 대기 (5분할 중 1개만 dev 도달)
+## 🔴 FE에서 실제로 화면 켜보고 발견한 문제 (최우선)
 
-**stacked PR 사고**: PR #21~25로 5분할해 올렸으나 #22~25가 dev가 아니라 **직전 feature 브랜치를
-base로** 머지돼서(#22→models, #23→service, #24→suitability, #25→region) dev엔 #21만 들어갔다.
-나머지 4개 커밋은 `feature/dashboard-weather-climatology`에 dev 위 선형으로 쌓여 있어, 이 브랜치를
-dev로 한 번 더 PR해서 회수한다(내용은 #22~25에서 이미 리뷰됨).
+**계기**: 고창군 사과밭 장기 탭이 12개월 전부 "데이터 부족"으로 나옴 — 화면이 미연동처럼 보임.
 
-| 커밋 | 내용 | dev 반영 |
-|---|---|---|
-| `95f1cee` | P0 토양변화 shadow 로그 모델 + 마이그레이션 | ✅ PR #21 |
-| `4c2afa7` | P0 shadow 추론 서비스 + 테스트 | ⏳ 회수 PR |
-| `4b7e105` | P2 생육단계 resolver + 적합도 API | ⏳ 회수 PR |
-| `1472b72` | region 마스터 256개 시드 | ⏳ 회수 PR |
-| `a37a800` | 대시보드 집계 API + 기상 평년치 ETL | ⏳ 회수 PR |
+1. **평년치 커버리지 부족(진짜 원인)** — `weather_climatology`가 256개 시/군 중 102개만 있었음.
+   원인: ML용 `03_weather_monthly_modified.csv`가 218개 농업기상 관측지점 중 **150개만**
+   선정해 만든 것(Data-Guideline.md 층화표집 다양성 기준 — 전국 커버가 목적이 아니었음).
+   - **1차 조치(완료)**: `scripts/expand_weather_coverage.py` — 선정에서 빠진 68개 미사용
+     관측지점을 추가 매칭해 실제 API로 5년치 수신 → **102→116개 지역**(+14, 실측 데이터,
+     추정 아님). `data/03_weather_monthly_modified.csv`에 840행 append.
+   - **2차 조치(완료)**: `climatology_service.py` — 그래도 안 채워지는 지역(140개, 예:
+     부천시 원미구·고창군)은 `region_grid` 격자거리로 **최근접 보유 지역 값을 대체**하고
+     "OO시 값을 약 N km 대체로 썼다"를 limitations에 명시(§18-4, 근사를 확정값처럼 안 쓰기).
+     실측 검증: 부천 원미구→시흥시(10km) 대체, 고창군→장성군(16km) 대체, 순천시는 실측
+     그대로(대체 없음). 테스트 6개(거리계산·문구생성) 통과, 전체 151개 회귀 없음.
+   - **근본 해결(미착수)**: 기상청 공식 30년 평년값 API 발급 → 전국 256개 완전 커버.
+     지금 두 조치는 그 전까지의 완화책.
+   - **커밋 전 확인할 것**: `data/03_weather_monthly_modified.csv` append 결과가 실제
+     git 추적 대상(gitignore 안 됨) — 840행 추가된 채로 커밋해도 되는지 확인.
 
-**P0: 토양변화 shadow 추론 — 뼈대만**
-- 모델 `soil_state_snapshot`/`prediction_shadow` + `0006` 마이그레이션(DB 적용됨)
-- 경량 추론 `infra/ml/soil_delta.py`(artifact 로더+검증+Ridge 한 줄 추론, sklearn 불필요)
-- 서비스 `soil_delta_service.py`(입력검증→추론→폴백→shadow 로그), DTO `schemas/soil_delta.py`
-- 테스트 fixture artifact로 12개 검증(결정론·중앙값대치·폴백·available_p 항상 미채택)
-- **exporter(①)만 못 함** — `scripts/ml/final_model.py`+`data/ml/training_rows.csv`가 `.gitignore` 대상이라 이 리포에 실물 없음. 진짜 artifact 생성 불가, fixture로만 검증된 상태.
+2. **강수 지표 단위 혼동 버그 (이미 수정·커밋됨, PR #33)** — `rainfall` 하나에 월평년(mm/월)과
+   예보 일누적(mm/일)을 섞어써서 "비 안 온 날(0mm)이 위험"으로 오판정되던 것.
+   `rainfall_monthly`/`rainfall_daily`로 분리, 감자의 근거 없는 월강수 기준(시즌 총량을
+   12로 나눈 값)도 제거(0011~0013). 상세는 PR #33 본문.
 
-**P2: 작물 적합도 룰 API 연결 — 완료**
-- 결정 확정: temp_day=월평년(`temp_avg_normal`) 근사(한계 병기) / 생육단계 resolver(2모드: 연중일자·파종후경과일) / 60점 경계 유지
-- 시드 `crop_growth_stage`(6행, 농촌진흥청 농사로 근거) + `0007` 마이그레이션(DB 적용됨)
-- `growth_stage_service.resolve_growth_stage` + `suitability_service.compute_farm_suitability`
-- `GET /api/v1/farms/{farm_id}/suitability`(소유권 스코프, 404/401 검증됨)
-- **suitability_result 캐시 write는 의도적으로 생략** — 지역 baseline 캐시인데 `region_soil_profile` 모델·테이블이 없어 밭 고유 결과를 넣으면 클로버링 버그. region 데이터 갖춰지면 별도 PR.
+## 🟡 FE 설정·네비게이션이 설계 문서와 크게 어긋남
 
-**대시보드 집계 + 평년치 적재 — 완료**
-- `GET /api/v1/dashboard`(작물 카드: crop/region명+생육단계 한글라벨+과수🌳/밭🌾 타입(시드에서 파생)+적합도)
-- region 마스터 256개 시드 `0008`(CSV에서 프로그램 생성, DB 적용됨 — **기존 강릉 id 1→226으로 바뀜, region_id=1 참조하던 데이터 있으면 재확인 필요**)
-- `scripts/load_weather_climatology.py`(관측 5년 평균 근사, 102지역×12월=1224행, `source='obs_mean_2021_2025'`, temp_avg+rainfall만 — night_min/sunlight 소스 없어 null)
-- 실동작 검증: 테스트 밭을 커버지역(순천시)으로 옮겨 대시보드 카드 75.6점 A 등급 확인. 전체 66개 테스트 2회 통과.
+`docs/design/Correction_Re_Draft.md`(팀 확정 UI 설계) 대비 지금 화면 격차:
 
-전체 66개 백엔드 테스트 통과(`backend/.venv/Scripts/python.exe -m unittest discover -s tests`).
+| 설계 | 지금 상태 |
+|---|---|
+| 네비게이션: 대시보드\|상담\|설정 (간결) | 그런 네비게이션 자체가 없음(페이지 이동만 존재) |
+| 장기/단기 = **카드 클릭 → 모달** | 장기/단기 = **탭 전환**(모달 아님) — 기능은 되지만 설계와 다른 패턴 |
+| **설정 탭**: 지역/작물 재설정 + 데이터 출처 footer | **없음** — 밭 재설정·삭제할 방법 자체가 없음 |
+| 카드에 LLM 한 줄 설명 | 없음(LLM 미착수라 당연 — 후순위 항목) |
+| 팔레트: Primary #2D5016 등 (Design01) | `farm.module.css`가 이미 이 팔레트 사용 중 — 이 부분은 일치 |
 
-## ✅ 완료 (dev 머지)
-
-**챗봇(상담 RAG)**
-- 백엔드 RAG: bge-m3 임베딩 → `knowledge_chunk` pgvector top-k(`rag_top_k=3`, crop 필터) → exaone3.5 스트리밍. 폴백(임베딩/검색/생성 실패·근거없음)으로 SSE 반드시 끝맺음. (`chat_service`, `llm_client`, `api/chat.py`)
-- 밭 컨텍스트 주입("내 땅 맞춤") — 로그인+밭이면 `user_farm`/`soil_state`(추정치) 프롬프트 주입, 밭 작물로 crop_id 자동설정. **PR #14**.
-- **대화 영속화** — `chat_message(user_id,session_id,role,content,created_at)` + Alembic 0005(FK CASCADE). authed+`session_id`면 서버가 `(user_id,session_id)` 스코프로 DB 로드/저장, 게스트는 클라 history. 소유권·저장정책(성공 턴만). **PR #16**. `DB.md` §3.16.
-  - 실스택 종단 검증 완료(멀티턴 맥락 로드·4행 적재·읽기/쓰기 소유권 격리). 계정삭제 시 대화 CASCADE 삭제 실동작 확인.
-- **프롬프트 인젝션/탈옥 방어**(`chatbot-v4`) — #보안 규칙 + 방어 few-shot. 정체노출/프롬프트유출/규칙초기화/간접주입 차단. 라이브 8종 공격 거부·정상질문 회귀없음. **PR #19**. `docs/llm-integration.md` §11.
-- 답변 절단 수정: `llm_num_predict` 200→512(한국어 답변 문장 중간 절단). **PR #17**.
-
-**인증**
-- 백엔드: 분리 토큰 JWT(access 메모리 + refresh httpOnly 쿠키), signup/login/refresh/logout/me + bcrypt. **PR #12**. 계약 `docs/auth-security.md`.
-- 프론트 연동: `lib/auth`(토큰스토어+authFetch 401인터셉터), `AuthProvider`(세션복구), login/signup 페이지, AuthBar. 크로스오리진 종단 검증. **PR #18**.
-
-**프론트엔드(Next.js)**
-- Next 16 App Router + React 19 + TS strict 스캐폴드. 챗봇 상담 화면(`/chat`) 게스트 모드 SSE 연결, 생각중 표시. **PR #17**. (스택 결정: 메모리 `frontend-stack-nextjs`)
-
-**문서/정리**
-- 팀원용 메인로직 구현 가이드 `docs/main-logic-guide.md`(P0~P3 + ML 데이터 최신화 지속반영). 루트 문서/PDF를 `docs/{design,data,api-specs}`로 정리. `docs/README.md` 인덱스. **PR #20**.
+**다음 세션에서 결정할 것**: 모달 방식으로 갈지 지금 탭 방식을 유지할지 팀 확인 필요
+(모달 전환은 `/farm/[farmId]` 라우트 자체를 없애고 대시보드에 오버레이로 붙이는
+구조 변경이라 작지 않음). 설정 화면(지역/작물 변경, 밭 삭제)은 이견 없이 필요 —
+지금 밭을 잘못 등록해도 고칠 방법이 없음.
 
 ## ⏭️ 미착수 / 다음
 
+**설정 화면 (신규, 우선순위 높음)**
+- 밭 정보 수정(지역/작물/파종일)·삭제 — 지금 `POST /farms`만 있고 PATCH/DELETE 없음
+- 데이터 출처 footer(기상청/흙토람/농사로 명시) — Correction_Re_Draft.md §1.6
+
 **메인 로직 백엔드 — 블로킹된 것**
-- P0 exporter: `scripts/ml/final_model.py` + `data/ml/training_rows.csv`를 리포에 넣어야 진짜 artifact 생성 가능(둘 다 현재 없음)
-- P1 노출 게이트: 라이브 실측(예측↔재검정 쌍)이 쌓여야 MAE·구간포함률 재계산 가능 — 지금은 데이터 자체가 없음
-- P3 first-party 수집: `crop_outcome_record`(수확기 입력) + `farm_action_log` 성분 보강 — **"수집 그릇"은 지금 코드로 만들 수 있음**(데이터 자체는 유저가 써야 쌓임), 아직 미착수
+- P0 exporter: `scripts/ml/final_model.py` + `data/ml/training_rows.csv`가 리포에 없어 진짜 artifact 생성 불가
+- P1 노출 게이트: 라이브 실측(예측↔재검정 쌍) 데이터 자체가 없음
+- P3 first-party 수집: `crop_outcome_record`·`farm_action_log` 성분 보강 — 그릇은 만들 수 있음, 미착수
 
-**기상 데이터 — 다음 자연스러운 확장**
-- **장기예보(3개월 전망) 적재 — R2 해결됨, 착수 가능** (2026-07-25 실측 검증)
-  - 소스: 기상청 3개월전망 **RSS XML** `http://www.kma.go.kr/repositary/xml/fct/mon/img/fct_mon3rss_108_YYYYMMDD.xml`
-    (data.go.kr 15050698은 PDF fileData라 사용 불가, API허브 예특보엔 장기예보 없음)
-  - tercile 확률이 숫자 태그로 옴 → `weather_outlook` 스키마 그대로 사용 가능:
-    `<local_ta>/<local_ta_name>` + `<month_local_ta>/<monthN_local_ta_{normalYear,similarRange,minVal,similarVal,maxVal}>`
-    (예: 전국 8월 평년값 25.1, 비슷범위 24.6~25.6, 낮음10/비슷30/높음60). 강수량은 `local_rn`/`_rn_` 동형.
-  - **δ 미결정 해소 가능**: `similarRange` 반폭이 tercile 경계 폭 → δ를 임의 상수 대신 데이터에서 유도(`DB.md` §10).
-  - 필수 방어 2개(둘 다 실측된 실제 케이스): ① 발표일 이동 — 매월 23일 기준이나 2026-05는 **22일**(주말),
-    23·24일 URL은 존재하지 않음 → 23일부터 ±며칠 탐색. ② **HTTP 200인데 HTML 에러페이지**를 반환 →
-    상태코드만 믿지 말고 XML 파싱·루트/태그 존재까지 검증(안 하면 쓰레기 적재).
-  - 남은 결정: 권역 13개(전국+12) → `region` 256개 매핑. `region.sido`로 대부분 유도되나
-    **강원 영서/영동은 시/군 단위 수동 매핑 필요** → 임의 결정 말고 시드로 근거 남길 것(`CLAUDE.md` §3-2).
-  - 자동화: 발표 주기 고정 + `uq_outlook` 유니크로 멱등 → 스케줄러로 자동 갱신(수동 버튼 불필요, 스크립트 직접 실행이 곧 수동 경로).
-- 기상청 공식 30년 평년값 + 야간최저·일조 API 발급(현재는 관측 5년 평균 근사로 2개 지표만 대체 중)
-- 단기 탭(당일 실시간 기상·위험배너·오늘의 추천행동) — weather_snapshot 연동 전무, API 키 미발급
+**LLM (다음 순서로 정함)**
+- 오늘의 추천 행동 — 단기 탭 위험신호를 자연어로. `daily_recommendation` 테이블 설계는 있음
+- 장기 커리큘럼 서술, 대시보드 카드 한 줄 설명
 
-**대시보드/FE 남은 위젯** — `docs/design/` 대시보드 스펙 대비
-- 데이터 신뢰도 배지(출처 N/3, 토양=흙토람/기상=평년 표기) — 백엔드 토양 provenance는 지금도 가능, 기상 부분은 위 항목 선행
-- ~~장기 탭 월별 전망 히트맵~~ → 백엔드 완료(`GET /api/v1/farms/{farm_id}/monthly-outlook`).
-  **FE 렌더링은 미착수**. 현재는 평년치만 — 위 outlook 보정 미적용(`DB.md` §8.1 대비 갭, limitations에 명시함)
-- 시기별 커리큘럼/자연어 설명(LLM) — 정형데이터 준비됨, LLM 연결 미착수
-- 로그인 게이팅 미들웨어, 온보딩(지역/작물 등록) 페이지, 대시보드/밭상세 화면 자체(백엔드 API는 준비됨)
-- 챗봇 로그인 모드 연결: FE에서 access 첨부 + `session_id` + `farm_id` 전달 — 백엔드는 이미 준비됨
+**기상 데이터 — 남은 확장**
+- 3개월전망(outlook) tercile 적재는 완료(PR #28~29). 기상청 공식 30년 평년값 발급이 남은
+  근본 과제(위 "커버리지 부족" 참고)
+- 단기 탭 API 자체는 완료(PR #33) — 남은 건 위 커버리지·LLM 뿐
+
+**FE 남은 것**
+- 위 "설정·네비게이션" 격차 해소
+- 대시보드/밭상세 데이터 신뢰도 배지(출처 N/3)
+- 챗봇 로그인 모드 연결: FE에서 access + `session_id` + `farm_id` 전달(백엔드는 준비됨)
 
 **배포** — GCP(프론트/백엔드 Cloud Run + Cloud SQL + 로컬 LLM은 GPU VM). 별도 논의 예정.
+
+## ✅ 완료 (dev 머지 또는 PR 상신)
+
+- **인증**: 분리 토큰 JWT + FE 연동. `docs/auth-security.md`.
+- **챗봇**: RAG(pgvector)+밭 컨텍스트+대화 영속화+프롬프트 인젝션 방어. `docs/llm-integration.md`.
+- **P0/P2/대시보드/region 시드**: PR #26으로 dev 회수 완료(stacked PR 사고 해소).
+- **장기 탭**: 월별 히트맵 API+FE(PR #27), 3개월전망 적재(PR #28), 보정 적용(PR #29), 대시보드+히트맵 화면(PR #30).
+- **밭 온보딩**: 시/군→읍면동 API + 화면, 경지구분 필터, 행정통합 코드 대응표(PR #32). 명세는 PR #31.
+- **단기 탭**: 예보 조회·캐시·지속위험 판정 API+화면(PR #33). 강수 단위 버그·생육지침 근거/신뢰도 컬럼도 같은 PR.
+- **위경도→격자 변환**: `kma_grid.py`(공개 기준점 8개 검증) + `region_grid` 256개 실제 격자 시드.
 
 ## 후속 (범위 밖, 별도 PR)
 
 - 답변 장황함 프롬프트 미세조정 → §9 골든셋/LLM-as-judge 평가에서.
-- 생략형 후속질문("그럼 물은?") 검색 정확도 — 필요 시 history로 질문 압축(LLM 1콜)(`chat_service` ponytail 주석).
+- 생략형 후속질문("그럼 물은?") 검색 정확도 개선.
 
 ## 참고 문서
 
-- 메모리: `chat-history-auth-roadmap`(챗봇 완성), `frontend-stack-nextjs`, `user-verifies-backend`(백엔드 완료 전 육안 확인), `auth-method-jwt-httponly-cookie`, `llm_model_choice_exaone`, `soil-delta-p0-shadow-state`(P0/P2/대시보드/평년치 상세 근거·블로커)
-- `docs/main-logic-guide.md`, `docs/ml/backend_ml_handoff.md`, `docs/auth-security.md`, `docs/llm-integration.md`, `docs/design/`(대시보드 UI 스펙)
-- `DB.md`(§3.15 knowledge_chunk, §3.16 chat_message, §11 인증/인가), `CLAUDE.md` §6/§10/§11/§13
+- 메모리: `chat-history-auth-roadmap`, `frontend-stack-nextjs`, `user-verifies-backend`,
+  `auth-method-jwt-httponly-cookie`, `llm_model_choice_exaone`, `region-vs-district-data-units`,
+  `soil-delta-p0-shadow-state`
+- `docs/main-logic-guide.md`, `docs/ml/backend_ml_handoff.md`, `docs/auth-security.md`,
+  `docs/llm-integration.md`, `docs/long-term-tab-api.md`, `docs/design/Correction_Re_Draft.md`(FE 설계 기준)
+- `DB.md`, `PRD.md`(§5 지역 단위 2층 분리), `CLAUDE.md`

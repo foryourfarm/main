@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
+from app.services.climatology_service import load_climatology, substitution_limitation
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
@@ -244,14 +245,9 @@ def compute_farm_suitability(
     stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, on_date)
     guides = load_guides(db, farm.crop_id, stage or "")
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
-    clim = (
-        db.query(WeatherClimatology)
-        .filter(
-            WeatherClimatology.region_id == farm.region_id,
-            WeatherClimatology.month == on_date.month,
-        )
-        .first()
-    )
+    # 평년치가 없는 지역은 격자상 최근접 지역 값으로 대체하고 그 사실을 표기한다(§8.5).
+    clim_source = load_climatology(db, farm.region_id)
+    clim = clim_source.by_month.get(on_date.month)
 
     # 장기예보 보정은 read-time에만 얹는다(캐시 금지 — §3.13 B1).
     corrections = load_corrections(db, farm.region_id, [on_date.month], on_date.year)
@@ -262,6 +258,9 @@ def compute_farm_suitability(
     status = derive_status(bool(guides), result["score"], result["breakdown"])
 
     limitations = [TEMP_DAY_LIMITATION]
+    substitution = substitution_limitation(clim_source)
+    if substitution is not None:
+        limitations.insert(0, substitution)
     limitations.append(OUTLOOK_APPLIED_LIMITATION if applied else OUTLOOK_MISSING_LIMITATION)
     if stage in ("coloring", "maturity"):
         limitations.append(APPLE_STAGE_LIMITATION)
@@ -378,12 +377,8 @@ def compute_monthly_outlook(
         db.scalars(select(CropGrowthGuide).where(CropGrowthGuide.crop_id == farm.crop_id))
     )
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
-    clim_by_month = {
-        c.month: c
-        for c in db.query(WeatherClimatology).filter(
-            WeatherClimatology.region_id == farm.region_id
-        )
-    }
+    clim_source = load_climatology(db, farm.region_id)
+    clim_by_month = clim_source.by_month
 
     # 12개월 보정치를 1회 조회(월별 재조회 금지). read-time 적용이라 캐시하지 않는다.
     corrections = load_corrections(db, farm.region_id, list(range(1, 13)), year)
@@ -397,6 +392,9 @@ def compute_monthly_outlook(
         MONTHLY_STAGE_LIMITATION,
         MONTHLY_SOIL_LIMITATION,
     ]
+    substitution = substitution_limitation(clim_source)
+    if substitution is not None:
+        limitations.insert(0, substitution)
     limitations.append(
         OUTLOOK_APPLIED_LIMITATION
         if any(m["outlook_applied"] for m in months)
