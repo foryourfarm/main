@@ -1,0 +1,10 @@
+{
+  "crop_code": "09011",
+  "name": "배",
+  "temperature_guides": [
+    {"months": [4, 5, 6, 7, 8, 9, 10], "optimal_min": 18.5, "optimal_max": 21.5, "allowed_min": 17.0, "allowed_max": 23.0,
+     "source": "농업·농촌 기후정보시스템 재배적지 정보(https://www.arccas.or.kr/farming/landlimit/viewinfo.do) 배 재배적지 지표: 생육기기온 적지 18.5~21.5℃, 가능지 17.0~18.5·21.5~23.0℃, 그 밖 부적지. 생육기 달력월 4~10월은 농촌진흥청 과수재배적지도(https://weather.rda.go.kr/ftrMap.do)가 명시."}
+  ],
+  "precipitation_guides": [],
+  "note": "농업·농촌 기후정보시스템의 배 생육기기온 적지 18.5~21.5℃·가능지 17~23℃를 사용한다. 생육기 달력월 4~10월은 농촌진흥청 과수재배적지도가 명시한다. [확인 필요] 두 공식 출처의 기준기간·공간 해상도 차이는 별도 검증하지 않았다. 기존 출처불명 legacy 2~11월 가이드는 사용하지 않는다."
+}

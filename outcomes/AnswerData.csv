@@ -1,0 +1,16 @@
+variable,ideal_value,ideal_min,ideal_max,unit,source,scope
+ph,6.5,6.0,7.0,-,"FarmML baselines.py OPT_BAND. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(1.0)의 ±50%(0.5) 확장. [확인 필요] 흙토람 공식 완충구간(진단기준표)이 로컬에 없어 실제 부족/과잉 경계가 아님, 향후 문헌 확보 시 교체.",soil
+organic_matter,25.0,20.0,30.0,g/kg,"흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(10.0)의 ±50%(5.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상.",soil
+available_p,425.0,300.0,550.0,mg/kg,"흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(250.0)의 ±50%(125.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상.",soil
+temperature_09001_04-10,16.5,14.5,18.5,C,"memory/crop_rules/09001 (사과 문헌 시드, 2026-07-25-v2)",crop:09001:사과:months=04-10
+temperature_04009_04-09,26.5,25.0,28.0,C,"memory/crop_rules/04009 (오이 문헌 시드, 2026-07-25-v2)",crop:04009:오이:months=04-09
+soil_ph_04009,6.15,5.5,6.8,-,"memory/crop_rules/04009 (오이 작물전용 override, 2026-07-25-v2)",crop:04009:오이:soil_override
+temperature_07001_01-12,23.0,22.0,24.0,C,"memory/crop_rules/07001 (상추 문헌 시드, 2026-07-25-v2)",crop:07001:상추:months=01-12
+soil_ph_07001,6.75,6.5,7.0,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_available_p_07001,325.0,250.0,400.0,mg/kg,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_k_07001,0.5,0.4,0.6,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_ca_07001,6.5,6.0,7.0,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_mg_07001,2.25,2.0,2.5,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+temperature_09011_04-10,20.0,18.5,21.5,C,"memory/crop_rules/09011 (배 문헌 시드, 2026-07-25-v2)",crop:09011:배:months=04-10
+temperature_03001_03-06,16.65,14.0,19.3,C,"memory/crop_rules/03001 (감자 문헌 시드, 2026-07-25-v2)",crop:03001:감자:months=03-06
+soil_organic_matter_03001,38.5,30.0,47.0,g/kg,"memory/crop_rules/03001 (감자 작물전용 override, 2026-07-25-v2)",crop:03001:감자:soil_override
