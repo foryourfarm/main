@@ -14,6 +14,10 @@ class IndicatorBreakdown(BaseModel):
     # 장기예보 보정이 적용된 지표만 채워진다(value = baseline + correction). 근거 제시용.
     baseline: float | None = None
     correction: float | None = None
+    # 기준값의 근거와 신뢰도. domestic_measured면 국내 실측, foreign_literature/provisional은
+    # 잠정치라 UI가 표현을 약하게 해야 한다(§18-4).
+    confidence: str | None = None
+    source_ref: str | None = None
 
 
 class FarmSuitability(BaseModel):

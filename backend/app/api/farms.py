@@ -1,15 +1,18 @@
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.db.session import get_db
+from app.infra.public_api.forecast_client import KST
 from app.models import SoilState, User
 from app.schemas.common import ApiResponse
 from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, RegionOut
+from app.schemas.short_term import FarmShortTerm
 from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability
-from app.services import farm_service, suitability_service
+from app.services import farm_service, short_term_service, suitability_service
 
 router = APIRouter(prefix="/api/v1", tags=["farms"])
 
@@ -85,3 +88,17 @@ def get_farm_monthly_outlook(
         db, current.id, farm_id, date.today().year
     )
     return ApiResponse.ok(FarmMonthlyOutlook(**data))
+
+
+@router.get("/farms/{farm_id}/short-term")
+def get_farm_short_term(
+    farm_id: int,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[FarmShortTerm]:
+    """단기 탭. 기상청 단기예보(최대 3일) + 날짜별 위험신호(PRD.md §4.5)."""
+    now = datetime.now(KST)
+    data = short_term_service.compute_short_term(
+        db, current.id, farm_id, settings.weather_forecast_api, now.date(), now
+    )
+    return ApiResponse.ok(FarmShortTerm(**data))

@@ -43,7 +43,10 @@ OUTLOOK_MISSING_LIMITATION = (
 INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
     "temp_day": None,
     "temp_night_min": "temp_night_min_normal",
-    "rainfall": "rainfall_normal",
+    # 강수는 단위별로 지표를 나눈다 — 월평년(mm/월)과 예보 일누적(mm/일)을 한 지표로
+    # 묶었다가 "비 안 온 날(0mm)"이 위험으로 판정되는 버그가 있었다(0011 참조).
+    "rainfall_monthly": "rainfall_normal",
+    "rainfall_daily": None,  # 단기 탭 전용 — weather_snapshot.rainfall
     "sunlight": "sunlight_normal",
     "ph": "ph",
     "ec": "ec",
@@ -84,7 +87,7 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
 def _is_valid(indicator: str, value: float) -> bool:
     if indicator == "ph":
         return 0 <= value <= 14
-    if indicator in {"rainfall", "p2o5", "organic"}:
+    if indicator in {"rainfall_monthly", "rainfall_daily", "p2o5", "organic"}:
         return value >= 0
     return True
 
@@ -143,6 +146,11 @@ def calculate_suitability(
             baseline, correction = applied[indicator]
             entry["baseline"] = float(baseline)
             entry["correction"] = float(correction)
+        # 근거·신뢰도를 함께 내려 UI가 표현 강도를 조절할 수 있게 한다(§18-4).
+        if guide.confidence is not None:
+            entry["confidence"] = guide.confidence
+        if guide.source_ref is not None:
+            entry["source_ref"] = guide.source_ref
         breakdown[indicator] = entry
         if status == "risk":
             risk_flags.append(f"{indicator}:outside_allowed")
@@ -170,7 +178,8 @@ def gather_indicator_values(
     return {
         "temp_day": clim.temp_avg_normal if clim else None,  # 월평년 근사
         "temp_night_min": clim.temp_night_min_normal if clim else None,
-        "rainfall": clim.rainfall_normal if clim else None,
+        # 장기 탭은 월평년만 채운다. 일 단위 지표는 단기 탭에서만 값이 생긴다.
+        "rainfall_monthly": clim.rainfall_normal if clim else None,
         "sunlight": clim.sunlight_normal if clim else None,
         "ph": soil.ph if soil else None,
         "ec": soil.ec if soil else None,
@@ -181,7 +190,9 @@ def gather_indicator_values(
 
 # 기상 기반 지표. 이 중 하나도 채점되지 않았다면 그 달 점수는 계절 적합도가 아니라
 # 토양 점수일 뿐이다(§8.4 판정 대상이 없음).
-WEATHER_INDICATORS = frozenset({"temp_day", "temp_night_min", "rainfall", "sunlight"})
+WEATHER_INDICATORS = frozenset(
+    {"temp_day", "temp_night_min", "rainfall_monthly", "rainfall_daily", "sunlight"}
+)
 
 
 def derive_status(

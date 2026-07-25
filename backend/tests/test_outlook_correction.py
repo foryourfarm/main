@@ -50,7 +50,9 @@ class TestCorrectionDelta(unittest.TestCase):
 class TestIndicatorMapping(unittest.TestCase):
     def test_only_temp_and_rainfall_are_corrected(self):
         """§8.1 B3: outlook은 기온·강수만 제공 — 야간최저·일조·토양은 보정 대상 아님."""
-        self.assertEqual(set(INDICATOR_TO_OUTLOOK), {"temp_day", "rainfall"})
+        # 강수는 월/일 단위로 분리돼 있고, 3개월전망은 월 신호이므로 월 지표만 대응한다.
+        self.assertEqual(set(INDICATOR_TO_OUTLOOK), {"temp_day", "rainfall_monthly"})
+        self.assertNotIn("rainfall_daily", INDICATOR_TO_OUTLOOK)
         for uncovered in ("temp_night_min", "sunlight", "ph", "ec", "p2o5", "organic"):
             self.assertNotIn(uncovered, INDICATOR_TO_OUTLOOK)
 
@@ -60,7 +62,7 @@ class TestApplyCorrections(unittest.TestCase):
         self.values: dict[str, float | Decimal | None] = {
             "temp_day": Decimal("25.4"),
             "temp_night_min": Decimal("18"),
-            "rainfall": Decimal("296.6"),
+            "rainfall_monthly": Decimal("296.6"),
             "ph": Decimal("6.3"),
         }
 

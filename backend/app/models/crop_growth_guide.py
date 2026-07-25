@@ -21,3 +21,11 @@ class CropGrowthGuide(Base):
     allowed_min: Mapped[Decimal | None] = mapped_column(Numeric)
     allowed_max: Mapped[Decimal | None] = mapped_column(Numeric)
     weight: Mapped[Decimal] = mapped_column(Numeric)
+    source_ref: Mapped[str | None] = mapped_column()
+    """이 기준값의 근거(문헌·시드 출처). "이 숫자 어디서 왔나"에 답할 수 있어야 한다."""
+    confidence: Mapped[str | None] = mapped_column()
+    """domestic_measured | foreign_literature | provisional.
+
+    국내 실측과 해외 문헌 잠정치를 구분해 UI 표현 강도를 조절한다("국내 실측" vs
+    "이론 추정") — 근사를 확정값처럼 보이게 하지 않기 위한 장치(§18-4).
+    """
