@@ -4,6 +4,7 @@ from app.models.crop import Crop
 from app.models.crop_growth_guide import CropGrowthGuide
 from app.models.crop_growth_stage import CropGrowthStage
 from app.models.daily_recommendation import DailyRecommendation
+from app.models.district import District, DistrictSoil
 from app.models.farm_action_log import FarmActionLog
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.prediction_shadow import PredictionShadow
@@ -26,6 +27,8 @@ __all__ = [
     "RegionGrid",
     "RegionOutlookZone",
     "Crop",
+    "District",
+    "DistrictSoil",
     "CropGrowthGuide",
     "CropGrowthStage",
     "SoilChangeRule",
