@@ -9,6 +9,7 @@ from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.prediction_shadow import PredictionShadow
 from app.models.region import Region
 from app.models.region_grid import RegionGrid
+from app.models.region_outlook_zone import RegionOutlookZone
 from app.models.soil_change_rule import SoilChangeRule
 from app.models.soil_state import SoilState
 from app.models.soil_state_snapshot import SoilStateSnapshot
@@ -23,6 +24,7 @@ __all__ = [
     "Base",
     "Region",
     "RegionGrid",
+    "RegionOutlookZone",
     "Crop",
     "CropGrowthGuide",
     "CropGrowthStage",
