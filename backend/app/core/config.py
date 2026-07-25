@@ -1,10 +1,23 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_REPO_ROOT = _BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
-    """환경변수 설정. 비밀값은 코드/레포에 두지 않고 .env 또는 환경변수로만(CLAUDE.md §17)."""
+    """환경변수 설정. 비밀값은 코드/레포에 두지 않고 .env 또는 환경변수로만(CLAUDE.md §17).
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    env_file은 절대경로로 준다 — 상대경로 ".env"는 실행 위치(CWD)에 따라 조용히 안 읽힌다
+    (키가 루트 .env에 있는데 backend/에서 실행해 전부 빈 문자열이 되는 사고가 실제로 있었다).
+    뒤쪽이 우선이라 backend/.env가 루트 .env를 덮어쓴다.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=(_REPO_ROOT / ".env", _BACKEND_DIR / ".env"),
+        extra="ignore",
+    )
 
     # DB — 기본값은 docker-compose.yml의 로컬 Postgres와 동일
     database_url: str = "postgresql+psycopg://foryourfarm:foryourfarm@localhost:5432/foryourfarm"
@@ -26,9 +39,17 @@ class Settings(BaseSettings):
     # 프롬프트에 넣을 이전 대화 최대 메시지 수(최근 것부터). 프롬프트 길이/응답시간 방어용 캡.
     chat_history_max_messages: int = 6
 
-    # 공공데이터 API 키 — 발급 전까지 비워둠(배치/조회 코드에서만 사용)
-    weather_api_key: str = ""
-    soil_api_key: str = ""
+    # 공공데이터 API 인증키 — API별로 분리한다. data.go.kr은 승인 세트마다 키가 달라
+    # (실제로 발급된 값이 서로 다름) 하나로 뭉치면 승인 안 된 API를 잘못된 키로 호출한다.
+    # 필드명을 .env 키 이름과 그대로 대응시켜 어떤 키가 어디 쓰이는지 헷갈리지 않게 한다.
+    chemical_status_api: str = ""  # 농경지화학성 통계정보 V2
+    chemistry_api: str = ""  # 토양검정 화학성 상세정보 V2
+    soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2
+    weather_api: str = ""  # 농업기상 기본 관측데이터(과거 실측)
+    weather_observatory_api: str = ""  # 농업기상 관측지점 정보(지점 위경도)
+    weather_forecast_api: str = ""  # 기상청 단기예보 조회서비스(단기 탭)
+    vworld_api: str = ""  # VWorld — 주소 → PNU 변환
+    # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.
     # 비어 있으면 미로드 → 모든 예측이 Δ=0 폴백(서비스는 죽지 않음, 가이드 §2.2). 실제 artifact는

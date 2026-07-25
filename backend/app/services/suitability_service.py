@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
+from app.services.outlook_correction import apply_corrections, load_corrections
 
 ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
 
@@ -29,6 +30,13 @@ MONTHLY_STAGE_LIMITATION = (
 )
 MONTHLY_SOIL_LIMITATION = (
     "토양 지표는 12개월에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
+)
+OUTLOOK_APPLIED_LIMITATION = (
+    "기온·강수는 평년치에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
+    "전망이 없는 월·지표(야간최저기온·일조 등)는 평년치를 그대로 씁니다."
+)
+OUTLOOK_MISSING_LIMITATION = (
+    "기상청 3개월전망이 적재되지 않아 보정 없이 평년치만 사용했습니다."
 )
 
 # DB.md §3.5 C3. temp_day는 현재 캐시에 대응 컬럼이 없어 호출자가 별도 공급해야 한다.
@@ -94,8 +102,13 @@ def _grade(score: float) -> str:
 def calculate_suitability(
     guides: Sequence[CropGrowthGuide],
     values: Mapping[str, float | Decimal | None],
+    applied: Mapping[str, tuple[Decimal, Decimal]] | None = None,
 ) -> dict[str, object]:
-    """결측/이상 지표는 제외하고 나머지 가중평균을 반환한다."""
+    """결측/이상 지표는 제외하고 나머지 가중평균을 반환한다.
+
+    `applied`는 장기예보 보정 내역 {지표: (baseline, 보정치)} — 넘기면 breakdown에
+    평년치·보정치를 분해해 기록한다(근거 제시, DB.md §8.1-5).
+    """
     breakdown: dict[str, dict[str, object]] = {}
     risk_flags: list[str] = []
     weighted_sum = 0.0
@@ -120,12 +133,17 @@ def calculate_suitability(
 
         score, status = _indicator_score(value, guide)
         weight = float(guide.weight)
-        breakdown[indicator] = {
+        entry: dict[str, object] = {
             "value": value,
             "score": round(score, 1),
             "weight": weight,
             "status": status,
         }
+        if applied and indicator in applied:
+            baseline, correction = applied[indicator]
+            entry["baseline"] = float(baseline)
+            entry["correction"] = float(correction)
+        breakdown[indicator] = entry
         if status == "risk":
             risk_flags.append(f"{indicator}:outside_allowed")
         weighted_sum += score * weight
@@ -199,10 +217,16 @@ def compute_farm_suitability(
         .first()
     )
 
-    result = calculate_suitability(guides, gather_indicator_values(soil, clim))
+    # 장기예보 보정은 read-time에만 얹는다(캐시 금지 — §3.13 B1).
+    corrections = load_corrections(db, farm.region_id, [on_date.month], on_date.year)
+    values, applied = apply_corrections(
+        gather_indicator_values(soil, clim), corrections, on_date.month
+    )
+    result = calculate_suitability(guides, values, applied)
     status = derive_status(bool(guides), result["score"])
 
     limitations = [TEMP_DAY_LIMITATION]
+    limitations.append(OUTLOOK_APPLIED_LIMITATION if applied else OUTLOOK_MISSING_LIMITATION)
     if stage in ("coloring", "maturity"):
         limitations.append(APPLE_STAGE_LIMITATION)
 
@@ -257,6 +281,7 @@ def build_monthly_rows(
     soil: SoilState | None,
     planting_date: date,
     year: int,
+    corrections: Mapping[tuple[int, str], Decimal] | None = None,
 ) -> list[dict[str, object]]:
     """1~12월 각 월의 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
 
@@ -265,12 +290,14 @@ def build_monthly_rows(
     """
     rows: list[dict[str, object]] = []
     stages = list(stage_rows)
+    corr = dict(corrections or {})
     for month in range(1, 13):
         stage = dominant_stage(stages, planting_date, year, month)
         guides = _guides_for_stage(all_guides, stage)
-        result = calculate_suitability(
-            guides, gather_indicator_values(soil, clim_by_month.get(month))
+        values, applied = apply_corrections(
+            gather_indicator_values(soil, clim_by_month.get(month)), corr, month
         )
+        result = calculate_suitability(guides, values, applied)
         rows.append(
             {
                 "month": month,
@@ -279,6 +306,7 @@ def build_monthly_rows(
                 "score": result["score"],
                 "grade": result["grade"],
                 "risk_flags": result["risk_flags"],
+                "outlook_applied": bool(applied),
             }
         )
     return rows
@@ -314,8 +342,10 @@ def compute_monthly_outlook(
         )
     }
 
+    # 12개월 보정치를 1회 조회(월별 재조회 금지). read-time 적용이라 캐시하지 않는다.
+    corrections = load_corrections(db, farm.region_id, list(range(1, 13)), year)
     months = build_monthly_rows(
-        stage_rows, all_guides, clim_by_month, soil, farm.planting_date, year
+        stage_rows, all_guides, clim_by_month, soil, farm.planting_date, year, corrections
     )
 
     limitations = [
@@ -324,6 +354,11 @@ def compute_monthly_outlook(
         MONTHLY_STAGE_LIMITATION,
         MONTHLY_SOIL_LIMITATION,
     ]
+    limitations.append(
+        OUTLOOK_APPLIED_LIMITATION
+        if any(m["outlook_applied"] for m in months)
+        else OUTLOOK_MISSING_LIMITATION
+    )
     if any(m["growth_stage"] in ("coloring", "maturity") for m in months):
         limitations.append(APPLE_STAGE_LIMITATION)
 
