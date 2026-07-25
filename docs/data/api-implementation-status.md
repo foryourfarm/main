@@ -100,26 +100,34 @@ get_daily_weather(
 
 #### 2-2. soil_chem_stat_client.py 구현
 
-**현황:** [확인 필요] placeholder
+**현황:** ✅ 기술명세서 기반 실구현 완료
 
-**필요 정보:**
-1. 정확한 API 엔드포인트 (현재: `getFarmExamOmInfo` 추정)
-2. 요청 파라미터명 (현재: `BJD_Code` 추정)
-3. 응답 필드명 (현재: `Acid_Avg`, `Om_Avg`, `Vldpha_Avg` 추정)
+**기술명세서 검증:**
+- ✅ Base URL: https://apis.data.go.kr/1390802/SoilEnviron/SoilExamStat/V2
+- ✅ 파라미터: serviceKey, STDG_CD (법정동코드 10자리)
+- ✅ 응답 코드: 200=성공, 301=데이터없음 등
 
-**조회 전략:**
+**구현 내용:**
+- ✅ 3개 엔드포인트 호출 (getFarmExamPhInfo, getFarmExamOmInfo, getFarmExamApInfo)
+- ✅ 구간통계(bin_1~bin_6 면적) → 가중평균 산출
+- ✅ 논/밭 경지구분별 평균 계산
+- ✅ 결측/이상치 검증 (pH: 0-14, OM/AP: ≥0)
+
+**조회 흐름:**
 ```
 법정동코드 (10자리, 읍면동)
+  ↓ (3개 API 동시 호출 또는 순차 호출)
+  ├─ getFarmExamPhInfo → pH 구간통계
+  ├─ getFarmExamOmInfo → 유기물 구간통계
+  └─ getFarmExamApInfo → 유효인산 구간통계
   ↓
-get_region_soil_chem_stat(bjd_code)
-  ↓
-{survey_year, ph_avg, organic_matter_avg, avail_p_avg}
+RegionSoilChemStat(bjd_code, bjd_name, ph_avg, organic_matter_avg, avail_p_avg)
 ```
 
-**액션:**
-- [ ] 국가데이터포탈 "농경지화학성 통계정보 V2" 기술명세서 재검토
-- [ ] 실제 API 호출로 응답 스키마 확인 (인증키 있음 — .env)
-- [ ] 결측/이상치 검증 규칙 추가
+**테스트 필요:**
+- [ ] 실제 API 호출 (예: 고창군 법정동코드)
+- [ ] 구간통계 가중평균 계산 검증
+- [ ] 결측 처리 (데이터 없음 시 None 반환)
 
 ---
 
