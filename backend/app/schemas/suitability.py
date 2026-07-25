@@ -31,3 +31,29 @@ class FarmSuitability(BaseModel):
     breakdown: dict[str, IndicatorBreakdown]
     risk_flags: list[str]
     limitations: list[str]
+
+
+class MonthlyOutlookEntry(BaseModel):
+    """한 달의 전망 한 칸(히트맵 셀). 지표별 breakdown은 응답 비대를 피해 생략 — 상세는 일자 조회로."""
+
+    month: int  # 1~12
+    growth_stage: str | None
+    status: Literal["ok", "out_of_season", "insufficient_data"]
+    score: float | None
+    grade: str | None
+    risk_flags: list[str]
+
+
+class FarmMonthlyOutlook(BaseModel):
+    """밭의 1~12월 전망(장기 탭 히트맵, `PRD.md` §4.4).
+
+    평년치 기반 이론 추정이며 예보가 아니다 — 한계는 limitations로 함께 내려 UI에 병기한다.
+    """
+
+    farm_id: int
+    crop_id: int
+    region_id: int
+    year: int
+    label: str
+    months: list[MonthlyOutlookEntry]
+    limitations: list[str]

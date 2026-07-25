@@ -1,4 +1,5 @@
 """DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
+from calendar import monthrange
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
@@ -7,8 +8,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models import CropGrowthGuide, SoilState, UserFarm, WeatherClimatology
-from app.services.growth_stage_service import resolve_growth_stage
+from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
+from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 
 ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
 
@@ -18,6 +19,17 @@ SUITABILITY_LABEL = "문헌 기반 예상 적합도"
 TEMP_DAY_LIMITATION = "일 기온(temp_day)은 실측이 아니라 월평년(temp_avg_normal) 근사입니다."
 # 사과 착색/성숙은 문헌이 한 구간이라 근사 분리(품종 정보 부재 → 이론 추정).
 APPLE_STAGE_LIMITATION = "사과 착색/성숙 단계 구분은 품종 정보 부재로 이론 추정입니다."
+
+MONTHLY_CLIMATOLOGY_LIMITATION = (
+    "월별 전망은 평년치(월 단위 기상 평균) 기반 이론 추정이며 실제 예보가 아닙니다."
+)
+MONTHLY_STAGE_LIMITATION = (
+    "각 월의 생육단계는 그 달에 가장 많은 날을 차지한 단계로 표기합니다 — "
+    "한 달에 두 단계가 걸치면 짧은 쪽은 표기되지 않습니다."
+)
+MONTHLY_SOIL_LIMITATION = (
+    "토양 지표는 12개월에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
+)
 
 # DB.md §3.5 C3. temp_day는 현재 캐시에 대응 컬럼이 없어 호출자가 별도 공급해야 한다.
 INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
@@ -206,5 +218,121 @@ def compute_farm_suitability(
         "label": SUITABILITY_LABEL,
         "breakdown": result["breakdown"],
         "risk_flags": result["risk_flags"],
+        "limitations": limitations,
+    }
+
+
+def _guides_for_stage(
+    all_guides: Sequence[CropGrowthGuide], stage: str | None
+) -> list[CropGrowthGuide]:
+    """단계 지침 + 전 기간 공통(NULL) 지침. load_guides의 SQL 필터를 메모리에서 재현한다."""
+    return [g for g in all_guides if g.growth_stage == stage or g.growth_stage is None]
+
+
+def dominant_stage(
+    stage_rows: list[CropGrowthStage], planting_date: date, year: int, month: int
+) -> str | None:
+    """그 달에 가장 많은 날을 차지한 생육단계. 단계가 하루도 안 걸치면 None.
+
+    대표일 1개(예: 매월 15일)로 판정하면 월 경계에 걸친 짧은 단계가 12칸 어디에도 안 나타난다
+    (사과 성숙 DOY 294~314 → 10/15=288, 11/15=319 둘 다 빗나감 → 수확 단계 소실). 그래서 일수
+    우세로 판정한다. 단계가 없는 날은 경쟁에서 제외한다 — 월 대부분이 비어 있어도 그 달에 실제로
+    존재하는 단계는 표기해야 하므로.
+    """
+    counts: dict[str, int] = {}  # 삽입순 유지 → 일수 동률이면 먼저 등장한 단계(결정론)
+    for day in range(1, monthrange(year, month)[1] + 1):
+        on_date = date(year, month, day)
+        stage = pick_stage(
+            stage_rows, on_date.timetuple().tm_yday, (on_date - planting_date).days
+        )
+        if stage is not None:
+            counts[stage] = counts.get(stage, 0) + 1
+    return max(counts, key=counts.__getitem__) if counts else None
+
+
+def build_monthly_rows(
+    stage_rows: Sequence[CropGrowthStage],
+    all_guides: Sequence[CropGrowthGuide],
+    clim_by_month: Mapping[int, WeatherClimatology],
+    soil: SoilState | None,
+    planting_date: date,
+    year: int,
+) -> list[dict[str, object]]:
+    """1~12월 각 월의 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
+
+    토양은 월과 무관하게 밭의 현재 추정값을 12개월에 동일 적용한다. 월별 토양 변화 예측은
+    P0 shadow 단계라 사용자 노출이 금지돼 있어 여기에 끌어오지 않는다(핸드오프 §12).
+    """
+    rows: list[dict[str, object]] = []
+    stages = list(stage_rows)
+    for month in range(1, 13):
+        stage = dominant_stage(stages, planting_date, year, month)
+        guides = _guides_for_stage(all_guides, stage)
+        result = calculate_suitability(
+            guides, gather_indicator_values(soil, clim_by_month.get(month))
+        )
+        rows.append(
+            {
+                "month": month,
+                "growth_stage": stage,
+                "status": derive_status(bool(guides), result["score"]),
+                "score": result["score"],
+                "grade": result["grade"],
+                "risk_flags": result["risk_flags"],
+            }
+        )
+    return rows
+
+
+def compute_monthly_outlook(
+    db: Session, user_id: int, farm_id: int, year: int
+) -> dict[str, object]:
+    """밭의 1~12월 '문헌 기반 예상 적합도' 전망(장기 탭 히트맵, `PRD.md` §4.4).
+
+    단계·지침·평년치를 각각 1회만 읽고 12개월을 메모리에서 돌린다 — 월별 재조회 방지(§17).
+    소유권은 compute_farm_suitability와 동일하게 user_id 스코프 404(§11).
+    """
+    farm = (
+        db.query(UserFarm)
+        .filter(UserFarm.user_id == user_id, UserFarm.id == farm_id)
+        .first()
+    )
+    if farm is None:
+        raise AppError(404, "FARM_NOT_FOUND", "밭을 찾을 수 없습니다.")
+
+    stage_rows = list(
+        db.query(CropGrowthStage).filter(CropGrowthStage.crop_id == farm.crop_id)
+    )
+    all_guides = list(
+        db.scalars(select(CropGrowthGuide).where(CropGrowthGuide.crop_id == farm.crop_id))
+    )
+    soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
+    clim_by_month = {
+        c.month: c
+        for c in db.query(WeatherClimatology).filter(
+            WeatherClimatology.region_id == farm.region_id
+        )
+    }
+
+    months = build_monthly_rows(
+        stage_rows, all_guides, clim_by_month, soil, farm.planting_date, year
+    )
+
+    limitations = [
+        TEMP_DAY_LIMITATION,
+        MONTHLY_CLIMATOLOGY_LIMITATION,
+        MONTHLY_STAGE_LIMITATION,
+        MONTHLY_SOIL_LIMITATION,
+    ]
+    if any(m["growth_stage"] in ("coloring", "maturity") for m in months):
+        limitations.append(APPLE_STAGE_LIMITATION)
+
+    return {
+        "farm_id": farm.id,
+        "crop_id": farm.crop_id,
+        "region_id": farm.region_id,
+        "year": year,
+        "label": SUITABILITY_LABEL,
+        "months": months,
         "limitations": limitations,
     }
