@@ -27,5 +27,11 @@ class WeatherOutlook(Base):
     prob_below: Mapped[Decimal | None] = mapped_column(Numeric)
     prob_normal: Mapped[Decimal | None] = mapped_column(Numeric)
     prob_above: Mapped[Decimal | None] = mapped_column(Numeric)
+    normal_value: Mapped[Decimal | None] = mapped_column(Numeric)
+    """권역 평년값(RSS normalYear). 우리 weather_climatology와 별개 — 권역 단위 값."""
+    similar_low: Mapped[Decimal | None] = mapped_column(Numeric)
+    similar_high: Mapped[Decimal | None] = mapped_column(Numeric)
+    """'비슷' tercile 구간 경계. 보정 단위 δ를 여기서 유도한다(상수 추측 금지).
+    평년값 기준 비대칭이라(실측: 평년 296.6, 구간 209.3~374.4) 반폭 하나로 뭉개지 않는다."""
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
