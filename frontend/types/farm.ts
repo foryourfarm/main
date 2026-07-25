@@ -11,6 +11,42 @@ export type SuitabilityStatus = "ok" | "dormant" | "out_of_season" | "insufficie
 /** S/A/B/C. 색만으로 구분하지 않고 항상 라벨을 병기한다(CLAUDE.md §8 접근성). */
 export type Grade = "S" | "A" | "B" | "C";
 
+/** 온보딩 선택지. 계약: docs/long-term-tab-api.md */
+export interface Region {
+  id: number;
+  name: string;
+  sido: string;
+}
+
+/** bjd_code가 흙토람 토양 조회 키다. 시/군은 기상 단위, 읍면동은 토양 단위(PRD §5). */
+export interface District {
+  bjd_code: string;
+  name: string;
+}
+
+export interface Crop {
+  id: number;
+  name: string;
+}
+
+export interface FarmCreateInput {
+  region_id: number;
+  bjd_code: string;
+  crop_id: number;
+  planting_date: string; // YYYY-MM-DD
+  label?: string;
+}
+
+export interface FarmCreated {
+  id: number;
+  region_id: number;
+  crop_id: number;
+  planting_date: string;
+  label: string | null;
+  /** 토양 기준값 출처(조회 단위·표본수). null이면 토양 초기화를 건너뜀. */
+  soil_source: string | null;
+}
+
 export interface DashboardCard {
   farm_id: number;
   crop_id: number;
