@@ -68,12 +68,26 @@ dev로 한 번 더 PR해서 회수한다(내용은 #22~25에서 이미 리뷰됨
 - P3 first-party 수집: `crop_outcome_record`(수확기 입력) + `farm_action_log` 성분 보강 — **"수집 그릇"은 지금 코드로 만들 수 있음**(데이터 자체는 유저가 써야 쌓임), 아직 미착수
 
 **기상 데이터 — 다음 자연스러운 확장**
+- **장기예보(3개월 전망) 적재 — R2 해결됨, 착수 가능** (2026-07-25 실측 검증)
+  - 소스: 기상청 3개월전망 **RSS XML** `http://www.kma.go.kr/repositary/xml/fct/mon/img/fct_mon3rss_108_YYYYMMDD.xml`
+    (data.go.kr 15050698은 PDF fileData라 사용 불가, API허브 예특보엔 장기예보 없음)
+  - tercile 확률이 숫자 태그로 옴 → `weather_outlook` 스키마 그대로 사용 가능:
+    `<local_ta>/<local_ta_name>` + `<month_local_ta>/<monthN_local_ta_{normalYear,similarRange,minVal,similarVal,maxVal}>`
+    (예: 전국 8월 평년값 25.1, 비슷범위 24.6~25.6, 낮음10/비슷30/높음60). 강수량은 `local_rn`/`_rn_` 동형.
+  - **δ 미결정 해소 가능**: `similarRange` 반폭이 tercile 경계 폭 → δ를 임의 상수 대신 데이터에서 유도(`DB.md` §10).
+  - 필수 방어 2개(둘 다 실측된 실제 케이스): ① 발표일 이동 — 매월 23일 기준이나 2026-05는 **22일**(주말),
+    23·24일 URL은 존재하지 않음 → 23일부터 ±며칠 탐색. ② **HTTP 200인데 HTML 에러페이지**를 반환 →
+    상태코드만 믿지 말고 XML 파싱·루트/태그 존재까지 검증(안 하면 쓰레기 적재).
+  - 남은 결정: 권역 13개(전국+12) → `region` 256개 매핑. `region.sido`로 대부분 유도되나
+    **강원 영서/영동은 시/군 단위 수동 매핑 필요** → 임의 결정 말고 시드로 근거 남길 것(`CLAUDE.md` §3-2).
+  - 자동화: 발표 주기 고정 + `uq_outlook` 유니크로 멱등 → 스케줄러로 자동 갱신(수동 버튼 불필요, 스크립트 직접 실행이 곧 수동 경로).
 - 기상청 공식 30년 평년값 + 야간최저·일조 API 발급(현재는 관측 5년 평균 근사로 2개 지표만 대체 중)
 - 단기 탭(당일 실시간 기상·위험배너·오늘의 추천행동) — weather_snapshot 연동 전무, API 키 미발급
 
 **대시보드/FE 남은 위젯** — `docs/design/` 대시보드 스펙 대비
 - 데이터 신뢰도 배지(출처 N/3, 토양=흙토람/기상=평년 표기) — 백엔드 토양 provenance는 지금도 가능, 기상 부분은 위 항목 선행
-- 장기 탭 월별 전망 히트맵 — 로직은 가능(compute_farm_suitability를 월별 루프), 미착수
+- ~~장기 탭 월별 전망 히트맵~~ → 백엔드 완료(`GET /api/v1/farms/{farm_id}/monthly-outlook`).
+  **FE 렌더링은 미착수**. 현재는 평년치만 — 위 outlook 보정 미적용(`DB.md` §8.1 대비 갭, limitations에 명시함)
 - 시기별 커리큘럼/자연어 설명(LLM) — 정형데이터 준비됨, LLM 연결 미착수
 - 로그인 게이팅 미들웨어, 온보딩(지역/작물 등록) 페이지, 대시보드/밭상세 화면 자체(백엔드 API는 준비됨)
 - 챗봇 로그인 모드 연결: FE에서 access 첨부 + `session_id` + `farm_id` 전달 — 백엔드는 이미 준비됨
