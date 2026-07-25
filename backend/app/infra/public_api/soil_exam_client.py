@@ -25,7 +25,8 @@ class SoilExam(BaseModel):
     pnu_code: str
     sample_year: str  # Any_Year
     exam_day: str  # Exam_Day (YYYYMMDD)
-    field_type: str | None  # Exam_Type 코드북 매핑
+    field_type_code: str | None  # Exam_Type 원본 코드 — 필터는 이걸로(표기 변화에 안 흔들림)
+    field_type: str | None  # Exam_Type 코드북 매핑(표시용)
     address: str  # Pnu_Nm
     ph: float | None  # ACID
     avail_p: float | None  # VLDPHA (mg/kg)
@@ -62,6 +63,7 @@ def _parse(item: dict[str, str | None]) -> SoilExam:
         pnu_code=item.get("PNU_Cd") or "",
         sample_year=item.get("Any_Year") or "",
         exam_day=item.get("Exam_Day") or "",
+        field_type_code=item.get("Exam_Type") or None,
         field_type=FIELD_TYPE.get(item.get("Exam_Type") or ""),
         address=item.get("PNU_Nm") or "",
         ph=_to_float(item.get("ACID")),
@@ -77,7 +79,7 @@ def _parse(item: dict[str, str | None]) -> SoilExam:
 
 def get_soil_exam(pnu_code: str) -> SoilExam | None:
     """지번코드(PNU) 단위 최신 검정 결과 1건 조회."""
-    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.soil_api_key, "PNU_CD": pnu_code})
+    items = fetch_items(f"{BASE_URL}/getSoilExam", {"serviceKey": settings.chemistry_api, "PNU_CD": pnu_code})
     return _parse(items[0]) if items else None
 
 
@@ -86,7 +88,7 @@ def get_soil_exam_list(stdg_code: str, page_no: int = 1, page_size: int = 10) ->
     items = fetch_items(
         f"{BASE_URL}/getSoilExamList",
         {
-            "serviceKey": settings.soil_api_key,
+            "serviceKey": settings.chemistry_api,
             "STDG_CD": stdg_code,
             "Page_No": str(page_no),
             "Page_Size": str(page_size),

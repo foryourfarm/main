@@ -34,7 +34,7 @@ def get_soil_profile(pnu_code: str) -> SoilProfile | None:
     """PNU(19자리 지번코드) 단위 조회. 결과 없으면 None(§8.5 결측 방어는 호출부에서)."""
     # 응답 필드명은 기술명세서(ver1.0) 예제 기준 "*_Code"(PNU_Code, Deepsoil_Qlt_Code 등).
     # 요청 파라미터는 명세 요청부 기준 "PNU_CD"(요청/응답 표기가 다름 — 응답 필드로 단정 금지).
-    items = fetch_items(BASE_URL, {"serviceKey": settings.soil_api_key, "PNU_CD": pnu_code})
+    items = fetch_items(BASE_URL, {"serviceKey": settings.soil_api, "PNU_CD": pnu_code})
     if not items:
         return None
     item = items[0]

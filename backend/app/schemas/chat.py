@@ -20,3 +20,7 @@ class ChatRequest(BaseModel):
     # 로그인 유저가 특정 밭 기준 답변을 원할 때. 소유권 검증 후 밭 작물/토양을 프롬프트에 주입("내 땅 맞춤").
     # 게스트는 무시된다(밭 컨텍스트는 인증 유저만).
     farm_id: int | None = Field(default=None, ge=1)
+    # 대화 스레드 키(클라가 만든 uuid4). 로그인+session_id면 서버가 DB에서 history 로드/저장하고
+    # 요청 body의 history는 무시한다. 게스트/미지정이면 지금처럼 클라 history를 쓴다.
+    # 소유권은 (user_id, session_id) 스코프로 강제 — 남의 session_id를 넣어도 빈 히스토리만 나온다(§11).
+    session_id: str | None = Field(default=None, pattern=r"^[0-9a-fA-F-]{8,64}$")

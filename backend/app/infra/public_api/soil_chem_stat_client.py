@@ -47,7 +47,7 @@ def _to_float(raw: str | None) -> float | None:
 
 def get_region_soil_chem_stat(bjd_code: str) -> list[RegionSoilChemStat]:
     """법정동코드(읍면동, 10자리) 단위 화학성 통계 조회. [확인 필요] 파라미터명은 아래가 확정 전 추정치."""
-    items = fetch_items(BASE_URL, {"serviceKey": settings.soil_api_key, "BJD_Code": bjd_code})  # [확인 필요]
+    items = fetch_items(BASE_URL, {"serviceKey": settings.chemical_status_api, "BJD_Code": bjd_code})  # [확인 필요]
     return [
         RegionSoilChemStat(
             bjd_code=item.get("BJD_Code") or bjd_code,  # [확인 필요]

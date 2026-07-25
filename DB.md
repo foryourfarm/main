@@ -154,6 +154,10 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - Constraint: `uq_soil_state (user_farm_id)` (밭당 현재 상태 1행, 갱신은 upsert).
 - 최초=흙토람 기준값(is_estimated=false), 이후 행동 반영 시 추정치로 갱신(§8.2).
+- **기준값 단위 = 읍면동**(`PRD.md` §5). 흙토람 토양검정은 읍면동 법정동코드로만 조회되며(시/군 코드는
+  "데이터 없음"), 시/군 평균은 편차가 커서 유저 밭과 무관해진다. 등록 작물에 맞는 **경지구분 표본만**
+  평균한다(사과·배=과수, 감자·상추=밭, 오이=시설). `base_source`에 조회 단위·표본수를 남겨 재현 가능하게 한다.
+- 기상·적합도·ML은 시/군(`region`) 단위 그대로 — 읍면동은 토양에만 쓴다(층 분리 근거는 `PRD.md` §5).
 
 ### 3.10 weather_snapshot (기상 실황/예보 캐시)
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -249,6 +253,21 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - 검색: 질문 임베딩과 코사인 유사도 상위 K개 조각을 뽑아 프롬프트에 근거로 주입. HNSW/IVFFlat 인덱스는 코퍼스 크기 확정 후 추가.
 - **챗봇 전용** — 핵심 예측 기능은 이 테이블을 쓰지 않는다(`PRD.md` §10).
 
+### 3.16 chat_message (상담 챗봇 대화 로그, 런타임 기록)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_id | BIGINT | NOT NULL, FK→users(id) ON DELETE CASCADE | 대화 소유 유저 |
+| session_id | VARCHAR(64) | NOT NULL | 대화 스레드 키(클라가 만든 uuid4) |
+| role | VARCHAR(16) | NOT NULL | 'user' \| 'assistant' |
+| content | TEXT | NOT NULL | 발화 원문 |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- **런타임 기록 — 시드/마스터 아님**. 로그인 유저가 `session_id`를 주면 서버가 이 테이블에서 히스토리를 로드/저장한다. 게스트는 저장하지 않고 클라이언트가 history를 재전송한다(무상태 경로 유지).
+- **소유권(§11·CLAUDE.md §11)**: 히스토리 로드/저장은 항상 `(user_id, session_id)`로 스코프 — 남의 session_id를 넣어도 빈 히스토리만 나온다. 계정 삭제 시 대화도 삭제(FK CASCADE).
+- 인덱스: `(user_id, session_id, id)` — 로드가 이 필터 + id(=삽입순) 정렬이라 커버.
+- **저장 정책**: 실제 답변이 생성된 턴만 저장(근거 없음 거절·LLM 오류 폴백 문구는 저장 안 함 → 다음 턴 히스토리 오염 방지).
+
 ---
 
 ## 4. 인덱스 / 제약 요약
@@ -256,7 +275,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - 유니크: users.email, guide(crop,stage,indicator), soil_rule(action,indicator), soil_state(farm), weather(region,kind,base_at,target), climatology(region,month), outlook(region,target_month,indicator,published_at), suit(region,crop,stage), daily(farm,target).
 - 조회 인덱스: region(name), user_farm(user), action(farm,date), weather(region,target), daily(farm,target).
 - CHECK: score 0..100, grade 화이트리스트, weather.kind ∈ {OBS, FORECAST}, outlook.category ∈ {BELOW, NORMAL, ABOVE}.
-- FK: 유저 하위(user_farm/action/soil_state/daily)는 `ON DELETE CASCADE`. 마스터 참조는 RESTRICT.
+- FK: 유저 하위(user_farm/action/soil_state/daily/chat_message)는 `ON DELETE CASCADE`. 마스터 참조는 RESTRICT.
 
 ---
 
