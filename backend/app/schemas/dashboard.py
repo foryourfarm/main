@@ -19,7 +19,7 @@ class DashboardCard(BaseModel):
     growth_stage_label: str | None
     score: float | None
     grade: str | None  # S | A | B | C | null
-    status: Literal["ok", "out_of_season", "insufficient_data"]
+    status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
     label: str  # 항상 "문헌 기반 예상 적합도"
     limitations: list[str]
 

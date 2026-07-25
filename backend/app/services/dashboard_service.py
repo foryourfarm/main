@@ -21,7 +21,12 @@ STAGE_LABELS = {
 def _stage_label(stage: str | None, status: str) -> str | None:
     if stage is not None:
         return STAGE_LABELS.get(stage, stage)
-    return "제철 아님" if status == "out_of_season" else "전기간"
+    if status == "out_of_season":
+        return "제철 아님"
+    # 기상 판정 근거가 없는 달 — "전기간"이라고 하면 정상 산출로 오해된다.
+    if status == "dormant":
+        return "휴면기"
+    return "전기간"
 
 
 def _is_orchard(db: Session, crop_id: int) -> bool:
