@@ -19,7 +19,8 @@ class IndicatorBreakdown(BaseModel):
 class FarmSuitability(BaseModel):
     """밭 단위 '문헌 기반 예상 적합도'(장기 탭). ML 정확도 검증 완료 아님 — 명칭 고정(§13, 핸드오프 §5).
 
-    status: ok(정상) | out_of_season(해당 단계 지침 없음 — 예: 배 겨울) | insufficient_data(지표 전부 결측/이상).
+    status: ok(정상) | dormant(기상 판정 근거 없는 달 — 토양 지침만 걸림, 점수 미노출)
+    | out_of_season(해당 단계 지침 없음 — 예: 배 겨울) | insufficient_data(지표 전부 결측/이상).
     """
 
     farm_id: int
@@ -27,7 +28,7 @@ class FarmSuitability(BaseModel):
     region_id: int
     growth_stage: str | None
     as_of: date
-    status: Literal["ok", "out_of_season", "insufficient_data"]
+    status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
     score: float | None
     grade: str | None  # S | A | B | C | null
     label: str
@@ -41,7 +42,7 @@ class MonthlyOutlookEntry(BaseModel):
 
     month: int  # 1~12
     growth_stage: str | None
-    status: Literal["ok", "out_of_season", "insufficient_data"]
+    status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
     score: float | None
     grade: str | None
     risk_flags: list[str]

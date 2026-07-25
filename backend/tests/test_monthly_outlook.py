@@ -84,6 +84,18 @@ class TestBuildMonthlyRows(unittest.TestCase):
         # 시드에 있는 세 단계가 12칸 안에 모두 드러나야 한다(시즌 커리큘럼 누락 방지).
         self.assertTrue({"fruit_growth", "coloring", "maturity"} <= appeared)
 
+    def test_soil_only_winter_month_hides_score_as_dormant(self):
+        """사과 겨울: 기상 지침이 안 걸려 토양만 채점됨 → 점수를 내보내지 않는다(§18-4)."""
+        rows = {r["month"]: r for r in
+                build_monthly_rows(APPLE_STAGES, APPLE_GUIDES, CLIM_ALL, SOIL, PLANTING, YEAR)}
+        jan = rows[1]
+        self.assertEqual(jan["status"], "dormant")
+        self.assertIsNone(jan["score"])  # 100점이 그대로 나가면 "1월이 최적"으로 읽힌다
+        self.assertIsNone(jan["grade"])
+        # 생육기는 그대로 점수가 나온다
+        self.assertEqual(rows[6]["status"], "ok")
+        self.assertIsNotNone(rows[6]["score"])
+
     def test_winter_without_common_guides_is_out_of_season(self):
         rows = {r["month"]: r for r in
                 build_monthly_rows(PEAR_STAGES, PEAR_GUIDES, CLIM_ALL, SOIL, PLANTING, YEAR)}

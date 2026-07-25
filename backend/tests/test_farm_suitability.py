@@ -40,6 +40,32 @@ class TestDeriveStatus(unittest.TestCase):
     def test_scored_is_ok(self):
         self.assertEqual(derive_status(has_guides=True, score=88.0), "ok")
 
+    def test_weather_scored_is_ok(self):
+        breakdown = {
+            "temp_day": {"score": 86.0, "status": "allowed"},
+            "organic": {"score": 100.0, "status": "optimal"},
+        }
+        self.assertEqual(derive_status(True, 90.0, breakdown), "ok")
+
+    def test_soil_only_month_is_dormant(self):
+        """사과 1월: 기상 지침이 안 걸려 토양 2개만 채점 → 100점이 나오지만 계절 판정이 아니다.
+
+        이 상태로 점수를 노출하면 "1월이 사과에 최적(S)"으로 읽힌다(§18-4).
+        """
+        breakdown = {
+            "organic": {"score": 100.0, "status": "optimal"},
+            "p2o5": {"score": 100.0, "status": "optimal"},
+        }
+        self.assertEqual(derive_status(True, 100.0, breakdown), "dormant")
+
+    def test_weather_present_but_all_missing_is_dormant(self):
+        # 기상 지표가 지침엔 있으나 값이 결측이면 채점되지 않았으므로 판정 근거가 없다.
+        breakdown = {
+            "temp_day": {"status": "missing"},
+            "organic": {"score": 100.0, "status": "optimal"},
+        }
+        self.assertEqual(derive_status(True, 100.0, breakdown), "dormant")
+
 
 if __name__ == "__main__":
     unittest.main()

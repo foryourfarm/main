@@ -179,12 +179,37 @@ def gather_indicator_values(
     }
 
 
-def derive_status(has_guides: bool, score: float | None) -> str:
-    """적합도 결과의 상태. 지침 없음=out_of_season(예: 배 겨울), 점수 없음=insufficient_data."""
+# 기상 기반 지표. 이 중 하나도 채점되지 않았다면 그 달 점수는 계절 적합도가 아니라
+# 토양 점수일 뿐이다(§8.4 판정 대상이 없음).
+WEATHER_INDICATORS = frozenset({"temp_day", "temp_night_min", "rainfall", "sunlight"})
+
+
+def derive_status(
+    has_guides: bool,
+    score: float | None,
+    breakdown: Mapping[str, Mapping[str, object]] | None = None,
+) -> str:
+    """적합도 결과의 상태.
+
+    - `out_of_season`: 해당 단계 지침이 아예 없음(예: 배 겨울).
+    - `insufficient_data`: 지침은 있으나 지표가 전부 결측/이상.
+    - `dormant`: 기상 지표가 하나도 채점되지 않음 — 토양 지침만 걸린 달(예: 사과 1월).
+      점수를 그대로 노출하면 "1월이 사과에 최적(100점 S)"으로 읽혀 근사를 확정값처럼
+      보이게 한다(§18-4). 계절 판정 근거가 없으므로 점수를 내보내지 않는다.
+    - `ok`: 기상 판정이 포함된 정상 산출.
+    """
     if not has_guides:
         return "out_of_season"
     if score is None:
         return "insufficient_data"
+    if breakdown is not None:
+        scored_weather = [
+            ind
+            for ind, entry in breakdown.items()
+            if ind in WEATHER_INDICATORS and entry.get("score") is not None
+        ]
+        if not scored_weather:
+            return "dormant"
     return "ok"
 
 
@@ -223,12 +248,16 @@ def compute_farm_suitability(
         gather_indicator_values(soil, clim), corrections, on_date.month
     )
     result = calculate_suitability(guides, values, applied)
-    status = derive_status(bool(guides), result["score"])
+    status = derive_status(bool(guides), result["score"], result["breakdown"])
 
     limitations = [TEMP_DAY_LIMITATION]
     limitations.append(OUTLOOK_APPLIED_LIMITATION if applied else OUTLOOK_MISSING_LIMITATION)
     if stage in ("coloring", "maturity"):
         limitations.append(APPLE_STAGE_LIMITATION)
+
+    # 휴면기는 기상 판정 근거가 없어 점수를 내보내지 않는다(§18-4). breakdown은 남겨
+    # 토양 지표가 어떻게 평가됐는지는 확인할 수 있게 한다.
+    is_dormant = status == "dormant"
 
     return {
         "farm_id": farm.id,
@@ -237,8 +266,8 @@ def compute_farm_suitability(
         "growth_stage": stage,
         "as_of": on_date,
         "status": status,
-        "score": result["score"],
-        "grade": result["grade"],
+        "score": None if is_dormant else result["score"],
+        "grade": None if is_dormant else result["grade"],
         "label": SUITABILITY_LABEL,
         "breakdown": result["breakdown"],
         "risk_flags": result["risk_flags"],
@@ -298,13 +327,16 @@ def build_monthly_rows(
             gather_indicator_values(soil, clim_by_month.get(month)), corr, month
         )
         result = calculate_suitability(guides, values, applied)
+        status = derive_status(bool(guides), result["score"], result["breakdown"])
+        # 휴면기(기상 판정 근거 없음)는 점수·등급을 내보내지 않는다 — §18-4.
+        is_dormant = status == "dormant"
         rows.append(
             {
                 "month": month,
                 "growth_stage": stage,
-                "status": derive_status(bool(guides), result["score"]),
-                "score": result["score"],
-                "grade": result["grade"],
+                "status": status,
+                "score": None if is_dormant else result["score"],
+                "grade": None if is_dormant else result["grade"],
                 "risk_flags": result["risk_flags"],
                 "outlook_applied": bool(applied),
             }

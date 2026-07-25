@@ -21,7 +21,7 @@ export default function LoginPage() {
     setBusy(true);
     try {
       await login(email, password);
-      router.push("/chat");
+      router.push("/dashboard"); // 로그인 후 기본 착지는 내 밭(대시보드)
     } catch {
       // 계정 열거 방지로 백엔드가 일반화한 문구를 그대로 노출(어느 필드가 틀렸는지 구분 안 줌).
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
