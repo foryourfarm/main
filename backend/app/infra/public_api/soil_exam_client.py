@@ -25,7 +25,8 @@ class SoilExam(BaseModel):
     pnu_code: str
     sample_year: str  # Any_Year
     exam_day: str  # Exam_Day (YYYYMMDD)
-    field_type: str | None  # Exam_Type 코드북 매핑
+    field_type_code: str | None  # Exam_Type 원본 코드 — 필터는 이걸로(표기 변화에 안 흔들림)
+    field_type: str | None  # Exam_Type 코드북 매핑(표시용)
     address: str  # Pnu_Nm
     ph: float | None  # ACID
     avail_p: float | None  # VLDPHA (mg/kg)
@@ -62,6 +63,7 @@ def _parse(item: dict[str, str | None]) -> SoilExam:
         pnu_code=item.get("PNU_Cd") or "",
         sample_year=item.get("Any_Year") or "",
         exam_day=item.get("Exam_Day") or "",
+        field_type_code=item.get("Exam_Type") or None,
         field_type=FIELD_TYPE.get(item.get("Exam_Type") or ""),
         address=item.get("PNU_Nm") or "",
         ph=_to_float(item.get("ACID")),

@@ -49,8 +49,15 @@ function DashboardBody() {
   if (data === null) return <p className={styles.notice}>불러오는 중…</p>;
 
   if (data.farms.length === 0) {
-    // 밭 등록(온보딩) 화면은 POST /api/v1/farms가 없어 아직 없다 — 빈 상태를 정직하게 안내.
-    return <p className={styles.notice}>등록된 밭이 없습니다. 밭 등록 기능은 준비 중입니다.</p>;
+    return (
+      <p className={styles.notice}>
+        등록된 밭이 없습니다.
+        <br />
+        <Link href="/onboarding" className={styles.emptyAction}>
+          첫 밭 등록하기
+        </Link>
+      </p>
+    );
   }
 
   // 카드마다 같은 한계 문구가 반복되므로 화면 하단에 한 번만 모아 보여준다.
@@ -66,6 +73,11 @@ function DashboardBody() {
           <FarmCard key={card.farm_id} card={card} />
         ))}
       </div>
+      <p>
+        <Link href="/onboarding" className={styles.backLink}>
+          + 밭 추가 등록
+        </Link>
+      </p>
       <Limitations items={limitations} />
     </>
   );
