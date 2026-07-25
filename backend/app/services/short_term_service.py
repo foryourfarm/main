@@ -19,7 +19,7 @@ from app.infra.public_api.forecast_client import (
     ForecastError,
     fetch_forecast,
 )
-from app.models import RegionGrid, SoilState, UserFarm, WeatherSnapshot
+from app.models import CropGrowthGuide, RegionGrid, SoilState, UserFarm, WeatherSnapshot
 from app.services.growth_stage_service import resolve_growth_stage
 from app.services.suitability_service import (
     SUITABILITY_LABEL,
@@ -131,17 +131,31 @@ def get_forecast_rows(
 def forecast_values(
     snap: WeatherSnapshot, soil: SoilState | None
 ) -> dict[str, object]:
-    """룰 엔진 입력. 기상은 예보값, 토양은 밭 추정값(장기와 같은 지표 이름)."""
+    """룰 엔진 입력. 기상은 예보값, 토양은 밭 추정값.
+
+    강수는 **일 단위 지표(rainfall_daily)** 에 넣는다 — 예보는 일누적이고 장기 탭의
+    월평년(rainfall_monthly)과 단위가 달라, 한 지표로 묶으면 비 안 온 날(0mm)이 위험으로
+    판정된다(0011에서 분리).
+    """
     return {
         "temp_day": snap.temp_avg,
         "temp_night_min": snap.temp_night_min,
-        "rainfall": snap.rainfall,
+        "rainfall_daily": snap.rainfall,
         "sunlight": snap.sunlight,
         "ph": soil.ph if soil else None,
         "ec": soil.ec if soil else None,
         "p2o5": soil.p2o5 if soil else None,
         "organic": soil.organic_matter if soil else None,
     }
+
+
+# 단기 탭에서는 값이 생길 수 없는 지표. 월 단위 지표를 그대로 두면 매일 "결측"으로 떠
+# 위험목록을 오염시킨다(점수 계산에는 영향 없지만 노이즈).
+DAILY_UNAVAILABLE_INDICATORS = frozenset({"rainfall_monthly", "sunlight"})
+
+
+def _usable_daily(guide: CropGrowthGuide) -> bool:
+    return guide.indicator not in DAILY_UNAVAILABLE_INDICATORS
 
 
 def persistent_risks(days: list[dict[str, object]], min_days: int = 2) -> list[dict[str, object]]:
@@ -189,7 +203,7 @@ def compute_short_term(
     for snap in rows:
         # 단계는 그 날짜 기준으로 다시 판정한다 — 3일 안에 단계가 넘어갈 수 있다.
         stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, snap.target_date)
-        guides = load_guides(db, farm.crop_id, stage or "")
+        guides = [g for g in load_guides(db, farm.crop_id, stage or "") if _usable_daily(g)]
         result = calculate_suitability(guides, forecast_values(snap, soil))
         days.append(
             {

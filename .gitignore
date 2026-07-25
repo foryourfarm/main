@@ -51,6 +51,8 @@ Thumbs.db
 /OPENAPI_*.pdf
 # 기상청 배포 격자 엑셀 — region_grid_seed.csv 생성 소스(gen_region_grid_seed.py)
 /기상청*격자_위경도*.xlsx
+# 논문 원문 모음 — 저작권 자료라 배포하지 않는다(인용 정보는 docs/research/ 문헌정리에 있음)
+/논문모으기/
 
 # 오픈API 벌크 수집 결과물(ML용 원본 데이터) — 스크립트만 레포에 넣고 CSV는 로컬 보관
 /data/soil/

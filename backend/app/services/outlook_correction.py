@@ -30,7 +30,8 @@ OUTLOOK_RAINFALL = "rainfall"
 # (야간최저기온·일조·토양)는 보정 없이 평년치/실측을 그대로 쓴다.
 INDICATOR_TO_OUTLOOK: dict[str, str] = {
     "temp_day": OUTLOOK_TEMP,
-    "rainfall": OUTLOOK_RAINFALL,
+    # 3개월전망 강수는 월 단위 신호이므로 월 지표에만 대응한다(일 지표는 예보 소관).
+    "rainfall_monthly": OUTLOOK_RAINFALL,
 }
 
 _THIRD = Decimal(1) / Decimal(3)

@@ -27,7 +27,7 @@ class TestPersistentRisks(unittest.TestCase):
 
     def test_single_day_risk_is_not_persistent(self):
         """하루만 스치는 값으로 경보를 울리면 신뢰를 잃는다."""
-        days = [_day("2026-04-01", "rainfall:outside_allowed"), _day("2026-04-02")]
+        days = [_day("2026-04-01", "rainfall_daily:outside_allowed"), _day("2026-04-02")]
         self.assertEqual(persistent_risks(days), [])
 
     def test_only_outside_allowed_counts(self):
@@ -60,14 +60,14 @@ class TestPersistentRisks(unittest.TestCase):
 
     def test_multiple_risks_sorted_by_duration(self):
         days = [
-            _day("2026-04-01", "temp_night_min:outside_allowed", "rainfall:outside_allowed"),
-            _day("2026-04-02", "temp_night_min:outside_allowed", "rainfall:outside_allowed"),
+            _day("2026-04-01", "temp_night_min:outside_allowed", "rainfall_daily:outside_allowed"),
+            _day("2026-04-02", "temp_night_min:outside_allowed", "rainfall_daily:outside_allowed"),
             _day("2026-04-03", "temp_night_min:outside_allowed"),
         ]
         risks = persistent_risks(days)
         self.assertEqual([r["flag"] for r in risks], [
             "temp_night_min:outside_allowed",
-            "rainfall:outside_allowed",
+            "rainfall_daily:outside_allowed",
         ])
         self.assertEqual([r["days"] for r in risks], [3, 2])
 
