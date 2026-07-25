@@ -1,6 +1,6 @@
 # Ollama L4 서버 (GCE)
 
-Spring Boot 백엔드가 HTTP로 호출할 로컬 LLM 서버. GCE VM에 L4 GPU 1장 + Ollama.
+FastAPI 백엔드가 HTTP로 호출할 로컬 LLM 서버. GCE VM에 L4 GPU 1장 + Ollama(개발) / vLLM(다중 사용자 서빙).
 
 전제: `gcloud` CLI 로그인 및 프로젝트 설정 완료 (`gcloud auth login`, `gcloud config set project <PROJECT_ID>`).
 

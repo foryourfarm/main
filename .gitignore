@@ -18,6 +18,14 @@ backend/target/
 *.class
 HELP.md
 
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/
@@ -29,8 +37,6 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
-application-local.yml
-application-secret.yml
 
 # OS
 .DS_Store
@@ -38,3 +44,43 @@ Thumbs.db
 
 # 로컬 DB 볼륨 등
 *.log
+
+# 개인용
+.obsidian/
+
+.obsidian/workspace-mobile.json
+.obsidian/workspace.json
+.obsidian/app.json
+
+.trash/
+.DS_Store
+# 원본 참고자료 (개인 다운로드 — 시드/파서 소스, 저장소엔 파생 결과물만)
+/20250415.csv
+/20260630.csv
+/Data-Guideline*.md
+/OPENAPI_*.pdf
+# 기상청 배포 격자 엑셀 — region_grid_seed.csv 생성 소스(gen_region_grid_seed.py)
+/기상청*격자_위경도*.xlsx
+# 논문 원문 모음 — 저작권 자료라 배포하지 않는다(인용 정보는 docs/research/ 문헌정리에 있음)
+/논문모으기/
+
+# 오픈API 벌크 수집 결과물(ML용 원본 데이터) — 스크립트만 레포에 넣고 CSV는 로컬 보관
+/data/soil/
+
+# 로컬 ML 연구 산출물 — 백엔드 인계서와 실제 backend 구현은 커밋
+/ML-Plan.md
+/crop-domain-knowledge.md
+/data/05_soil_test_actual.csv
+/data/07_crop_outcome.csv
+/data/crop_outcome_raw/
+/data/kosis_raw/
+/data/ml/
+/data/region_soil_profile_seed.csv
+/data/soil_farm_stat.csv
+/docs/ml/*
+!/docs/ml/backend_ml_handoff.md
+/scripts/ml/
+/scripts/build_crop_outcome*.py
+/scripts/build_soil_*.py
+/.claude/agents/soil-ml-*.md
+/.codex/agents/soil-ml-*.toml

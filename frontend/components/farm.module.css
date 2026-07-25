@@ -1,0 +1,386 @@
+/* 색상: Correction_Re_Draft.md §3.1 팔레트(챗봇·인증 화면과 통일) */
+.page {
+  --primary: #2d5016;
+  --card: #e8e6e1;
+  --bg: #fafaf7;
+  --text: #4a4643;
+  --muted: #7a746f;
+  --good: #2d5016;
+  --warn: #9a6b1e;
+  --bad: #c54245;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  padding: 24px 20px 60px;
+}
+.inner {
+  max-width: 860px;
+  margin: 0 auto;
+}
+.h1 {
+  font-size: 22px;
+  color: var(--primary);
+  margin: 0 0 4px;
+}
+.sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+.notice {
+  padding: 40px 20px;
+  text-align: center;
+  color: #7a746f;
+  font-size: 14px;
+}
+.error {
+  color: #c54245;
+  font-size: 14px;
+}
+
+/* 온보딩 폼 */
+.form {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.field select,
+.field input {
+  border: 1px solid var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #fff;
+  color: var(--text);
+}
+.field select:disabled {
+  background: var(--bg);
+  color: var(--muted);
+}
+.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.form button {
+  margin-top: 6px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  cursor: pointer;
+}
+.form button:disabled {
+  background: var(--card);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.emptyAction {
+  display: inline-block;
+  margin-top: 12px;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  text-decoration: none;
+}
+
+/* 밭 카드 목록 */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.cardLink {
+  text-decoration: none;
+  color: inherit;
+}
+.card {
+  background: #fff;
+  border: 1px solid var(--card);
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+}
+.card:hover {
+  border-color: var(--primary);
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.cropName {
+  font-size: 16px;
+  font-weight: 700;
+}
+.regionName {
+  font-size: 13px;
+  color: var(--muted);
+}
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.score {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.scoreUnit {
+  font-size: 14px;
+  color: var(--muted);
+}
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+}
+.stage {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 장기/단기 탭 */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.tab {
+  border: 1px solid var(--card);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tab:hover {
+  border-color: var(--primary);
+}
+.tabActive {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.tabHint {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* 지속 위험 배너 — 이 탭에서 가장 먼저 보여야 한다 */
+.alertBanner {
+  border: 1px solid var(--bad);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #fdf4f4;
+}
+.alertTitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--bad);
+}
+.alertList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.alertDates {
+  color: var(--muted);
+  font-size: 12px;
+}
+.calmBanner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f2f5ef;
+  color: var(--primary);
+  font-size: 13px;
+}
+.staleTag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fdf4f4;
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 단기 날짜 카드 */
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.dayCard {
+  border: 1px solid var(--card);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+.dayHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+.dayDate {
+  font-size: 13px;
+  font-weight: 700;
+}
+.dayStage {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--card);
+}
+.metrics > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.metrics dt {
+  color: var(--muted);
+}
+.metrics dd {
+  margin: 0;
+  font-weight: 700;
+}
+.dayRisks {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--bad);
+  line-height: 1.6;
+}
+
+/* 히트맵 */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+.cell {
+  border: 1px solid var(--card);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+  background: #fff;
+}
+.cellMonth {
+  font-size: 12px;
+  color: var(--muted);
+}
+.cellScore {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 2px 0;
+}
+.cellGrade {
+  font-size: 11px;
+  font-weight: 700;
+}
+.cellStage {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.cellOutlook {
+  font-size: 10px;
+  color: var(--primary);
+  margin-top: 4px;
+}
+
+/* 등급 색 — 반드시 라벨과 함께 쓴다(색만으로 구분 금지) */
+.good {
+  color: var(--good);
+}
+.warn {
+  color: var(--warn);
+}
+.bad {
+  color: var(--bad);
+}
+.none {
+  color: var(--muted);
+}
+
+/* 한계 표기 — 접어두지 않는다(§18-4 근사를 확정값처럼 보이게 하지 않기) */
+.limits {
+  margin-top: 24px;
+  background: #fff;
+  border: 1px solid var(--card);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.limitsTitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+.limitsList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.section {
+  margin-top: 28px;
+}
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.riskList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.backLink {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--primary);
+  margin-bottom: 14px;
+}

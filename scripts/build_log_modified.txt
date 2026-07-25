@@ -1,0 +1,30 @@
+대상 지역 150개 로드
+04_treatment_reference.csv 생성 완료: 5행
+  01_soil_chemistry 진행: 20/150
+  01_soil_chemistry 진행: 40/150
+  01_soil_chemistry 진행: 60/150
+  01_soil_chemistry 진행: 80/150
+  01_soil_chemistry 진행: 100/150
+  01_soil_chemistry 진행: 120/150
+  01_soil_chemistry 진행: 140/150
+01_soil_chemistry.csv 생성 완료: 150행
+  경과 98s
+  02_soil_physical 진행: 20/150
+  02_soil_physical 진행: 40/150
+  02_soil_physical 진행: 60/150
+  02_soil_physical 진행: 80/150
+  02_soil_physical 진행: 100/150
+  02_soil_physical 진행: 120/150
+  02_soil_physical 진행: 140/150
+02_soil_physical.csv 생성 완료: 150행 (NA 38행)
+  경과 262s
+  03_weather_monthly 진행: 20/150
+  03_weather_monthly 진행: 40/150
+  03_weather_monthly 진행: 60/150
+  03_weather_monthly 진행: 80/150
+  03_weather_monthly 진행: 100/150
+  03_weather_monthly 진행: 120/150
+  03_weather_monthly 진행: 140/150
+03_weather_monthly.csv 생성 완료: 9000행
+  경과 130s
+전체 완료

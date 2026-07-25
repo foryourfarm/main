@@ -1,0 +1,101 @@
+/* 색상: Correction_Re_Draft.md §3.1 팔레트(챗봇과 통일) */
+.wrap {
+  --primary: #2d5016;
+  --card: #e8e6e1;
+  --bg: #fafaf7;
+  --text: #4a4643;
+  --error: #c54245;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  padding: 20px;
+}
+
+.form {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.form h1 {
+  font-size: 22px;
+  color: var(--primary);
+  margin: 0 0 4px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.field input {
+  border: 1px solid var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: #fff;
+}
+.field input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.submit {
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.error {
+  color: var(--error);
+  font-size: 13px;
+  margin: 0;
+}
+.alt {
+  font-size: 13px;
+  text-align: center;
+}
+.alt a {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* 상단 우측 인증 상태 바 */
+.bar {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.bar a,
+.bar button {
+  color: #2d5016;
+  font-weight: 700;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+.bar .who {
+  color: #4a4643;
+  font-weight: 400;
+}
