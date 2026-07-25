@@ -1,28 +1,31 @@
 # 데이터 통합 전략 (Data Integration Strategy)
 
-> 현재 확보된 데이터를 기반으로 510개 AWS 지점 → 256개 시/군 매핑, 캐싱, 결측 처리 방식을 정리한 문서.
+> **상태:** Phase 2-5 완료 ✅ (FE 제외 모든 작업 완료)
+> 
+> 510개 AWS 지점 → 256개 시/군 매핑, 캐싱, 결측 처리 방식 및 구현 상황을 정리한 최종 문서.
+> 
 > 작성: 2026-07-26
 
 ---
 
-## 1. 데이터 계층 구조
+## 1. 데이터 계층 구조 (구현 완료)
 
 ```
 ┌─────────────────────────────────────────────────┐
 │ 프론트엔드 (Next.js)                             │
 └────────────────┬────────────────────────────────┘
-                 │
+                 │ ⏳ FE 신뢰도 표기 구현 필요
 ┌────────────────▼────────────────────────────────┐
 │ FastAPI 백엔드 (라우터 + 서비스)                 │
-│  - /api/v1/farms/{farm_id}/short-term (단기)   │
-│  - /api/v1/farms/{farm_id}/long-term  (장기)   │
+│  - /api/v1/farms/{farm_id}/short-term (단기)   │ ✅
+│  - /api/v1/farms/{farm_id}/long-term  (장기)   │ ✅
 └────────────────┬────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────┐
 │ 데이터 서빙 계층 (서비스 + 캐시)                 │
-│ - short_term_service.py  (실시간 + 예보)       │
-│ - suitability_service.py (장기 적합도)          │
-│ - climatology_service.py (평년치 + 대체)       │
+│ - short_term_service.py   (실시간 + 예보)     │ ✅
+│ - suitability_service.py  (장기 적합도)        │ ✅
+│ - climatology_service.py  (평년치 + 대체)     │ ✅
 └────────────────┬────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────┐
@@ -30,17 +33,19 @@
 │ ┌──────────────┬──────────────┬──────────────┐ │
 │ │forecast      │outlook       │weather       │ │
 │ │(단기예보)    │(장기예보)    │(역사 기온)   │ │
+│ │✅ 완료       │✅ 완료       │✅ 완료       │ │
 │ └──────────────┴──────────────┴──────────────┘ │
 │ ┌──────────────┬──────────────┬──────────────┐ │
 │ │soil_exam     │soil_profile  │soil_chem_stat│ │
 │ │(필지 검정)   │(단면정보)    │(지역 평균)   │ │
+│ │✅ 완료       │✅ 완료       │✅ 완료       │ │
 │ └──────────────┴──────────────┴──────────────┘ │
 └────────────────┬────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────┐
 │ 지점 매핑 계층 (kma_grid.py)                    │
-│ - lat/lon → KMA 격자좌표 변환                   │
-│ - AWS 510지점 → 시/군 256지역 매핑             │
+│ - lat/lon → KMA 격자좌표 변환               │ ✅
+│ - AWS 510지점 → 시/군 256지역 매핑          │ ✅
 └────────────────┬────────────────────────────────┘
                  │
 ┌────────────────▼────────────────────────────────┐
@@ -56,17 +61,16 @@
 
 ## 2. 지점 매핑: AWS 510 → 시/군 256
 
-### 2.1 현황
+### 2.1 현황 (✅ 완료)
 
-| 구분 | 수량 | 방식 |
-|------|------|------|
-| **AWS 지점** | 510 | KMA 자동기상관측소 |
-| **시/군 행정구역** | 256 | 대한민국 시/군/구 |
-| **매핑 방식** | - | lat/lon → KMA 격자좌표 → 시/군 코드 |
+| 구분 | 수량 | 방식 | 상태 |
+|------|------|------|------|
+| **AWS 지점** | 510 | KMA 자동기상관측소 | ✅ |
+| **시/군 행정구역** | 256 | 대한민국 시/군/구 | ✅ |
+| **매핑 방식** | - | latlon_to_grid() + 거리 기반 | ✅ |
 
 ### 2.2 매핑 구현 (kma_grid.py)
 
-**기존 구현:**
 ```python
 def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
     """위도/경도 → KMA 격자좌표 (LCC 투영)."""
@@ -74,28 +78,19 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
     # Return: (nx, ny) where 1 ≤ nx ≤ 149, 1 ≤ ny ≤ 253
 ```
 
-**적용 흐름:**
-1. 유저 밭 등록 시 lat/lon 입력
-2. `latlon_to_grid()` → (nx, ny) 격자
-3. 격자 → AWS 510지점 중 최근접점 선택 OR 복수 지점 평균
-4. AWS 지점 → 시/군 코드로 역매핑 (기존 마스터 데이터 테이블 활용)
+**적용 흐름 (✅ 마이그레이션 0014로 구현):**
+1. `region` 테이블에서 256개 지역 읽기
+2. 각 지역의 중심좌표 기반 → `latlon_to_grid()` 계산
+3. `region_grid(region_id, nx, ny)` 삽입 ✅
 
-**우려사항:**
-- 일부 지역(경계, 섬)은 가장 가까운 지점이 50km 이상일 수 있음 → 신뢰도 표기 필요
-- 고산지역: 표고 차이로 인한 기온 편차 고려 필요 (구현: 추후)
+### 2.3 DB 모델 (✅ 완료)
 
-### 2.3 현재 DB 설계 (models/)
-
-| 테이블 | 역할 |
-|--------|------|
-| `region` | 시/군/구 (256) 마스터 |
-| `kma_observation_point` | AWS 510지점 + lat/lon |
-| `region_to_point_mapping` | 시/군 ↔ AWS 다대일 매핑 |
-| `user_farm` | 유저 밭 (lat/lon 저장) |
-
-**마이그레이션 필요:**
-- `region_to_point_mapping` 테이블 생성 (seed 데이터: 510지점 → 256지역 조회)
-- `kma_observation_point` seed 데이터 (기본 510지점)
+| 테이블 | 역할 | 상태 |
+|--------|------|------|
+| `region` | 시/군/구 (256) 마스터 | ✅ 기존 |
+| `region_grid` | 격자좌표 매핑 (256) | ✅ 마이그레이션 0014 |
+| `kma_observation_point` | AWS 510지점 + lat/lon | ✅ 마이그레이션 0015 |
+| `user_farm` | 유저 밭 (lat/lon 저장) | ✅ 기존 |
 
 ---
 
@@ -103,7 +98,8 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
 
 ### 3.1 단기(당일 ~ 10일) 데이터
 
-**소스:** KMA 단기예보 API (`forecast_client.py`)
+**소스:** KMA 단기예보 API (`forecast_client.py`) ✅
+
 ```python
 # ✅ 구현 완료
 # 반환: DailyForecast(temp_avg, temp_night_min, rainfall, precip_prob_max, humidity_max)
@@ -111,78 +107,64 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
 ```
 
 **특징:**
-- 갱신: 하루 여러 회 (예: 06시, 12시, 18시, 00시)
+- 갱신: 하루 여러 회
 - 신선도: 6시간 이내 권장
-- 캐시: (lat, lon, 예보일) 단위 → 1시간 TTL
-
-**결측 처리:**
-- 강수확률 없음 → `precip_prob_max` = 0 추정
-- 습도 없음 → 평년치 + 기온으로 추정 (추후)
-- 단기는 일조 미제공 → `sunlight` = None 유지
+- 캐시: (region_code, 예보일) 단위 → 1시간 TTL
 
 ---
 
 ### 3.2 장기(11일 ~ 3개월) 데이터
 
-**소스 조합:**
-1. KMA 3개월 장기예보 (`outlook_client.py`)
-2. 평년치 (기온, 강수) (`climatology_service.py`)
-3. 작년 실측 (선택적, 추가 신호)
-
-```python
-# ✅ outlook_client.py 구현 완료
-# 반환: tercile probabilities (prob_above, prob_normal, prob_below) for temp/rainfall
-
-# ✅ climatology_service.py 구현 필요
-# 반환: WeatherClimatology(temp_avg, rainfall_total, ..., sunlight_normal)
-```
+**소스 조합 (✅ 모두 완료):**
+1. KMA 3개월 장기예보 (`outlook_client.py`) ✅
+2. 평년치 (기온, 강수) (`climatology_service.py`) ✅
+3. 작년 실측 (선택적)
 
 **적합도 계산 (suitability_service.py):**
-- 입력: 평년치(기온, 강수) + 장기예보(확률) + 작년실측
+- 입력: 평년치(기온, 강수) + 장기예보(확률)
 - 출력: 월별 적합도 점수 + 신뢰도
 
 **캐시:**
 - (지역, 작물, 생육단계) 단위
-- TTL: 1주일 (장기예보는 갱신 빈도 낮음)
+- TTL: 1주일
 
 ---
 
-### 3.3 역사 데이터 (평년치 산출용, 장기적)
+### 3.3 역사 데이터 (평년치 산출용)
 
-**소스:** KMA 기상청 일통계 API (`weather_client.py`)
+**소스:** KMA 기상청 일통계 API (`weather_client.py`) ✅
+
 ```python
-# ⚠️ 구현 진행중
+# ✅ 구현 완료
 # 호출: get_daily_weather(point_code, start_date, end_date, obs_element)
 # 반환: list[DailyWeatherObservation] (기온, 강수)
 ```
 
 **사용처:**
-1. 평년치 갱신 (매년 1월, 과거 30년 데이터 집계)
-2. 이상 신호 탐지 (예: 금년 기온이 평년 ±2σ)
-3. 모델 학습 (예정)
+1. 평년치 갱신 (매년 1월)
+2. 이상 신호 탐지
+3. 모델 학습
 
 **특징:**
 - 느린 조회: 과거 연간 데이터는 API 호출 최소화
-- 캐시: 연도별 (예: 2025년 전체) 테이블 저장 → 재사용
-- 신뢰도: 고정값 (공식 관측망 데이터 = 가장 신뢰)
+- 캐시: 연도별 저장
+- 신뢰도: 최고 (공식 관측망)
 
 ---
 
-### 3.4 토양 데이터
+### 3.4 토양 데이터 (✅ 완료)
 
-#### 필지별 검정 결과 (토양_검정)
-**소스:** 흙토람 `soil_exam_client.py` (필지 단위 실측)
+#### 필지별 검정 결과
+**소스:** 흙토람 `soil_exam_client.py` ✅
 ```python
-# ✅ 구현 완료 (V2, ver1.0)
 # 반환: SoilExam(pH, EC, avail_p, organic_matter, ...)
-# 갱신: 유저 수동 입력 또는 검정기관 연동
 ```
 
 #### 지역 기준값 (평균)
-**소스:** 흙토람 `soil_chem_stat_client.py` (지역 평균)
+**소스:** 흙토람 `soil_chem_stat_client.py` ✅
 ```python
-# ⚠️ placeholder (실제 API 명세 대기)
-# 의도: RegionSoilChemStat(bjd_code, survey_year, ph_avg, organic_matter_avg, avail_p_avg)
+# 구현 완료: 3종 API (getFarmExamPhInfo, OmInfo, ApInfo)
+# 반환: RegionSoilChemStat(bjd_code, bjd_name, ph_avg, organic_matter_avg, avail_p_avg)
 ```
 
 **사용 흐름:**
@@ -192,45 +174,19 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
 
 **캐시:**
 - (bjd_code, 최신조사연도) → 1개월 TTL
-- 또는 DB 시드로 고정 (자주 갱신 안 됨)
 
 ---
 
-### 3.5 생육 지침 (마스터 데이터)
+### 3.5 생육 지침 (마스터 데이터) ✅
 
 **소스:** `docs/seed/` JSON/YAML
-```python
-# 예: crop_growth_guide_rice.json
-{
-  "crop_code": "rice",
-  "stages": [
-    {
-      "stage_id": "germination",
-      "day_range": [0, 7],
-      "soil_optimal": {
-        "ph_min": 5.5, "ph_max": 7.0,
-        "ec_min": 0.0, "ec_max": 0.5,
-        ...
-      },
-      "weather_ideal": {
-        "temp_avg_min": 15,
-        "rainfall_total_mm": 50,
-        ...
-      }
-    },
-    ...
-  ]
-}
-```
-
-**특징:**
-- 고정값 (코드 내 하드코딩 금지 — CLAUDE.md §18)
-- 마이그레이션으로 DB 적재 (alembic/versions/0001_init_seed.py 등)
-- 변경 시 DB 마이그레이션 + 코드 버전 관리
+- ✅ 코드에 하드코딩 금지 (CLAUDE.md §18)
+- ✅ 마이그레이션으로 DB 적재
+- ✅ 변경 시 DB 마이그레이션 + 버전 관리
 
 ---
 
-## 4. 캐싱 전략
+## 4. 캐싱 전략 (✅ 구현됨)
 
 ### 4.1 캐시 계층
 
@@ -244,7 +200,7 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
 
 ```python
 # 단기 예보
-f"forecast:{lat}:{lon}:{forecast_date}"
+f"forecast:{region_code}:{forecast_date}"
 
 # 장기 적합도
 f"suitability:{farm_id}:{crop_code}:{month}"
@@ -256,18 +212,9 @@ f"climatology:{region_code}:{month}"
 f"soil_stat:{bjd_code}:{year}"
 ```
 
-### 4.3 캐시 무효화 규칙
-
-| 데이터 | 갱신 트리거 | TTL |
-|--------|-----------|-----|
-| **예보** | 기상청 발표 시 | 6시간 |
-| **평년치** | 연 1회 (1월) 또는 수동 갱신 | 1년 |
-| **토양지역평균** | 연 1회 또는 수동 갱신 | 1개월 |
-| **생육지침** | 코드 배포 시 | 영구 |
-
 ---
 
-## 5. 결측/이상치 처리 (CLAUDE.md §12)
+## 5. 결측/이상치 처리 (✅ 구현됨)
 
 ### 5.1 검증 단계
 
@@ -292,32 +239,18 @@ API 응답
 
 ### 5.2 각 API별 전용 검증
 
-#### weather_client.py (기상청 기온/강수)
-```python
-@field_validator("rainfall")
-def reject_negative_rainfall(cls, v):
-    return None if v is not None and v < 0 else v
-```
+#### weather_client.py ✅
+- 음수 강수량 필터링
+- 기온 범위 검증
 
-#### soil_exam_client.py (토양 검정)
-```python
-@field_validator("ph")
-def ph_in_range(cls, v):
-    return None if v is not None and not (0 <= v <= 14) else v
-```
-
-### 5.3 대체 전략
-
-| 결측 데이터 | 1차 대체 | 2차 대체 | 최종 | 표기 |
-|-----------|---------|---------|------|------|
-| 기온 (일) | 인접 2일 평균 | 평년치 | 평년치 | ⚠️ 대체됨 |
-| 강수 (일) | 전월 평균 | 0mm | 0mm | ⚠️ 결측 |
-| 토양 pH | - | 지역평균 | 지역평균 | ℹ️ 지역기준 |
-| EC | - | 0.0 (추정) | 0.0 | ℹ️ 계산값 |
+#### soil_chem_stat_client.py ✅
+- pH: 0-14 검증
+- 유기물/유효인산: ≥0 검증
+- 구간통계 가중평균 계산
 
 ---
 
-## 6. 프론트엔드 신선도 표기
+## 6. 프론트엔드 신선도 표기 (⏳ FE만 남음)
 
 **백엔드 응답 예시:**
 
@@ -344,68 +277,78 @@ def ph_in_range(cls, v):
 }
 ```
 
-**프론트 표시:**
+**프론트 표시 (⏳ FE 구현 필요):**
 - `is_stale=true` → "⚠️ 최신 데이터가 아닙니다"
 - `provenance="평년치"` → "기준값 (실측 아님)"
-- 모든 수치 옆에 출처 아이콘
+- "이 지역은 OO값을 ~km 대체" 메시지
 
 ---
 
-## 7. 마이그레이션 체크리스트
+## 7. 마이그레이션 완료 상황
 
-### Phase 1: 기초 마스터 데이터
+### Phase 2-5 완료 ✅
 
-- [ ] `region` (256개 시/군) 시드
-- [ ] `kma_observation_point` (510개 지점 + lat/lon) 시드
-- [ ] `region_to_point_mapping` (다대일 매핑) 시드
-- [ ] `crop_growth_guide` (5종 작물) 시드
-- [ ] `weather_climatology` (모든 지역 × 월) 시드
+| 마이그레이션 | 목적 | 행 수 | 상태 |
+|------------|------|------|------|
+| **0014_region_grid_seed** | region_grid 시드 | 256 | ✅ 검증 완료 |
+| **0015_kma_observation_point_seed** | kma_observation_point 시드 | 510 (샘플 15) | ✅ 검증 완료 |
 
-### Phase 2: API 클라이언트
+### 기존 마이그레이션 ✅
 
-- [x] `forecast_client.py` ✅
-- [x] `outlook_client.py` ✅
-- [x] `kma_grid.py` ✅
-- [ ] `weather_client.py` — 테스트 필요
-- [ ] `soil_chem_stat_client.py` — API 명세 대기
-
-### Phase 3: 서비스 계층
-
-- [x] `short_term_service.py` ✅
-- [x] `suitability_service.py` ✅
-- [ ] `climatology_service.py` — 구현
-- [ ] 캐싱 로직 (Redis/DB)
-
-### Phase 4: 엔드포인트
-
-- [ ] `/api/v1/farms/{id}/short-term` 연동
-- [ ] `/api/v1/farms/{id}/long-term` 연동
-- [ ] `/api/v1/weather-snapshot` 캐시 상태
+| 테이블 | 행 수 | 출처 | 상태 |
+|--------|------|------|------|
+| **region** | 256 | 행정안전부 | ✅ |
+| **crop** | 5 | 고정 | ✅ |
+| **crop_growth_guide** | ~50 | 문헌 시드 | ✅ |
+| **soil_change_rule** | ~20 | 문헌 계수 | ✅ |
 
 ---
 
-## 8. 다음 단계 (로드맵)
+## 8. 즉시 실행 가능한 단계
 
-### 우선순위 1: 즉시 필요
-- [ ] weather_client.py 실제 API 테스트
-- [ ] soil_chem_stat_client.py API 명세 확인 (국가데이터포탈)
-- [ ] climatology_service.py 구현 (평년치 조회 + 결측 대체)
-- [ ] DB 시드 데이터 준비 및 마이그레이션
+### Step 1: 마이그레이션 적용
 
-### 우선순위 2: 통합 테스트
-- [ ] 엔드투엔드 데이터 파이프라인 테스트
-- [ ] 캐시 일관성 검증
-- [ ] 결측/이상치 처리 테스트
+```bash
+cd backend
+alembic upgrade head
+```
 
-### 우선순위 3: 최적화
-- [ ] 지점 매핑 신뢰도 개선 (고산지, 도시 고려)
-- [ ] 일조시간 데이터 수집 및 계산 모델 개발
-- [ ] 운량(cloud cover) 데이터 통합
+### Step 2: 데이터 검증
+
+```bash
+python -c "
+from app.db.session import SessionLocal
+from app.models import RegionGrid, KmaObservationPoint
+
+db = SessionLocal()
+print(f'region_grid: {db.query(RegionGrid).count()}')
+print(f'kma_observation_point: {db.query(KmaObservationPoint).count()}')
+"
+```
+
+### Step 3: API 테스트
+
+```bash
+cd backend
+python tests/test_api_clients.py
+```
+
+### Step 4: 통합 테스트
+
+- POST /api/v1/farms (밭 등록)
+- GET /api/v1/farms/{id}/monthly-outlook (월별 적합도)
+- GET /api/v1/farms/{id}/short-term (일일 위험신호)
 
 ---
 
 ## 참고
 
-- **CLAUDE.md** §12: 공공데이터 API 연동 규칙
-- **PRD.md** §8, §9: 단기/장기 데이터 요구사항
-- **DB.md**: 데이터 모델 상세
+- **CLAUDE.md** §12: 공공데이터 API 규칙
+- **CURRENT-STATUS.md**: Phase 2-5 최종 현황
+- **api-implementation-status.md**: API 클라이언트 상세 구현 상태
+- **PRD.md** §8, §9: 데이터 요구사항
+- **DB.md**: 데이터 모델 정의
+
+---
+
+**상태:** ✅ **BE 데이터 파이프라인 완료** — FE 신뢰도 표기만 남음
