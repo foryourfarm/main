@@ -39,6 +39,10 @@ function FarmDetail({ farmId }: { farmId: number }) {
         ))}
       </div>
       <p className={styles.tabHint}>{active.hint}</p>
+      {/* 이 밭을 컨텍스트로 상담 — 챗봇이 작물·지역·경과일을 알고 답한다. */}
+      <Link href={`/chat?farmId=${farmId}`} className={styles.backLink}>
+        💬 이 밭으로 상담하기
+      </Link>
       {/* 탭 전환 시 언마운트해 각 패널이 자기 데이터만 조회하게 둔다(불필요한 호출 방지). */}
       {tab === "short" ? (
         <ShortTermPanel farmId={farmId} />

@@ -68,7 +68,10 @@
 **FE 남은 것**
 - 위 "설정·네비게이션" 격차 해소
 - 대시보드/밭상세 데이터 신뢰도 배지(출처 N/3)
-- 챗봇 로그인 모드 연결: FE에서 access + `session_id` + `farm_id` 전달(백엔드는 준비됨)
+- ~~챗봇 로그인 모드 연결~~: 구현됨(미커밋, 사람 검증 대기) — `lib/chat.ts`가 Bearer access +
+  `session_id`(마운트당 uuid4) + `farm_id`(`/chat?farmId=`) 전달. `/farm/[farmId]`에 "이 밭으로
+  상담하기" 링크. access 30분 만료를 스트리밍이 못 잡으므로 `ensureAccessToken()`으로 선제 refresh.
+  안 만든 것: 지난 대화 불러오기(조회 API 없음 → 리로드=새 스레드), 밭 선택 드롭다운(밭 1개면 백엔드 자동)
 
 **배포** — GCP(프론트/백엔드 Cloud Run + Cloud SQL + 로컬 LLM은 GPU VM). 별도 논의 예정.
 
