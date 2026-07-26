@@ -1,0 +1,71 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 24, 21, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+
+.content {
+  /* farm.module.css .page 팔레트와 동일 — FarmDetail 내부 스타일이 이 값을 참조한다. */
+  --primary: #2d5016;
+  --card: #e8e6e1;
+  --bg: #fafaf7;
+  --text: #4a4643;
+  --muted: #7a746f;
+  --good: #2d5016;
+  --warn: #9a6b1e;
+  --bad: #c54245;
+
+  position: relative;
+  width: 100%;
+  max-width: 860px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 16px 16px 0 0;
+  padding: 24px 20px 40px;
+}
+
+.close {
+  position: sticky;
+  top: 0;
+  float: right;
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px 8px;
+}
+
+@media (min-width: 640px) {
+  .overlay {
+    align-items: center;
+    padding: 20px;
+  }
+  .content {
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .content {
+    animation: slide-up 0.2s ease-out;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

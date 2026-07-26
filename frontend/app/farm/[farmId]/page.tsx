@@ -17,7 +17,7 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
-function FarmDetail({ farmId }: { farmId: number }) {
+export function FarmDetail({ farmId }: { farmId: number }) {
   // 단기를 먼저 보여준다 — "오늘 뭘 해야 하나"가 매일 접속하는 이유다.
   const [tab, setTab] = useState<TabKey>("short");
   const active = TABS.find((t) => t.key === tab) ?? TABS[0];
