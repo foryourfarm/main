@@ -3,10 +3,11 @@ import type {
   Crop,
   DashboardResponse,
   District,
-  FarmCreated,
+  Farm,
   FarmCreateInput,
   FarmMonthlyOutlook,
   FarmShortTerm,
+  FarmUpdateInput,
   Region,
 } from "@/types/farm";
 
@@ -39,9 +40,26 @@ export function fetchCrops(): Promise<Crop[]> {
   return authFetch<Crop[]>("/api/v1/crops");
 }
 
-export function createFarm(input: FarmCreateInput): Promise<FarmCreated> {
-  return authFetch<FarmCreated>("/api/v1/farms", {
+export function createFarm(input: FarmCreateInput): Promise<Farm> {
+  return authFetch<Farm>("/api/v1/farms", {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+// 설정 화면: 등록 정보 조회·수정·삭제.
+
+export function fetchFarms(): Promise<Farm[]> {
+  return authFetch<Farm[]>("/api/v1/farms");
+}
+
+export function updateFarm(farmId: number, input: FarmUpdateInput): Promise<Farm> {
+  return authFetch<Farm>(`/api/v1/farms/${farmId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteFarm(farmId: number): Promise<string> {
+  return authFetch<string>(`/api/v1/farms/${farmId}`, { method: "DELETE" });
 }

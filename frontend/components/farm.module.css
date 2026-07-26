@@ -384,3 +384,46 @@
   color: var(--primary);
   margin-bottom: 14px;
 }
+
+/* 설정 화면 — 밭 카드 한 줄 액션 + 출처 footer */
+.rowActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+/* .form button(주 버튼)보다 구체적으로 써서 폼 안에서도 보조 버튼으로 보이게 한다. */
+.secondaryBtn,
+.form button.secondaryBtn,
+.dangerBtn {
+  border: 1px solid var(--card);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+.dangerBtn {
+  border-color: #e0b4b5;
+  color: #c54245;
+}
+.sources {
+  margin-top: 32px;
+  border-radius: 12px;
+  padding: 16px;
+  background: #1a1815; /* 설계 §1.6: footer는 검은 배경 */
+  color: #fff;
+}
+.sourcesTitle {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.sources ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+  opacity: 0.85;
+}

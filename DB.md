@@ -119,7 +119,8 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 |---|---|---|---|
 | id | BIGSERIAL | PK | |
 | user_id | BIGINT | FK→users(id) ON DELETE CASCADE, NOT NULL | |
-| region_id | INT | FK→region(id), NOT NULL | |
+| region_id | INT | FK→region(id), NOT NULL | 시/군 — 기상·적합도 단위 |
+| bjd_code | CHAR(10) | FK→district(bjd_code) | 읍면동 — 토양 단위(§5). 0014 이전 등록 밭은 NULL |
 | crop_id | INT | FK→crop(id), NOT NULL | |
 | planting_date | DATE | NOT NULL | 실제 파종/정식일 |
 | label | VARCHAR(50) | | 사용자 지정 이름(선택) |
@@ -127,6 +128,9 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - Index: `ix_user_farm_user (user_id)`.
 - 한 유저가 여러 밭(지역·작물 조합 자유) 등록 가능.
+- 밭의 위치는 (시/군, 읍면동) 한 쌍이 온전한 사실이라 둘 다 저장한다(0014). 설정 화면에서 위치·작물을
+  수정하면 `soil_state`를 새 (읍면동, 경지구분) 기준값으로 다시 만든다 — 단 `soil_state_snapshot`
+  (실측 이력)·`farm_action_log`(행위 기록)는 유저가 실제로 한 일이라 지우지 않는다.
 - **생육 단계**는 저장하지 않고 `planting_date`와 오늘 날짜의 경과일로 파생 계산(§8.3).
 
 ### 3.8 farm_action_log (사용자 행동 기록 → 토양변화 입력)
