@@ -6,7 +6,13 @@ import type { User } from "@/types/auth";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 let accessToken: string | null = null;
+let accessIssuedAt = 0;
 export const getAccessToken = (): string | null => accessToken;
+
+// access TTL 30분(backend config). 스트리밍(SSE) 호출은 authFetch의 "401 → refresh → 재시도"를
+// 쓸 수 없다 — 챗봇은 무효 토큰을 401이 아니라 게스트로 처리하므로(docs/llm-integration.md §10)
+// 만료를 알아챌 방법이 없고, 조용히 밭 컨텍스트만 사라진다. 그래서 보내기 전에 선제 갱신한다.
+const ACCESS_REFRESH_AFTER_MS = 25 * 60_000;
 
 interface ApiResponse<T> {
   success: boolean;
@@ -55,6 +61,7 @@ export async function login(email: string, password: string): Promise<User> {
     body: JSON.stringify({ email, password }),
   });
   accessToken = data.access_token; // 메모리 저장
+  accessIssuedAt = Date.now();
   return data.user;
 }
 
@@ -62,7 +69,18 @@ export async function refresh(): Promise<string> {
   // 본문 없음 — 브라우저가 refresh 쿠키 자동 첨부. 실패(401)면 AuthError → 재로그인 강제.
   const data = await api<{ access_token: string }>("/api/v1/auth/refresh", { method: "POST" });
   accessToken = data.access_token;
+  accessIssuedAt = Date.now();
   return data.access_token;
+}
+
+/** 곧 만료될(또는 없는) access를 미리 갱신해서 돌려준다. 실패하면 null(게스트로 진행). */
+export async function ensureAccessToken(): Promise<string | null> {
+  if (accessToken !== null && Date.now() - accessIssuedAt < ACCESS_REFRESH_AFTER_MS) return accessToken;
+  try {
+    return await refresh();
+  } catch {
+    return null;
+  }
 }
 
 export async function logout(): Promise<void> {

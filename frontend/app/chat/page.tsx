@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
 
+import { useAuth } from "@/lib/auth-context";
 import { streamChat } from "@/lib/chat";
 import type { ChatMessage } from "@/types/chat";
 
@@ -12,11 +14,21 @@ const GREETING =
 const THINKING = "답변을 생각하고 있어요…";
 const ERROR_TEXT = "답변을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
-export default function ChatPage() {
+function ChatView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  // 밭 기준 답변: /farm/[farmId]에서 "이 밭 상담하기"로 들어오면 farmId가 붙는다.
+  // 없으면 백엔드가 밭이 하나뿐일 때 그 밭을 자동 선택한다(docs/llm-integration.md §10).
+  const farmIdParam = Number(useSearchParams().get("farmId"));
+  const farmId = Number.isInteger(farmIdParam) && farmIdParam > 0 ? farmIdParam : undefined;
+
+  // 로그인 상태면 스레드 하나당 uuid4 하나 — 서버가 히스토리를 저장/이어간다.
+  // 리로드하면 새 스레드로 시작한다(지난 대화를 불러올 조회 API가 없어, 화면과 서버 스레드를 같이 리셋).
+  const sessionRef = useRef<string | null>(null);
+  const sessionId = user === null ? undefined : (sessionRef.current ??= crypto.randomUUID());
 
   const scrollToEnd = () => {
     // 렌더 후 맨 아래로(스트리밍 중 새 토큰 따라가기).
@@ -37,7 +49,7 @@ export default function ChatPage() {
     scrollToEnd();
 
     try {
-      for await (const token of streamChat(question, history)) {
+      for await (const token of streamChat(question, history, { farmId, sessionId })) {
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1] = {
@@ -124,5 +136,14 @@ export default function ChatPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+// useSearchParams는 프리렌더 시 Suspense 경계를 요구한다(Next 16 use-search-params 문서).
+export default function ChatPage() {
+  return (
+    <Suspense>
+      <ChatView />
+    </Suspense>
   );
 }

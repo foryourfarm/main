@@ -1,3 +1,4 @@
+import { ensureAccessToken } from "@/lib/auth";
 import type { ChatMessage } from "@/types/chat";
 
 // 백엔드 챗봇 SSE 계약: docs/llm-integration.md §10.
@@ -5,16 +6,32 @@ import type { ChatMessage } from "@/types/chat";
 // ApiResponse 래퍼를 쓰지 않으므로(§6 스트리밍 예외) EventSource(GET전용) 대신 fetch로 직접 파싱한다.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
-/** 질문을 보내고 답변 토큰을 순서대로 흘려준다(게스트 모드: history를 매 요청 재전송). */
+/**
+ * 질문을 보내고 답변 토큰을 순서대로 흘려준다.
+ * - 게스트: history를 매 요청 재전송(무상태).
+ * - 로그인(`sessionId` 있음): 서버가 히스토리의 진실 → history는 비우고 보낸다. 밭 컨텍스트 주입용
+ *   `farmId`도 함께. `sessionId`가 곧 로그인 모드 표시라 이때만 access를 챙긴다(게스트는 refresh 호출 안 함).
+ */
 export async function* streamChat(
   question: string,
   history: ChatMessage[],
-  opts: { cropId?: number; signal?: AbortSignal } = {},
+  opts: { cropId?: number; farmId?: number; sessionId?: string; signal?: AbortSignal } = {},
 ): AsyncGenerator<string> {
+  const token = opts.sessionId !== undefined ? await ensureAccessToken() : null;
   const res = await fetch(`${API_BASE}/api/v1/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, history, crop_id: opts.cropId ?? null }),
+    headers: {
+      "Content-Type": "application/json",
+      ...(token !== null ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include", // refresh 쿠키 동반(§docs/auth-security.md)
+    body: JSON.stringify({
+      question,
+      history: opts.sessionId !== undefined ? [] : history,
+      crop_id: opts.cropId ?? null,
+      farm_id: opts.farmId ?? null,
+      session_id: opts.sessionId ?? null,
+    }),
     signal: opts.signal,
   });
   if (!res.ok || !res.body) throw new Error(`chat 요청 실패: ${res.status}`);
