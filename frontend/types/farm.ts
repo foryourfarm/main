@@ -37,15 +37,24 @@ export interface FarmCreateInput {
   label?: string;
 }
 
-export interface FarmCreated {
+/** 등록된 밭 1건(GET/POST/PATCH /farms 공통 응답). 이름은 설정 화면 표시용. */
+export interface Farm {
   id: number;
   region_id: number;
+  region_name: string | null;
+  /** 읍면동. 0014 이전 등록 밭은 null — 설정에서 다시 고르면 채워진다. */
+  bjd_code: string | null;
+  district_name: string | null;
   crop_id: number;
+  crop_name: string | null;
   planting_date: string;
   label: string | null;
   /** 토양 기준값 출처(조회 단위·표본수). null이면 토양 초기화를 건너뜀. */
   soil_source: string | null;
 }
+
+/** 밭 수정 입력. 보낸 필드만 바뀐다(PATCH). 시/군을 바꾸면 bjd_code도 함께 보내야 한다. */
+export type FarmUpdateInput = Partial<FarmCreateInput>;
 
 export interface DashboardCard {
   farm_id: number;

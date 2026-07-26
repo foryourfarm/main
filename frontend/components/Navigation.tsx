@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 
 import styles from "./Navigation.module.css";
 
+// 설계 §1.2: 대시보드 | 상담 | 설정 3개로 간결하게. 밭 등록은 설정·대시보드에서 들어간다.
 const ITEMS = [
   { href: "/dashboard", label: "📊 대시보드" },
   { href: "/chat", label: "💬 상담" },
-  { href: "/onboarding", label: "🌱 밭 등록" },
+  { href: "/settings", label: "⚙️ 설정" },
 ] as const;
 
 export default function Navigation() {

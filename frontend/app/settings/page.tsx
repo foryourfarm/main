@@ -1,0 +1,146 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import FarmForm from "@/components/FarmForm";
+import RequireAuth from "@/components/RequireAuth";
+import styles from "@/components/farm.module.css";
+import { deleteFarm, fetchFarms, updateFarm } from "@/lib/farm";
+import type { Farm } from "@/types/farm";
+
+/** 데이터 출처 — 화면에 쓰는 값의 근거를 숨기지 않는다(CLAUDE.md §4 정직한 한계 표기, 설계 §1.6). */
+const SOURCES = [
+  "기상(단기): 기상청 단기예보 — 실시간 조회 후 캐시",
+  "기상(장기): 기상청 평년값·3개월 전망 — 평년치는 관측지점 실측, 미보유 지역은 최근접 지역 값 대체",
+  "토양: 농촌진흥청 흙토람 토양검정 — 읍/면/동 표본 평균(내 밭 실측이 아님)",
+  "작물 기준: 농사로·문헌 기반 생육 지침 시드",
+];
+
+function FarmRow({ farm, onChanged }: { farm: Farm; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function remove() {
+    // 되돌릴 수 없는 삭제 — 브라우저 기본 확인창으로 한 번 막는다.
+    if (!window.confirm(`'${farm.label ?? farm.crop_name ?? "이 밭"}'을 삭제할까요?\n밭에 딸린 토양 상태·기록도 함께 사라지고 되돌릴 수 없습니다.`)) {
+      return;
+    }
+    try {
+      await deleteFarm(farm.id);
+      onChanged();
+    } catch {
+      setError("삭제하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    }
+  }
+
+  return (
+    <article className={styles.card}>
+      <div className={styles.cardTop}>
+        <div>
+          <div className={styles.cropName}>
+            {farm.label ?? farm.crop_name ?? "이름 없는 밭"}
+          </div>
+          <div className={styles.regionName}>
+            {farm.crop_name ?? "작물 미지정"} · {farm.region_name ?? "지역 미지정"}{" "}
+            {farm.district_name ?? "읍면동 미지정"}
+          </div>
+          <div className={styles.regionName}>파종/정식일 {farm.planting_date}</div>
+        </div>
+        <div className={styles.rowActions}>
+          <button type="button" className={styles.secondaryBtn} onClick={() => setEditing((v) => !v)}>
+            {editing ? "닫기" : "수정"}
+          </button>
+          <button type="button" className={styles.dangerBtn} onClick={remove}>
+            삭제
+          </button>
+        </div>
+      </div>
+
+      {farm.bjd_code === null && (
+        <p className={styles.hint}>
+          읍/면/동 정보가 없는 밭입니다. 수정에서 다시 선택하면 토양 데이터가 정확해집니다.
+        </p>
+      )}
+      {farm.soil_source !== null && <p className={styles.hint}>토양 출처: {farm.soil_source}</p>}
+      {error !== "" && <p className={styles.error}>{error}</p>}
+
+      {editing && (
+        <FarmForm
+          farm={farm}
+          submitLabel="저장"
+          onCancel={() => setEditing(false)}
+          onSubmit={async (input) => {
+            await updateFarm(farm.id, input);
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      )}
+    </article>
+  );
+}
+
+function SettingsBody() {
+  const [farms, setFarms] = useState<Farm[] | null>(null);
+  const [error, setError] = useState("");
+
+  function reload() {
+    fetchFarms()
+      .then(setFarms)
+      .catch(() => setError("밭 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요."));
+  }
+
+  useEffect(reload, []);
+
+  if (error !== "") return <p className={styles.error}>{error}</p>;
+  if (farms === null) return <p className={styles.notice}>불러오는 중…</p>;
+
+  return (
+    <>
+      {farms.length === 0 ? (
+        <p className={styles.notice}>
+          등록된 밭이 없습니다.
+          <br />
+          <Link href="/onboarding" className={styles.emptyAction}>
+            첫 밭 등록하기
+          </Link>
+        </p>
+      ) : (
+        <div className={styles.cards}>
+          {farms.map((f) => (
+            <FarmRow key={f.id} farm={f} onChanged={reload} />
+          ))}
+        </div>
+      )}
+      <p>
+        <Link href="/onboarding" className={styles.backLink}>
+          + 밭 추가 등록
+        </Link>
+      </p>
+    </>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <main className={styles.page}>
+      <div className={styles.inner}>
+        <h1 className={styles.h1}>설정</h1>
+        <p className={styles.sub}>등록한 밭의 지역·작물·파종일을 고치거나 삭제할 수 있습니다.</p>
+        <RequireAuth>
+          <SettingsBody />
+        </RequireAuth>
+
+        <footer className={styles.sources}>
+          <h2 className={styles.sourcesTitle}>데이터 출처</h2>
+          <ul>
+            {SOURCES.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </footer>
+      </div>
+    </main>
+  );
+}

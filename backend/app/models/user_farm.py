@@ -14,6 +14,8 @@ class UserFarm(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"))
     region_id: Mapped[int] = mapped_column(ForeignKey("region.id"))
+    bjd_code: Mapped[str | None] = mapped_column(ForeignKey("district.bjd_code"))
+    """읍면동 = 토양 기준값 조회 단위(PRD.md §5). 0014 이전에 등록된 밭은 NULL일 수 있다."""
     crop_id: Mapped[int] = mapped_column(ForeignKey("crop.id"))
     planting_date: Mapped[date] = mapped_column()
     label: Mapped[str | None] = mapped_column()

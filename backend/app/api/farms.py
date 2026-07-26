@@ -7,9 +7,9 @@ from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.infra.public_api.forecast_client import KST
-from app.models import SoilState, User
+from app.models import Crop, District, Region, SoilState, User, UserFarm
 from app.schemas.common import ApiResponse
-from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, RegionOut
+from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, FarmUpdate, RegionOut
 from app.schemas.short_term import FarmShortTerm
 from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability
 from app.services import farm_service, short_term_service, suitability_service
@@ -37,6 +37,38 @@ def get_crops(db: Session = Depends(get_db)) -> ApiResponse[list[CropOut]]:
     return ApiResponse.ok([CropOut(id=c.id, name=c.name) for c in crops])
 
 
+def _farm_out(db: Session, farm: UserFarm) -> FarmOut:
+    """밭 1건을 화면 표시용으로. 이름은 설정 화면이 "지금 값"을 보여줄 수 있게 함께 준다."""
+    soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
+    district_name = (
+        db.query(District.name).filter(District.bjd_code == farm.bjd_code).scalar()
+        if farm.bjd_code is not None
+        else None
+    )
+    return FarmOut(
+        id=farm.id,
+        region_id=farm.region_id,
+        region_name=db.query(Region.name).filter(Region.id == farm.region_id).scalar(),
+        bjd_code=farm.bjd_code,
+        district_name=district_name,
+        crop_id=farm.crop_id,
+        crop_name=db.query(Crop.name).filter(Crop.id == farm.crop_id).scalar(),
+        planting_date=farm.planting_date,
+        label=farm.label,
+        soil_source=soil.base_source if soil else None,
+    )
+
+
+@router.get("/farms")
+def get_farms(
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[list[FarmOut]]:
+    """설정 화면용 밭 목록(등록 정보만 — 적합도는 /dashboard)."""
+    # ponytail: 밭당 이름 조회 반복(N+1). 밭 수가 한 자릿수라 방치, 커지면 join으로.
+    return ApiResponse.ok([_farm_out(db, f) for f in farm_service.list_farms(db, current.id)])
+
+
 @router.post("/farms", status_code=201)
 def create_farm(
     body: FarmCreate,
@@ -53,17 +85,32 @@ def create_farm(
         body.planting_date,
         body.label,
     )
-    soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
-    return ApiResponse.ok(
-        FarmOut(
-            id=farm.id,
-            region_id=farm.region_id,
-            crop_id=farm.crop_id,
-            planting_date=farm.planting_date,
-            label=farm.label,
-            soil_source=soil.base_source if soil else None,
-        )
+    return ApiResponse.ok(_farm_out(db, farm))
+
+
+@router.patch("/farms/{farm_id}")
+def update_farm(
+    farm_id: int,
+    body: FarmUpdate,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[FarmOut]:
+    """밭 정보 수정. 보낸 필드만 반영(PATCH). 위치·작물이 바뀌면 토양 기준값을 다시 조회한다."""
+    farm = farm_service.update_farm(
+        db, current.id, farm_id, body.model_dump(exclude_unset=True)
     )
+    return ApiResponse.ok(_farm_out(db, farm))
+
+
+@router.delete("/farms/{farm_id}")
+def delete_farm(
+    farm_id: int,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[str]:
+    """밭 삭제. 딸린 토양 상태·기록도 함께 사라진다(CASCADE) — 되돌릴 수 없다."""
+    farm_service.delete_farm(db, current.id, farm_id)
+    return ApiResponse.ok("deleted")
 
 
 @router.get("/farms/{farm_id}/suitability")
