@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
 import { streamChat } from "@/lib/chat";
@@ -19,6 +19,15 @@ function ChatView() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  // 답변 말풍선 최소폭 — 지금까지 나온 것 중 가장 넓었던 폭으로만 올라간다(내려가지 않는다).
+  // 그래야 짧은 답변 다음에 긴 답변이 와도 "줄었다 늘었다"로 안 보인다.
+  const [answerFloor, setAnswerFloor] = useState(0);
+  useEffect(() => {
+    const els = listRef.current?.querySelectorAll<HTMLElement>("[data-answer-bubble]");
+    if (!els) return;
+    const widest = Math.max(0, ...[...els].map((el) => el.getBoundingClientRect().width));
+    if (widest > answerFloor) setAnswerFloor(widest);
+  });
   const { user } = useAuth();
   // 밭 기준 답변: /farm/[farmId]에서 "이 밭 상담하기"로 들어오면 farmId가 붙는다.
   // 없으면 백엔드가 밭이 하나뿐일 때 그 밭을 자동 선택한다(docs/llm-integration.md §10).
@@ -95,18 +104,35 @@ function ChatView() {
       </header>
 
       <div className={styles.messages} ref={listRef} aria-live="polite" aria-busy={busy}>
-        {messages.length === 0 && <div className={`${styles.bubble} ${styles.assistant}`}>{GREETING}</div>}
+        {messages.length === 0 && (
+          <div
+            className={`${styles.bubble} ${styles.assistant}`}
+            data-answer-bubble
+            style={answerFloor ? { minWidth: answerFloor } : undefined}
+          >
+            {GREETING}
+          </div>
+        )}
         {messages.map((m, i) => {
           const isLast = i === messages.length - 1;
           const pending = busy && isLast && m.role === "assistant" && m.content === "";
+          const isAnswer = m.role === "assistant" && !pending;
           return (
             <div
               key={i}
-              className={`${styles.bubble} ${m.role === "user" ? styles.user : styles.assistant} ${
-                pending ? styles.pending : ""
-              }`}
+              className={`${styles.bubble} ${m.role === "user" ? styles.user : styles.assistant}`}
+              data-answer-bubble={isAnswer ? "" : undefined}
+              style={isAnswer && answerFloor ? { minWidth: answerFloor } : undefined}
             >
-              {pending ? THINKING : m.content}
+              {pending ? (
+                <span className={styles.typing} role="status" aria-label={THINKING}>
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                </span>
+              ) : (
+                m.content
+              )}
             </div>
           );
         })}
