@@ -1,13 +1,41 @@
+/* 팔레트·타이포는 ui-ux-design_draft(Design01) 초안을 따른다.
+   폰트는 @import(렌더 블로킹)가 아니라 layout.tsx의 next/font로 받아 아래 변수에 주입한다. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #2d5016;
+  --secondary: #d4af37;
+  --tertiary: #8b6f47;
+  --success: #a4d65e;
+  --warning: #e8a76b;
+  --error: #c54245;
+  --bg-main: #fafaf7;
+  --bg-card: #e8e6e1;
+  --text-primary: #1a1815;
+  --text-secondary: #4a4643;
+  --border: #d0cec9;
+
+  --dark-bg: #1a1815;
+  --dark-text: #f5f3f0;
+
+  /* 기존 화면(page.module.css 등)이 쓰던 이름 — 팔레트로 이어둔다(깨짐 방지). */
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* 다크모드는 OS 설정이 아니라 Header 토글이 body에 거는 클래스로 정한다
+   — 유저가 명시적으로 끄고 켤 수 있어야 하므로. */
+body.dark-mode {
+  --bg-main: var(--dark-bg);
+  --text-primary: var(--dark-text);
+  --bg-card: #2a2823;
+  --text-secondary: #b5b1ac;
+  --border: #3a3a35;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
@@ -24,17 +52,19 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-main);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+/* body가 flex column이라 본문이 남은 높이를 채우게 한다(Header·Navigation 아래). */
+.appMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 a {
@@ -42,8 +72,26 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* 위 리셋이 브라우저 기본 포커스링을 지우므로 다시 명시(§8 키보드 포커스 가시화). */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

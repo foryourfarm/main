@@ -74,28 +74,3 @@
   font-weight: 700;
 }
 
-/* 상단 우측 인증 상태 바 */
-.bar {
-  position: fixed;
-  top: 12px;
-  right: 16px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-}
-.bar a,
-.bar button {
-  color: #2d5016;
-  font-weight: 700;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-}
-.bar .who {
-  color: #4a4643;
-  font-weight: 400;
-}
