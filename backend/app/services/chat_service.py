@@ -56,6 +56,51 @@ def resolve_crop_name(db: Session, crop_id: int | None) -> str | None:
     return db.query(Crop.name).filter(Crop.id == crop_id).scalar()
 
 
+_PEAR_PARTICLES = ("는", "가", "를", "도")  # "배" 뒤에 붙는 흔한 조사
+_PEAR_SUFFIX_WORDS = ("나무", "꽃", "밭")  # "배" 뒤에 붙는 흔한 합성어
+_PEAR_BOUNDARY_CHARS = (" ", ",", ".", "?", "!")
+
+
+def _mentions_pear(text: str) -> bool:
+    """"배"가 실제로 배(과일)를 가리키는 자리에 쓰였는지 본다.
+
+    "배"는 한 글자라 "재배"(cultivation)·"배수"(drainage)·"분배" 등 무관한 단어에도
+    부분문자열로 오탐하기 쉽다. 형태소 분석기 없이 쓸 수 있는 최소 방어로, "재배"처럼
+    "재" 바로 뒤에 오는 "배"는 제외하고, 배(과일) 뒤에 흔히 붙는 조사·합성어·문장 경계
+    뒤따르는 경우만 인정한다.
+    """
+    if text == "배":
+        return True
+    for i, ch in enumerate(text):
+        if ch != "배":
+            continue
+        if i > 0 and text[i - 1] == "재":  # "재배" 제외
+            continue
+        rest = text[i + 1 :]
+        if rest == "" or rest[0] in _PEAR_BOUNDARY_CHARS:
+            return True
+        if rest[0] in _PEAR_PARTICLES or rest.startswith(_PEAR_SUFFIX_WORDS):
+            return True
+    return False
+
+
+def detect_crop_from_text(db: Session, text: str) -> int | None:
+    """질문 문장에서 5종 작물명을 찾아 crop_id로 매핑한다.
+
+    crop_id가 없으면(게스트, 또는 밭이 여러 개라 자동선택 못 함) retrieve_chunks가 작물로
+    검색을 좁히지 못해 5종 작물 자료가 뒤섞여 검색된다 — 그러면 로컬 LLM이 무관한 근거를
+    받고 헷갈려서 엉뚱하게 거절하거나 다른 작물 정보를 섞어 답하기 쉽다. 질문에 작물명이
+    명시돼 있으면 그걸로 좁혀 정확도를 올린다. 없으면 None(기존 동작 그대로 유지).
+    """
+    for crop_id, name in db.query(Crop.id, Crop.name).all():
+        if name == "배":
+            if _mentions_pear(text):
+                return crop_id
+        elif name in text:
+            return crop_id
+    return None
+
+
 def load_farm_context(db: Session, user_id: int, farm_id: int | None = None) -> FarmContext | None:
     """로그인 유저의 밭 컨텍스트. farm_id 주면 소유권(user_id 필터) 확인 후 그 밭,
     없으면 유저 밭이 하나뿐일 때만 그 밭. 소유 아님/여러 개 미지정이면 None(밭 컨텍스트 없음)."""
@@ -173,6 +218,11 @@ def stream_answer(
             farm = None  # 밭 로드 실패가 챗봇을 막지 않는다(§18-5)
     if farm is not None:
         crop_id = farm.crop_id  # 내 밭 작물로 자동설정 -> 작물 되묻기 제거
+    if crop_id is None:
+        try:
+            crop_id = detect_crop_from_text(db, question)  # 질문 문장에 작물명이 있으면 그걸로 검색 좁히기
+        except Exception:
+            pass  # 감지 실패가 챗봇을 막지 않는다(§18-5) — 기존처럼 crop_id 없이 진행
     try:
         embedding = embedder.embed_query(question)
         chunks = retrieve_chunks(db, embedding, crop_id)
