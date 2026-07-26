@@ -9,13 +9,18 @@ _REPO_ROOT = _BACKEND_DIR.parent
 class Settings(BaseSettings):
     """환경변수 설정. 비밀값은 코드/레포에 두지 않고 .env 또는 환경변수로만(CLAUDE.md §17).
 
+    .env는 **리포 루트 한 곳**에만 둔다(`.env.example`도 루트). 두 군데를 읽으면 어느 쪽
+    값이 이겼는지 알기 어렵고, 실제로 키를 한쪽에만 넣어 빈 문자열이 되는 사고가 있었다.
+
     env_file은 절대경로로 준다 — 상대경로 ".env"는 실행 위치(CWD)에 따라 조용히 안 읽힌다
-    (키가 루트 .env에 있는데 backend/에서 실행해 전부 빈 문자열이 되는 사고가 실제로 있었다).
-    뒤쪽이 우선이라 backend/.env가 루트 .env를 덮어쓴다.
+    (backend/에서 실행하면 루트 .env를 못 찾는다).
+
+    키 이름은 대소문자를 구분하지 않고, `KEY = value`처럼 = 앞뒤 공백도 무시된다 —
+    실제 .env가 `weather_API = ...` 형식이라 그대로 읽힌다.
     """
 
     model_config = SettingsConfigDict(
-        env_file=(_REPO_ROOT / ".env", _BACKEND_DIR / ".env"),
+        env_file=_REPO_ROOT / ".env",
         extra="ignore",
     )
 
@@ -46,9 +51,20 @@ class Settings(BaseSettings):
     chemistry_api: str = ""  # 토양검정 화학성 상세정보 V2
     soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2
     weather_api: str = ""  # 농업기상 기본 관측데이터(과거 실측)
+    # 농업기상 예비 키. 쿼터가 **엔드포인트별로** 관리돼 특정 엔드포인트만 소진되는 일이
+    # 있다(실측: getWeatherYearMonList3는 429인데 getWeatherMonDayList3는 정상).
+    # 소진 시 이 키로 재시도한다 — weather_client._fetch_page가 429에서 자동 전환한다.
+    weather_api2: str = ""
     weather_observatory_api: str = ""  # 농업기상 관측지점 정보(지점 위경도)
     weather_forecast_api: str = ""  # 기상청 단기예보 조회서비스(단기 탭)
-    vworld_api: str = ""  # VWorld — 주소 → PNU 변환
+    # 실제 .env 키가 `VWORLD_APIkey`라 필드명이 `vworld_api`면 매칭되지 않아 조용히 빈 값이
+    # 됐다(대소문자는 무시되지만 `key` 접미사는 다른 이름이다). .env를 정본으로 두는 방침이라
+    # 필드명을 .env에 맞춘다 — 이런 불일치가 다시 생기면 §17 검증 테스트가 잡는다.
+    vworld_apikey: str = ""  # VWorld — 주소 → PNU 변환
+
+    # 기상청 API Hub(apihub.kma.go.kr). data.go.kr과 **별개 인증 체계**라 키를 따로 받는다
+    # (data.go.kr 키를 넣으면 401). AWS 결측 보완 계층 전용 — MappingReport.md §2 참고.
+    weather_apihub_key: str = ""
     # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.

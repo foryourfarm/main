@@ -1,0 +1,2081 @@
+{
+ "_comment": [
+  "농업기상 V3(data.go.kr 1390802) 실측 (지점,월) 집계 — 일조시간 환산 정확도 검증용.",
+  "보정에 쓰지 않은 홀드아웃 절반만 담았다(과적합 검증 방지). 재생성: scripts/calibrate_sunlight.py",
+  "sunlight_observed = 실측 일조시간 월평균(hr), solar_radiation = 실측 일사량 월평균(MJ/m2/day).",
+  "latitude는 관측지점 시군구의 기상청 격자 중심 위도(약 +-0.023도 오차)."
+ ],
+ "period": "2024년 1·4·7·10월",
+ "rows": [
+  {
+   "station": "026002D003",
+   "name": "태백시 매봉산",
+   "month": 4,
+   "days": 13,
+   "latitude": 37.1709,
+   "solar_radiation": 20.865,
+   "sunlight_observed": 8.9
+  },
+  {
+   "station": "026002D003",
+   "name": "태백시 매봉산",
+   "month": 7,
+   "days": 14,
+   "latitude": 37.1709,
+   "solar_radiation": 15.239,
+   "sunlight_observed": 4.8881
+  },
+  {
+   "station": "026002D003",
+   "name": "태백시 매봉산",
+   "month": 10,
+   "days": 13,
+   "latitude": 37.1709,
+   "solar_radiation": 7.446,
+   "sunlight_observed": 2.9436
+  },
+  {
+   "station": "032528A001",
+   "name": "공주시 우성면",
+   "month": 1,
+   "days": 23,
+   "latitude": 36.4267,
+   "solar_radiation": 7.37,
+   "sunlight_observed": 4.1522
+  },
+  {
+   "station": "032528A001",
+   "name": "공주시 우성면",
+   "month": 4,
+   "days": 11,
+   "latitude": 36.4267,
+   "solar_radiation": 14.742,
+   "sunlight_observed": 5.4212
+  },
+  {
+   "station": "032528A001",
+   "name": "공주시 우성면",
+   "month": 7,
+   "days": 17,
+   "latitude": 36.4267,
+   "solar_radiation": 14.326,
+   "sunlight_observed": 3.0304
+  },
+  {
+   "station": "032528A001",
+   "name": "공주시 우성면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.4267,
+   "solar_radiation": 11.414,
+   "sunlight_observed": 5.5627
+  },
+  {
+   "station": "036531B008",
+   "name": "영양군 대천리",
+   "month": 4,
+   "days": 17,
+   "latitude": 36.6613,
+   "solar_radiation": 16.332,
+   "sunlight_observed": 6.748
+  },
+  {
+   "station": "036531B008",
+   "name": "영양군 대천리",
+   "month": 7,
+   "days": 14,
+   "latitude": 36.6613,
+   "solar_radiation": 16.73,
+   "sunlight_observed": 5.9286
+  },
+  {
+   "station": "036531B008",
+   "name": "영양군 대천리",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.6613,
+   "solar_radiation": 9.617,
+   "sunlight_observed": 3.6786
+  },
+  {
+   "station": "036614B005",
+   "name": "안동시 북후면",
+   "month": 1,
+   "days": 23,
+   "latitude": 36.5794,
+   "solar_radiation": 8.54,
+   "sunlight_observed": 5.1913
+  },
+  {
+   "station": "036614B005",
+   "name": "안동시 북후면",
+   "month": 4,
+   "days": 12,
+   "latitude": 36.5794,
+   "solar_radiation": 18.385,
+   "sunlight_observed": 7.6347
+  },
+  {
+   "station": "036614B005",
+   "name": "안동시 북후면",
+   "month": 7,
+   "days": 17,
+   "latitude": 36.5794,
+   "solar_radiation": 18.419,
+   "sunlight_observed": 5.598
+  },
+  {
+   "station": "036614B005",
+   "name": "안동시 북후면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.5794,
+   "solar_radiation": 11.311,
+   "sunlight_observed": 4.8873
+  },
+  {
+   "station": "037322D007",
+   "name": "의성군 옥산면",
+   "month": 4,
+   "days": 13,
+   "latitude": 36.3511,
+   "solar_radiation": 17.455,
+   "sunlight_observed": 7.1974
+  },
+  {
+   "station": "037322D007",
+   "name": "의성군 옥산면",
+   "month": 7,
+   "days": 14,
+   "latitude": 36.3511,
+   "solar_radiation": 16.006,
+   "sunlight_observed": 4.9988
+  },
+  {
+   "station": "037322D007",
+   "name": "의성군 옥산면",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.3511,
+   "solar_radiation": 10.389,
+   "sunlight_observed": 4.2869
+  },
+  {
+   "station": "040054B002",
+   "name": "성주군 대천리",
+   "month": 1,
+   "days": 23,
+   "latitude": 35.9018,
+   "solar_radiation": 9.197,
+   "sunlight_observed": 5.3746
+  },
+  {
+   "station": "040054B002",
+   "name": "성주군 대천리",
+   "month": 4,
+   "days": 13,
+   "latitude": 35.9018,
+   "solar_radiation": 16.235,
+   "sunlight_observed": 6.4154
+  },
+  {
+   "station": "040054B002",
+   "name": "성주군 대천리",
+   "month": 7,
+   "days": 17,
+   "latitude": 35.9018,
+   "solar_radiation": 15.739,
+   "sunlight_observed": 4.5569
+  },
+  {
+   "station": "040054B002",
+   "name": "성주군 대천리",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.9018,
+   "solar_radiation": 11.545,
+   "sunlight_observed": 5.6059
+  },
+  {
+   "station": "050124D004",
+   "name": "거창군 동변리",
+   "month": 4,
+   "days": 13,
+   "latitude": 35.6795,
+   "solar_radiation": 15.569,
+   "sunlight_observed": 5.4564
+  },
+  {
+   "station": "050124D004",
+   "name": "거창군 동변리",
+   "month": 7,
+   "days": 14,
+   "latitude": 35.6795,
+   "solar_radiation": 14.714,
+   "sunlight_observed": 4.194
+  },
+  {
+   "station": "050124D004",
+   "name": "거창군 동변리",
+   "month": 10,
+   "days": 14,
+   "latitude": 35.6795,
+   "solar_radiation": 9.675,
+   "sunlight_observed": 3.475
+  },
+  {
+   "station": "050415C005",
+   "name": "밀양시 산내면",
+   "month": 1,
+   "days": 22,
+   "latitude": 35.5218,
+   "solar_radiation": 9.341,
+   "sunlight_observed": 5.1818
+  },
+  {
+   "station": "050415C005",
+   "name": "밀양시 산내면",
+   "month": 4,
+   "days": 16,
+   "latitude": 35.5218,
+   "solar_radiation": 15.91,
+   "sunlight_observed": 6.2917
+  },
+  {
+   "station": "050415C005",
+   "name": "밀양시 산내면",
+   "month": 7,
+   "days": 17,
+   "latitude": 35.5218,
+   "solar_radiation": 13.763,
+   "sunlight_observed": 4.1029
+  },
+  {
+   "station": "050415C005",
+   "name": "밀양시 산내면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.5218,
+   "solar_radiation": 11.91,
+   "sunlight_observed": 5.3931
+  },
+  {
+   "station": "052304A001",
+   "name": "하동군 화개면",
+   "month": 4,
+   "days": 17,
+   "latitude": 35.0867,
+   "solar_radiation": 13.049,
+   "sunlight_observed": 4.6902
+  },
+  {
+   "station": "052304A001",
+   "name": "하동군 화개면",
+   "month": 7,
+   "days": 14,
+   "latitude": 35.0867,
+   "solar_radiation": 13.606,
+   "sunlight_observed": 4.0202
+  },
+  {
+   "station": "052304A001",
+   "name": "하동군 화개면",
+   "month": 10,
+   "days": 14,
+   "latitude": 35.0867,
+   "solar_radiation": 10.188,
+   "sunlight_observed": 4.3202
+  },
+  {
+   "station": "054065A001",
+   "name": "군산시 개정면",
+   "month": 1,
+   "days": 22,
+   "latitude": 35.9709,
+   "solar_radiation": 8.589,
+   "sunlight_observed": 4.4659
+  },
+  {
+   "station": "054065A001",
+   "name": "군산시 개정면",
+   "month": 4,
+   "days": 13,
+   "latitude": 35.9709,
+   "solar_radiation": 17.953,
+   "sunlight_observed": 7.0667
+  },
+  {
+   "station": "054065A001",
+   "name": "군산시 개정면",
+   "month": 7,
+   "days": 17,
+   "latitude": 35.9709,
+   "solar_radiation": 17.046,
+   "sunlight_observed": 5.0755
+  },
+  {
+   "station": "054065A001",
+   "name": "군산시 개정면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.9709,
+   "solar_radiation": 13.169,
+   "sunlight_observed": 6.3598
+  },
+  {
+   "station": "059223A001",
+   "name": "강진군 군동면",
+   "month": 4,
+   "days": 14,
+   "latitude": 34.6411,
+   "solar_radiation": 21.932,
+   "sunlight_observed": 8.3333
+  },
+  {
+   "station": "059223A001",
+   "name": "강진군 군동면",
+   "month": 7,
+   "days": 14,
+   "latitude": 34.6411,
+   "solar_radiation": 16.372,
+   "sunlight_observed": 4.4012
+  },
+  {
+   "station": "059223A001",
+   "name": "강진군 군동면",
+   "month": 10,
+   "days": 13,
+   "latitude": 34.6411,
+   "solar_radiation": 11.55,
+   "sunlight_observed": 3.7474
+  },
+  {
+   "station": "209802A001",
+   "name": "화천군 화천읍",
+   "month": 1,
+   "days": 20,
+   "latitude": 38.1243,
+   "solar_radiation": 7.674,
+   "sunlight_observed": 4.1792
+  },
+  {
+   "station": "209802A001",
+   "name": "화천군 화천읍",
+   "month": 4,
+   "days": 16,
+   "latitude": 38.1243,
+   "solar_radiation": 17.984,
+   "sunlight_observed": 7.2573
+  },
+  {
+   "station": "209802A001",
+   "name": "화천군 화천읍",
+   "month": 7,
+   "days": 17,
+   "latitude": 38.1243,
+   "solar_radiation": 15.859,
+   "sunlight_observed": 4.6961
+  },
+  {
+   "station": "209802A001",
+   "name": "화천군 화천읍",
+   "month": 10,
+   "days": 15,
+   "latitude": 38.1243,
+   "solar_radiation": 10.485,
+   "sunlight_observed": 4.2767
+  },
+  {
+   "station": "225874A001",
+   "name": "횡성군 공근면",
+   "month": 1,
+   "days": 11,
+   "latitude": 37.4731,
+   "solar_radiation": 7.096,
+   "sunlight_observed": 3.7258
+  },
+  {
+   "station": "225874A001",
+   "name": "횡성군 공근면",
+   "month": 4,
+   "days": 15,
+   "latitude": 37.4731,
+   "solar_radiation": 16.917,
+   "sunlight_observed": 7.0789
+  },
+  {
+   "station": "225874A001",
+   "name": "횡성군 공근면",
+   "month": 7,
+   "days": 14,
+   "latitude": 37.4731,
+   "solar_radiation": 12.904,
+   "sunlight_observed": 3.6548
+  },
+  {
+   "station": "225874A001",
+   "name": "횡성군 공근면",
+   "month": 10,
+   "days": 16,
+   "latitude": 37.4731,
+   "solar_radiation": 10.003,
+   "sunlight_observed": 4.3104
+  },
+  {
+   "station": "245832A001",
+   "name": "삼척시 근덕면",
+   "month": 1,
+   "days": 20,
+   "latitude": 37.4419,
+   "solar_radiation": 8.101,
+   "sunlight_observed": 5.595
+  },
+  {
+   "station": "245832A001",
+   "name": "삼척시 근덕면",
+   "month": 4,
+   "days": 12,
+   "latitude": 37.4419,
+   "solar_radiation": 17.251,
+   "sunlight_observed": 6.8167
+  },
+  {
+   "station": "245832A001",
+   "name": "삼척시 근덕면",
+   "month": 7,
+   "days": 17,
+   "latitude": 37.4419,
+   "solar_radiation": 15.776,
+   "sunlight_observed": 5.0451
+  },
+  {
+   "station": "245832A001",
+   "name": "삼척시 근덕면",
+   "month": 10,
+   "days": 15,
+   "latitude": 37.4419,
+   "solar_radiation": 10.784,
+   "sunlight_observed": 7.2067
+  },
+  {
+   "station": "250802A001",
+   "name": "홍천군 화동리",
+   "month": 1,
+   "days": 11,
+   "latitude": 37.7059,
+   "solar_radiation": 9.423,
+   "sunlight_observed": 6.0197
+  },
+  {
+   "station": "250802A001",
+   "name": "홍천군 화동리",
+   "month": 4,
+   "days": 18,
+   "latitude": 37.7059,
+   "solar_radiation": 16.768,
+   "sunlight_observed": 7.288
+  },
+  {
+   "station": "250802A001",
+   "name": "홍천군 화동리",
+   "month": 7,
+   "days": 14,
+   "latitude": 37.7059,
+   "solar_radiation": 12.808,
+   "sunlight_observed": 7.894
+  },
+  {
+   "station": "250802A001",
+   "name": "홍천군 화동리",
+   "month": 10,
+   "days": 16,
+   "latitude": 37.7059,
+   "solar_radiation": 9.487,
+   "sunlight_observed": 6.251
+  },
+  {
+   "station": "320862A001",
+   "name": "논산시 광석면",
+   "month": 1,
+   "days": 20,
+   "latitude": 36.1975,
+   "solar_radiation": 7.803,
+   "sunlight_observed": 4.2283
+  },
+  {
+   "station": "320862A001",
+   "name": "논산시 광석면",
+   "month": 4,
+   "days": 16,
+   "latitude": 36.1975,
+   "solar_radiation": 15.686,
+   "sunlight_observed": 7.25
+  },
+  {
+   "station": "320862A001",
+   "name": "논산시 광석면",
+   "month": 7,
+   "days": 17,
+   "latitude": 36.1975,
+   "solar_radiation": 14.8,
+   "sunlight_observed": 4.7833
+  },
+  {
+   "station": "320862A001",
+   "name": "논산시 광석면",
+   "month": 10,
+   "days": 15,
+   "latitude": 36.1975,
+   "solar_radiation": 11.954,
+   "sunlight_observed": 6.0556
+  },
+  {
+   "station": "323814A001",
+   "name": "부여군 규암면",
+   "month": 1,
+   "days": 11,
+   "latitude": 36.2912,
+   "solar_radiation": 9.87,
+   "sunlight_observed": 6.5697
+  },
+  {
+   "station": "323814A001",
+   "name": "부여군 규암면",
+   "month": 4,
+   "days": 17,
+   "latitude": 36.2912,
+   "solar_radiation": 16.254,
+   "sunlight_observed": 6.5618
+  },
+  {
+   "station": "323814A001",
+   "name": "부여군 규암면",
+   "month": 7,
+   "days": 14,
+   "latitude": 36.2912,
+   "solar_radiation": 13.21,
+   "sunlight_observed": 3.8607
+  },
+  {
+   "station": "323814A001",
+   "name": "부여군 규암면",
+   "month": 10,
+   "days": 16,
+   "latitude": 36.2912,
+   "solar_radiation": 9.363,
+   "sunlight_observed": 4.0729
+  },
+  {
+   "station": "323891D002",
+   "name": "완주군 이서면",
+   "month": 1,
+   "days": 20,
+   "latitude": 35.8294,
+   "solar_radiation": 7.748,
+   "sunlight_observed": 4.0367
+  },
+  {
+   "station": "323891D002",
+   "name": "완주군 이서면",
+   "month": 4,
+   "days": 13,
+   "latitude": 35.8294,
+   "solar_radiation": 17.988,
+   "sunlight_observed": 7.7462
+  },
+  {
+   "station": "323891D002",
+   "name": "완주군 이서면",
+   "month": 7,
+   "days": 17,
+   "latitude": 35.8294,
+   "solar_radiation": 17.014,
+   "sunlight_observed": 5.3069
+  },
+  {
+   "station": "323891D002",
+   "name": "완주군 이서면",
+   "month": 10,
+   "days": 15,
+   "latitude": 35.8294,
+   "solar_radiation": 12.049,
+   "sunlight_observed": 5.8233
+  },
+  {
+   "station": "345802A001",
+   "name": "청양군 청양읍",
+   "month": 1,
+   "days": 11,
+   "latitude": 36.4761,
+   "solar_radiation": 10.39,
+   "sunlight_observed": 6.7
+  },
+  {
+   "station": "345802A001",
+   "name": "청양군 청양읍",
+   "month": 4,
+   "days": 18,
+   "latitude": 36.4761,
+   "solar_radiation": 17.932,
+   "sunlight_observed": 6.9019
+  },
+  {
+   "station": "345802A001",
+   "name": "청양군 청양읍",
+   "month": 7,
+   "days": 14,
+   "latitude": 36.4761,
+   "solar_radiation": 13.381,
+   "sunlight_observed": 3.5286
+  },
+  {
+   "station": "345802A001",
+   "name": "청양군 청양읍",
+   "month": 10,
+   "days": 16,
+   "latitude": 36.4761,
+   "solar_radiation": 10.514,
+   "sunlight_observed": 4.5552
+  },
+  {
+   "station": "365803A001",
+   "name": "진천군 진천읍",
+   "month": 1,
+   "days": 20,
+   "latitude": 36.8371,
+   "solar_radiation": 7.365,
+   "sunlight_observed": 4.07
+  },
+  {
+   "station": "365803A001",
+   "name": "진천군 진천읍",
+   "month": 4,
+   "days": 14,
+   "latitude": 36.8371,
+   "solar_radiation": 16.221,
+   "sunlight_observed": 5.8214
+  },
+  {
+   "station": "365803A001",
+   "name": "진천군 진천읍",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.8371,
+   "solar_radiation": 18.769,
+   "sunlight_observed": 4.276
+  },
+  {
+   "station": "365803A001",
+   "name": "진천군 진천읍",
+   "month": 10,
+   "days": 15,
+   "latitude": 36.8371,
+   "solar_radiation": 11.464,
+   "sunlight_observed": 5.39
+  },
+  {
+   "station": "373805A001",
+   "name": "옥천군 옥천읍",
+   "month": 1,
+   "days": 11,
+   "latitude": 36.2825,
+   "solar_radiation": 9.049,
+   "sunlight_observed": 5.6333
+  },
+  {
+   "station": "373805A001",
+   "name": "옥천군 옥천읍",
+   "month": 4,
+   "days": 13,
+   "latitude": 36.2825,
+   "solar_radiation": 13.662,
+   "sunlight_observed": 4.8846
+  },
+  {
+   "station": "373805A001",
+   "name": "옥천군 옥천읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.2825,
+   "solar_radiation": 13.733,
+   "sunlight_observed": 3.9622
+  },
+  {
+   "station": "373805A001",
+   "name": "옥천군 옥천읍",
+   "month": 10,
+   "days": 16,
+   "latitude": 36.2825,
+   "solar_radiation": 9.71,
+   "sunlight_observed": 3.8115
+  },
+  {
+   "station": "390874A001",
+   "name": "제천시 봉양읍",
+   "month": 1,
+   "days": 13,
+   "latitude": 37.1458,
+   "solar_radiation": 8.565,
+   "sunlight_observed": 2.2795
+  },
+  {
+   "station": "390874A001",
+   "name": "제천시 봉양읍",
+   "month": 4,
+   "days": 15,
+   "latitude": 37.1458,
+   "solar_radiation": 18.935,
+   "sunlight_observed": 7.1811
+  },
+  {
+   "station": "390874A001",
+   "name": "제천시 봉양읍",
+   "month": 7,
+   "days": 16,
+   "latitude": 37.1458,
+   "solar_radiation": 16.084,
+   "sunlight_observed": 3.6104
+  },
+  {
+   "station": "390874A001",
+   "name": "제천시 봉양읍",
+   "month": 10,
+   "days": 13,
+   "latitude": 37.1458,
+   "solar_radiation": 13.422,
+   "sunlight_observed": 4.9385
+  },
+  {
+   "station": "429843A001",
+   "name": "시흥시 하중동",
+   "month": 1,
+   "days": 10,
+   "latitude": 37.397,
+   "solar_radiation": 7.467,
+   "sunlight_observed": 4.8617
+  },
+  {
+   "station": "429843A001",
+   "name": "시흥시 하중동",
+   "month": 4,
+   "days": 15,
+   "latitude": 37.397,
+   "solar_radiation": 13.857,
+   "sunlight_observed": 7.6967
+  },
+  {
+   "station": "429843A001",
+   "name": "시흥시 하중동",
+   "month": 7,
+   "days": 15,
+   "latitude": 37.397,
+   "solar_radiation": 10.27,
+   "sunlight_observed": 3.1756
+  },
+  {
+   "station": "429843A001",
+   "name": "시흥시 하중동",
+   "month": 10,
+   "days": 18,
+   "latitude": 37.397,
+   "solar_radiation": 7.199,
+   "sunlight_observed": 4.1176
+  },
+  {
+   "station": "456871A001",
+   "name": "안성시 보개면",
+   "month": 1,
+   "days": 21,
+   "latitude": 37.0236,
+   "solar_radiation": 6.947,
+   "sunlight_observed": 4.4357
+  },
+  {
+   "station": "456871A001",
+   "name": "안성시 보개면",
+   "month": 4,
+   "days": 15,
+   "latitude": 37.0236,
+   "solar_radiation": 13.953,
+   "sunlight_observed": 6.4133
+  },
+  {
+   "station": "456871A001",
+   "name": "안성시 보개면",
+   "month": 7,
+   "days": 16,
+   "latitude": 37.0236,
+   "solar_radiation": 12.729,
+   "sunlight_observed": 4.3594
+  },
+  {
+   "station": "456871A001",
+   "name": "안성시 보개면",
+   "month": 10,
+   "days": 13,
+   "latitude": 37.0236,
+   "solar_radiation": 9.379,
+   "sunlight_observed": 4.7782
+  },
+  {
+   "station": "476801A001",
+   "name": "양평군 양평읍",
+   "month": 1,
+   "days": 10,
+   "latitude": 37.4812,
+   "solar_radiation": 8.957,
+   "sunlight_observed": 6.445
+  },
+  {
+   "station": "476801A001",
+   "name": "양평군 양평읍",
+   "month": 4,
+   "days": 17,
+   "latitude": 37.4812,
+   "solar_radiation": 17.464,
+   "sunlight_observed": 7.001
+  },
+  {
+   "station": "476801A001",
+   "name": "양평군 양평읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 37.4812,
+   "solar_radiation": 11.27,
+   "sunlight_observed": 2.1333
+  },
+  {
+   "station": "476801A001",
+   "name": "양평군 양평읍",
+   "month": 10,
+   "days": 18,
+   "latitude": 37.4812,
+   "solar_radiation": 10.529,
+   "sunlight_observed": 4.8731
+  },
+  {
+   "station": "482841A001",
+   "name": "양주시 은현면",
+   "month": 1,
+   "days": 21,
+   "latitude": 37.7638,
+   "solar_radiation": 7.575,
+   "sunlight_observed": 4.4437
+  },
+  {
+   "station": "482841A001",
+   "name": "양주시 은현면",
+   "month": 4,
+   "days": 19,
+   "latitude": 37.7638,
+   "solar_radiation": 16.081,
+   "sunlight_observed": 6.5
+  },
+  {
+   "station": "482841A001",
+   "name": "양주시 은현면",
+   "month": 7,
+   "days": 16,
+   "latitude": 37.7638,
+   "solar_radiation": 14.883,
+   "sunlight_observed": 5.0167
+  },
+  {
+   "station": "482841A001",
+   "name": "양주시 은현면",
+   "month": 10,
+   "days": 13,
+   "latitude": 37.7638,
+   "solar_radiation": 11.071,
+   "sunlight_observed": 4.9282
+  },
+  {
+   "station": "486803A001",
+   "name": "연천군 연천읍",
+   "month": 1,
+   "days": 10,
+   "latitude": 38.0869,
+   "solar_radiation": 9.503,
+   "sunlight_observed": 7.0
+  },
+  {
+   "station": "486803A001",
+   "name": "연천군 연천읍",
+   "month": 4,
+   "days": 14,
+   "latitude": 38.0869,
+   "solar_radiation": 18.837,
+   "sunlight_observed": 8.2095
+  },
+  {
+   "station": "486803A001",
+   "name": "연천군 연천읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 38.0869,
+   "solar_radiation": 12.785,
+   "sunlight_observed": 2.9578
+  },
+  {
+   "station": "486803A001",
+   "name": "연천군 연천읍",
+   "month": 10,
+   "days": 18,
+   "latitude": 38.0869,
+   "solar_radiation": 11.141,
+   "sunlight_observed": 5.5287
+  },
+  {
+   "station": "486831E011",
+   "name": "연천군 신서면",
+   "month": 1,
+   "days": 21,
+   "latitude": 38.0869,
+   "solar_radiation": 8.363,
+   "sunlight_observed": 4.2667
+  },
+  {
+   "station": "486831E011",
+   "name": "연천군 신서면",
+   "month": 4,
+   "days": 15,
+   "latitude": 38.0869,
+   "solar_radiation": 17.487,
+   "sunlight_observed": 7.1222
+  },
+  {
+   "station": "486831E011",
+   "name": "연천군 신서면",
+   "month": 7,
+   "days": 16,
+   "latitude": 38.0869,
+   "solar_radiation": 14.365,
+   "sunlight_observed": 3.6083
+  },
+  {
+   "station": "486831E011",
+   "name": "연천군 신서면",
+   "month": 10,
+   "days": 13,
+   "latitude": 38.0869,
+   "solar_radiation": 11.222,
+   "sunlight_observed": 4.7974
+  },
+  {
+   "station": "515804A001",
+   "name": "장성군 장성읍",
+   "month": 1,
+   "days": 10,
+   "latitude": 35.2822,
+   "solar_radiation": 9.872,
+   "sunlight_observed": 6.3383
+  },
+  {
+   "station": "515804A001",
+   "name": "장성군 장성읍",
+   "month": 4,
+   "days": 18,
+   "latitude": 35.2822,
+   "solar_radiation": 16.186,
+   "sunlight_observed": 6.4963
+  },
+  {
+   "station": "515804A001",
+   "name": "장성군 장성읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.2822,
+   "solar_radiation": 12.666,
+   "sunlight_observed": 3.5744
+  },
+  {
+   "station": "515804A001",
+   "name": "장성군 장성읍",
+   "month": 10,
+   "days": 18,
+   "latitude": 35.2822,
+   "solar_radiation": 11.014,
+   "sunlight_observed": 5.3398
+  },
+  {
+   "station": "525811A001",
+   "name": "함평군 학교면",
+   "month": 1,
+   "days": 20,
+   "latitude": 35.055,
+   "solar_radiation": 7.87,
+   "sunlight_observed": 4.455
+  },
+  {
+   "station": "525811A001",
+   "name": "함평군 학교면",
+   "month": 4,
+   "days": 16,
+   "latitude": 35.055,
+   "solar_radiation": 16.132,
+   "sunlight_observed": 6.6552
+  },
+  {
+   "station": "525811A001",
+   "name": "함평군 학교면",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.055,
+   "solar_radiation": 15.928,
+   "sunlight_observed": 3.0625
+  },
+  {
+   "station": "525811A001",
+   "name": "함평군 학교면",
+   "month": 10,
+   "days": 13,
+   "latitude": 35.055,
+   "solar_radiation": 10.482,
+   "sunlight_observed": 4.941
+  },
+  {
+   "station": "534833E001",
+   "name": "무안군 청계면",
+   "month": 1,
+   "days": 11,
+   "latitude": 35.0092,
+   "solar_radiation": 9.074,
+   "sunlight_observed": 5.5197
+  },
+  {
+   "station": "534833E001",
+   "name": "무안군 청계면",
+   "month": 4,
+   "days": 20,
+   "latitude": 35.0092,
+   "solar_radiation": 15.982,
+   "sunlight_observed": 5.7383
+  },
+  {
+   "station": "534833E001",
+   "name": "무안군 청계면",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.0092,
+   "solar_radiation": 15.443,
+   "sunlight_observed": 3.9378
+  },
+  {
+   "station": "534833E001",
+   "name": "무안군 청계면",
+   "month": 10,
+   "days": 18,
+   "latitude": 35.0092,
+   "solar_radiation": 11.62,
+   "sunlight_observed": 5.3352
+  },
+  {
+   "station": "535873B003",
+   "name": "나주시 산포면",
+   "month": 1,
+   "days": 19,
+   "latitude": 35.0077,
+   "solar_radiation": 8.591,
+   "sunlight_observed": 4.2289
+  },
+  {
+   "station": "535873B003",
+   "name": "나주시 산포면",
+   "month": 4,
+   "days": 17,
+   "latitude": 35.0077,
+   "solar_radiation": 15.157,
+   "sunlight_observed": 6.3431
+  },
+  {
+   "station": "535873B003",
+   "name": "나주시 산포면",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.0077,
+   "solar_radiation": 16.42,
+   "sunlight_observed": 5.6167
+  },
+  {
+   "station": "535873B003",
+   "name": "나주시 산포면",
+   "month": 10,
+   "days": 13,
+   "latitude": 35.0077,
+   "solar_radiation": 11.251,
+   "sunlight_observed": 4.9987
+  },
+  {
+   "station": "536824B002",
+   "name": "해남군 옥천면",
+   "month": 1,
+   "days": 11,
+   "latitude": 34.5508,
+   "solar_radiation": 9.284,
+   "sunlight_observed": 5.6788
+  },
+  {
+   "station": "536824B002",
+   "name": "해남군 옥천면",
+   "month": 4,
+   "days": 11,
+   "latitude": 34.5508,
+   "solar_radiation": 19.594,
+   "sunlight_observed": 7.3455
+  },
+  {
+   "station": "536824B002",
+   "name": "해남군 옥천면",
+   "month": 7,
+   "days": 15,
+   "latitude": 34.5508,
+   "solar_radiation": 13.627,
+   "sunlight_observed": 3.0378
+  },
+  {
+   "station": "536824B002",
+   "name": "해남군 옥천면",
+   "month": 10,
+   "days": 18,
+   "latitude": 34.5508,
+   "solar_radiation": 10.771,
+   "sunlight_observed": 4.7
+  },
+  {
+   "station": "542805A001",
+   "name": "구례군 구례읍",
+   "month": 1,
+   "days": 20,
+   "latitude": 35.1829,
+   "solar_radiation": 8.671,
+   "sunlight_observed": 4.6108
+  },
+  {
+   "station": "542805A001",
+   "name": "구례군 구례읍",
+   "month": 4,
+   "days": 17,
+   "latitude": 35.1829,
+   "solar_radiation": 17.204,
+   "sunlight_observed": 7.3971
+  },
+  {
+   "station": "542805A001",
+   "name": "구례군 구례읍",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.1829,
+   "solar_radiation": 15.027,
+   "sunlight_observed": 4.6771
+  },
+  {
+   "station": "542805A001",
+   "name": "구례군 구례읍",
+   "month": 10,
+   "days": 13,
+   "latitude": 35.1829,
+   "solar_radiation": 10.936,
+   "sunlight_observed": 4.4808
+  },
+  {
+   "station": "546805A001",
+   "name": "보성군 웅치면",
+   "month": 1,
+   "days": 11,
+   "latitude": 34.7758,
+   "solar_radiation": 9.976,
+   "sunlight_observed": 6.0227
+  },
+  {
+   "station": "565862A001",
+   "name": "완주군 고산면",
+   "month": 1,
+   "days": 19,
+   "latitude": 35.8294,
+   "solar_radiation": 8.794,
+   "sunlight_observed": 4.0053
+  },
+  {
+   "station": "565862A001",
+   "name": "완주군 고산면",
+   "month": 4,
+   "days": 12,
+   "latitude": 35.8294,
+   "solar_radiation": 16.171,
+   "sunlight_observed": 5.5667
+  },
+  {
+   "station": "565862A001",
+   "name": "완주군 고산면",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.8294,
+   "solar_radiation": 14.642,
+   "sunlight_observed": 3.4744
+  },
+  {
+   "station": "565862A001",
+   "name": "완주군 고산면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.8294,
+   "solar_radiation": 11.623,
+   "sunlight_observed": 5.3029
+  },
+  {
+   "station": "576040A001",
+   "name": "김제시 부량면",
+   "month": 1,
+   "days": 11,
+   "latitude": 35.7859,
+   "solar_radiation": 9.633,
+   "sunlight_observed": 6.0152
+  },
+  {
+   "station": "576040A001",
+   "name": "김제시 부량면",
+   "month": 4,
+   "days": 12,
+   "latitude": 35.7859,
+   "solar_radiation": 19.457,
+   "sunlight_observed": 8.0208
+  },
+  {
+   "station": "576040A001",
+   "name": "김제시 부량면",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.7859,
+   "solar_radiation": 18.344,
+   "sunlight_observed": 5.3844
+  },
+  {
+   "station": "576040A001",
+   "name": "김제시 부량면",
+   "month": 10,
+   "days": 14,
+   "latitude": 35.7859,
+   "solar_radiation": 12.276,
+   "sunlight_observed": 5.1667
+  },
+  {
+   "station": "579824E001",
+   "name": "부안군 계화면",
+   "month": 1,
+   "days": 20,
+   "latitude": 35.7414,
+   "solar_radiation": 8.528,
+   "sunlight_observed": 4.0158
+  },
+  {
+   "station": "579824E001",
+   "name": "부안군 계화면",
+   "month": 4,
+   "days": 16,
+   "latitude": 35.7414,
+   "solar_radiation": 19.428,
+   "sunlight_observed": 7.4552
+  },
+  {
+   "station": "579824E001",
+   "name": "부안군 계화면",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.7414,
+   "solar_radiation": 16.665,
+   "sunlight_observed": 4.7256
+  },
+  {
+   "station": "579824E001",
+   "name": "부안군 계화면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.7414,
+   "solar_radiation": 11.49,
+   "sunlight_observed": 5.2206
+  },
+  {
+   "station": "590823A001",
+   "name": "남원시 이백면",
+   "month": 1,
+   "days": 11,
+   "latitude": 35.4129,
+   "solar_radiation": 9.348,
+   "sunlight_observed": 6.2258
+  },
+  {
+   "station": "590823A001",
+   "name": "남원시 이백면",
+   "month": 4,
+   "days": 16,
+   "latitude": 35.4129,
+   "solar_radiation": 18.019,
+   "sunlight_observed": 7.5625
+  },
+  {
+   "station": "590823A001",
+   "name": "남원시 이백면",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.4129,
+   "solar_radiation": 16.469,
+   "sunlight_observed": 5.299
+  },
+  {
+   "station": "590823A001",
+   "name": "남원시 이백면",
+   "month": 10,
+   "days": 14,
+   "latitude": 35.4129,
+   "solar_radiation": 11.971,
+   "sunlight_observed": 5.7131
+  },
+  {
+   "station": "590834E001",
+   "name": "남원시 운봉읍",
+   "month": 1,
+   "days": 20,
+   "latitude": 35.4129,
+   "solar_radiation": 9.783,
+   "sunlight_observed": 4.7075
+  },
+  {
+   "station": "590834E001",
+   "name": "남원시 운봉읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.4129,
+   "solar_radiation": 15.498,
+   "sunlight_observed": 4.5756
+  },
+  {
+   "station": "590834E001",
+   "name": "남원시 운봉읍",
+   "month": 10,
+   "days": 16,
+   "latitude": 35.4129,
+   "solar_radiation": 11.726,
+   "sunlight_observed": 5.2708
+  },
+  {
+   "station": "650821A001",
+   "name": "통영시 광도면",
+   "month": 1,
+   "days": 11,
+   "latitude": 34.8422,
+   "solar_radiation": 9.75,
+   "sunlight_observed": 6.1227
+  },
+  {
+   "station": "650821A001",
+   "name": "통영시 광도면",
+   "month": 4,
+   "days": 18,
+   "latitude": 34.8422,
+   "solar_radiation": 16.063,
+   "sunlight_observed": 6.5648
+  },
+  {
+   "station": "650821A001",
+   "name": "통영시 광도면",
+   "month": 7,
+   "days": 16,
+   "latitude": 34.8422,
+   "solar_radiation": 15.291,
+   "sunlight_observed": 4.8604
+  },
+  {
+   "station": "650821A001",
+   "name": "통영시 광도면",
+   "month": 10,
+   "days": 14,
+   "latitude": 34.8422,
+   "solar_radiation": 11.684,
+   "sunlight_observed": 5.6821
+  },
+  {
+   "station": "656933A001",
+   "name": "거제시 거제면",
+   "month": 1,
+   "days": 20,
+   "latitude": 34.8836,
+   "solar_radiation": 8.957,
+   "sunlight_observed": 5.3358
+  },
+  {
+   "station": "656933A001",
+   "name": "거제시 거제면",
+   "month": 4,
+   "days": 15,
+   "latitude": 34.8836,
+   "solar_radiation": 12.339,
+   "sunlight_observed": 4.2656
+  },
+  {
+   "station": "656933A001",
+   "name": "거제시 거제면",
+   "month": 7,
+   "days": 15,
+   "latitude": 34.8836,
+   "solar_radiation": 11.133,
+   "sunlight_observed": 2.86
+  },
+  {
+   "station": "656933A001",
+   "name": "거제시 거제면",
+   "month": 10,
+   "days": 17,
+   "latitude": 34.8836,
+   "solar_radiation": 10.328,
+   "sunlight_observed": 4.4794
+  },
+  {
+   "station": "664951A001",
+   "name": "사천시 용현면",
+   "month": 1,
+   "days": 10,
+   "latitude": 34.9886,
+   "solar_radiation": 9.234,
+   "sunlight_observed": 6.5683
+  },
+  {
+   "station": "664951A001",
+   "name": "사천시 용현면",
+   "month": 4,
+   "days": 12,
+   "latitude": 34.9886,
+   "solar_radiation": 12.168,
+   "sunlight_observed": 4.4472
+  },
+  {
+   "station": "664951A001",
+   "name": "사천시 용현면",
+   "month": 7,
+   "days": 16,
+   "latitude": 34.9886,
+   "solar_radiation": 17.28,
+   "sunlight_observed": 6.8438
+  },
+  {
+   "station": "664951A001",
+   "name": "사천시 용현면",
+   "month": 10,
+   "days": 14,
+   "latitude": 34.9886,
+   "solar_radiation": 11.557,
+   "sunlight_observed": 6.1548
+  },
+  {
+   "station": "712851A001",
+   "name": "경산시 자인면",
+   "month": 1,
+   "days": 21,
+   "latitude": 35.8444,
+   "solar_radiation": 9.434,
+   "sunlight_observed": 5.5849
+  },
+  {
+   "station": "712851A001",
+   "name": "경산시 자인면",
+   "month": 4,
+   "days": 15,
+   "latitude": 35.8444,
+   "solar_radiation": 15.905,
+   "sunlight_observed": 5.4589
+  },
+  {
+   "station": "712851A001",
+   "name": "경산시 자인면",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.8444,
+   "solar_radiation": 16.173,
+   "sunlight_observed": 4.82
+  },
+  {
+   "station": "712851A001",
+   "name": "경산시 자인면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.8444,
+   "solar_radiation": 10.797,
+   "sunlight_observed": 4.4275
+  },
+  {
+   "station": "718814A001",
+   "name": "칠곡군 약목면",
+   "month": 1,
+   "days": 10,
+   "latitude": 35.9909,
+   "solar_radiation": 11.018,
+   "sunlight_observed": 7.4067
+  },
+  {
+   "station": "718814A001",
+   "name": "칠곡군 약목면",
+   "month": 4,
+   "days": 17,
+   "latitude": 35.9909,
+   "solar_radiation": 19.075,
+   "sunlight_observed": 7.5922
+  },
+  {
+   "station": "718814A001",
+   "name": "칠곡군 약목면",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.9909,
+   "solar_radiation": 17.649,
+   "sunlight_observed": 5.65
+  },
+  {
+   "station": "718814A001",
+   "name": "칠곡군 약목면",
+   "month": 10,
+   "days": 14,
+   "latitude": 35.9909,
+   "solar_radiation": 11.096,
+   "sunlight_observed": 5.0
+  },
+  {
+   "station": "719862A001",
+   "name": "성주군 대가면",
+   "month": 1,
+   "days": 21,
+   "latitude": 35.9018,
+   "solar_radiation": 9.644,
+   "sunlight_observed": 6.3341
+  },
+  {
+   "station": "719862A001",
+   "name": "성주군 대가면",
+   "month": 4,
+   "days": 14,
+   "latitude": 35.9018,
+   "solar_radiation": 17.518,
+   "sunlight_observed": 8.9071
+  },
+  {
+   "station": "719862A001",
+   "name": "성주군 대가면",
+   "month": 7,
+   "days": 15,
+   "latitude": 35.9018,
+   "solar_radiation": 14.573,
+   "sunlight_observed": 7.6244
+  },
+  {
+   "station": "719862A001",
+   "name": "성주군 대가면",
+   "month": 10,
+   "days": 17,
+   "latitude": 35.9018,
+   "solar_radiation": 10.642,
+   "sunlight_observed": 5.5441
+  },
+  {
+   "station": "730802A001",
+   "name": "구미시 선산읍",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.13,
+   "solar_radiation": 10.914,
+   "sunlight_observed": 7.6283
+  },
+  {
+   "station": "730802A001",
+   "name": "구미시 선산읍",
+   "month": 4,
+   "days": 16,
+   "latitude": 36.13,
+   "solar_radiation": 15.545,
+   "sunlight_observed": 5.7656
+  },
+  {
+   "station": "730802A001",
+   "name": "구미시 선산읍",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.13,
+   "solar_radiation": 17.266,
+   "sunlight_observed": 5.0229
+  },
+  {
+   "station": "730802A001",
+   "name": "구미시 선산읍",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.13,
+   "solar_radiation": 10.955,
+   "sunlight_observed": 3.8833
+  },
+  {
+   "station": "741862E001",
+   "name": "상주시 화서면",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.4096,
+   "solar_radiation": 7.285,
+   "sunlight_observed": 4.0548
+  },
+  {
+   "station": "741862E001",
+   "name": "상주시 화서면",
+   "month": 4,
+   "days": 15,
+   "latitude": 36.4096,
+   "solar_radiation": 15.339,
+   "sunlight_observed": 5.2622
+  },
+  {
+   "station": "741862E001",
+   "name": "상주시 화서면",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.4096,
+   "solar_radiation": 12.971,
+   "sunlight_observed": 3.3033
+  },
+  {
+   "station": "741862E001",
+   "name": "상주시 화서면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.4096,
+   "solar_radiation": 9.809,
+   "sunlight_observed": 4.3167
+  },
+  {
+   "station": "742290A001",
+   "name": "상주시 초산동",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.4096,
+   "solar_radiation": 10.638,
+   "sunlight_observed": 7.425
+  },
+  {
+   "station": "742290A001",
+   "name": "상주시 초산동",
+   "month": 4,
+   "days": 16,
+   "latitude": 36.4096,
+   "solar_radiation": 16.843,
+   "sunlight_observed": 6.8615
+  },
+  {
+   "station": "742290A001",
+   "name": "상주시 초산동",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.4096,
+   "solar_radiation": 16.679,
+   "sunlight_observed": 5.1021
+  },
+  {
+   "station": "742290A001",
+   "name": "상주시 초산동",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.4096,
+   "solar_radiation": 10.419,
+   "sunlight_observed": 4.5345
+  },
+  {
+   "station": "750852A006",
+   "name": "영주시 평은면",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.8124,
+   "solar_radiation": 7.695,
+   "sunlight_observed": 5.2675
+  },
+  {
+   "station": "750852A006",
+   "name": "영주시 평은면",
+   "month": 4,
+   "days": 15,
+   "latitude": 36.8124,
+   "solar_radiation": 14.196,
+   "sunlight_observed": 6.9689
+  },
+  {
+   "station": "750852A006",
+   "name": "영주시 평은면",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.8124,
+   "solar_radiation": 13.047,
+   "sunlight_observed": 5.1567
+  },
+  {
+   "station": "750852A006",
+   "name": "영주시 평은면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.8124,
+   "solar_radiation": 8.307,
+   "sunlight_observed": 4.3755
+  },
+  {
+   "station": "750873A001",
+   "name": "영주시 안정로",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.8124,
+   "solar_radiation": 10.266,
+   "sunlight_observed": 7.3917
+  },
+  {
+   "station": "750873A001",
+   "name": "영주시 안정로",
+   "month": 4,
+   "days": 16,
+   "latitude": 36.8124,
+   "solar_radiation": 15.743,
+   "sunlight_observed": 7.0406
+  },
+  {
+   "station": "750873A001",
+   "name": "영주시 안정로",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.8124,
+   "solar_radiation": 15.256,
+   "sunlight_observed": 5.3958
+  },
+  {
+   "station": "750873A001",
+   "name": "영주시 안정로",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.8124,
+   "solar_radiation": 9.275,
+   "sunlight_observed": 4.5369
+  },
+  {
+   "station": "755851A001",
+   "name": "봉화군 석포면",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.9029,
+   "solar_radiation": 7.975,
+   "sunlight_observed": 4.0468
+  },
+  {
+   "station": "755851A001",
+   "name": "봉화군 석포면",
+   "month": 4,
+   "days": 18,
+   "latitude": 36.9029,
+   "solar_radiation": 17.238,
+   "sunlight_observed": 6.3519
+  },
+  {
+   "station": "755851A001",
+   "name": "봉화군 석포면",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.9029,
+   "solar_radiation": 13.517,
+   "sunlight_observed": 3.61
+  },
+  {
+   "station": "755851A001",
+   "name": "봉화군 석포면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.9029,
+   "solar_radiation": 9.121,
+   "sunlight_observed": 3.1784
+  },
+  {
+   "station": "755851A002",
+   "name": "봉화군 봉성면",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.9029,
+   "solar_radiation": 10.337,
+   "sunlight_observed": 6.6867
+  },
+  {
+   "station": "755851A002",
+   "name": "봉화군 봉성면",
+   "month": 4,
+   "days": 11,
+   "latitude": 36.9029,
+   "solar_radiation": 18.408,
+   "sunlight_observed": 7.347
+  },
+  {
+   "station": "755851A002",
+   "name": "봉화군 봉성면",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.9029,
+   "solar_radiation": 16.734,
+   "sunlight_observed": 4.5698
+  },
+  {
+   "station": "755851A002",
+   "name": "봉화군 봉성면",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.9029,
+   "solar_radiation": 10.569,
+   "sunlight_observed": 4.6786
+  },
+  {
+   "station": "757802A001",
+   "name": "예천군 예천읍",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.6329,
+   "solar_radiation": 7.985,
+   "sunlight_observed": 5.2317
+  },
+  {
+   "station": "757802A001",
+   "name": "예천군 예천읍",
+   "month": 4,
+   "days": 14,
+   "latitude": 36.6329,
+   "solar_radiation": 15.223,
+   "sunlight_observed": 6.8631
+  },
+  {
+   "station": "757802A001",
+   "name": "예천군 예천읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.6329,
+   "solar_radiation": 13.257,
+   "sunlight_observed": 4.6522
+  },
+  {
+   "station": "757802A001",
+   "name": "예천군 예천읍",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.6329,
+   "solar_radiation": 9.615,
+   "sunlight_observed": 4.3784
+  },
+  {
+   "station": "760380A001",
+   "name": "안동시 송천동",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.5794,
+   "solar_radiation": 9.242,
+   "sunlight_observed": 7.2133
+  },
+  {
+   "station": "760380A001",
+   "name": "안동시 송천동",
+   "month": 4,
+   "days": 16,
+   "latitude": 36.5794,
+   "solar_radiation": 16.094,
+   "sunlight_observed": 6.701
+  },
+  {
+   "station": "760380A001",
+   "name": "안동시 송천동",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.5794,
+   "solar_radiation": 15.255,
+   "sunlight_observed": 5.1967
+  },
+  {
+   "station": "760380A001",
+   "name": "안동시 송천동",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.5794,
+   "solar_radiation": 8.591,
+   "sunlight_observed": 3.4369
+  },
+  {
+   "station": "763803A001",
+   "name": "청송군 청송읍",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.4332,
+   "solar_radiation": 8.953,
+   "sunlight_observed": 5.3698
+  },
+  {
+   "station": "763803A001",
+   "name": "청송군 청송읍",
+   "month": 4,
+   "days": 15,
+   "latitude": 36.4332,
+   "solar_radiation": 17.379,
+   "sunlight_observed": 6.57
+  },
+  {
+   "station": "763803A001",
+   "name": "청송군 청송읍",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.4332,
+   "solar_radiation": 15.454,
+   "sunlight_observed": 4.776
+  },
+  {
+   "station": "763803A001",
+   "name": "청송군 청송읍",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.4332,
+   "solar_radiation": 10.397,
+   "sunlight_observed": 4.0176
+  },
+  {
+   "station": "764803A001",
+   "name": "영양군 영양읍",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.6613,
+   "solar_radiation": 10.508,
+   "sunlight_observed": 6.8917
+  },
+  {
+   "station": "764803A001",
+   "name": "영양군 영양읍",
+   "month": 4,
+   "days": 14,
+   "latitude": 36.6613,
+   "solar_radiation": 17.712,
+   "sunlight_observed": 6.5655
+  },
+  {
+   "station": "764803A001",
+   "name": "영양군 영양읍",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.6613,
+   "solar_radiation": 18.093,
+   "sunlight_observed": 5.4878
+  },
+  {
+   "station": "764803A001",
+   "name": "영양군 영양읍",
+   "month": 10,
+   "days": 14,
+   "latitude": 36.6613,
+   "solar_radiation": 9.507,
+   "sunlight_observed": 3.9702
+  },
+  {
+   "station": "766851E001",
+   "name": "영덕군 병곡면",
+   "month": 1,
+   "days": 21,
+   "latitude": 36.4221,
+   "solar_radiation": 8.611,
+   "sunlight_observed": 5.8357
+  },
+  {
+   "station": "766851E001",
+   "name": "영덕군 병곡면",
+   "month": 4,
+   "days": 15,
+   "latitude": 36.4221,
+   "solar_radiation": 15.447,
+   "sunlight_observed": 6.3267
+  },
+  {
+   "station": "766851E001",
+   "name": "영덕군 병곡면",
+   "month": 7,
+   "days": 16,
+   "latitude": 36.4221,
+   "solar_radiation": 14.169,
+   "sunlight_observed": 4.9708
+  },
+  {
+   "station": "766851E001",
+   "name": "영덕군 병곡면",
+   "month": 10,
+   "days": 17,
+   "latitude": 36.4221,
+   "solar_radiation": 9.731,
+   "sunlight_observed": 4.6775
+  },
+  {
+   "station": "767862A001",
+   "name": "울진군 매화면",
+   "month": 1,
+   "days": 10,
+   "latitude": 36.9739,
+   "solar_radiation": 10.628,
+   "sunlight_observed": 6.3833
+  },
+  {
+   "station": "767862A001",
+   "name": "울진군 매화면",
+   "month": 4,
+   "days": 18,
+   "latitude": 36.9739,
+   "solar_radiation": 16.376,
+   "sunlight_observed": 5.9685
+  },
+  {
+   "station": "767862A001",
+   "name": "울진군 매화면",
+   "month": 7,
+   "days": 15,
+   "latitude": 36.9739,
+   "solar_radiation": 17.125,
+   "sunlight_observed": 5.7378
+  },
+  {
+   "station": "767862A001",
+   "name": "울진군 매화면",
+   "month": 10,
+   "days": 13,
+   "latitude": 36.9739,
+   "solar_radiation": 10.586,
+   "sunlight_observed": 4.3692
+  },
+  {
+   "station": "780950A001",
+   "name": "경주시 용강상리",
+   "month": 1,
+   "days": 21,
+   "latitude": 35.8749,
+   "solar_radiation": 8.316,
+   "sunlight_observed": 5.8468
+  },
+  {
+   "station": "780950A001",
+   "name": "경주시 용강상리",
+   "month": 4,
+   "days": 17,
+   "latitude": 35.8749,
+   "solar_radiation": 16.764,
+   "sunlight_observed": 6.8167
+  },
+  {
+   "station": "780950A001",
+   "name": "경주시 용강상리",
+   "month": 7,
+   "days": 16,
+   "latitude": 35.8749,
+   "solar_radiation": 14.023,
+   "sunlight_observed": 3.625
+  },
+  {
+   "station": "780950A001",
+   "name": "경주시 용강상리",
+   "month": 10,
+   "days": 18,
+   "latitude": 35.8749,
+   "solar_radiation": 9.252,
+   "sunlight_observed": 4.2685
+  }
+ ]
+}

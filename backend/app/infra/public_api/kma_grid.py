@@ -62,3 +62,41 @@ def latlon_to_grid(lat: float, lon: float) -> tuple[int, int]:
     if not (1 <= nx <= GRID_NX_MAX and 1 <= ny <= GRID_NY_MAX):
         raise ValueError(f"격자 범위 밖: lat={lat}, lon={lon} → nx={nx}, ny={ny}")
     return nx, ny
+
+
+def grid_to_latlon(nx: int, ny: int) -> tuple[float, float]:
+    """(nx, ny) → 격자 중심의 (위도, 경도). latlon_to_grid의 역변환.
+
+    왜 필요한가: region_grid에는 격자좌표만 있고 위경도가 없다(격자 시드 CSV도 nx,ny만
+    담는다). 일조시간 Angstrom 계산은 위도가 필요한데, 위도를 상수로 박으면 제주(33.5)와
+    고성(38.4)이 같은 가조시간을 받는다 — 5도 차이를 무시하는 셈이다(§18-2 하드코딩 금지).
+
+    한계: 격자 하나가 5km라 되돌린 좌표는 그 칸의 중심(원래 지점과 최대 약 ±2.5km, 위도로
+    약 ±0.023도 오차)이다. 가조시간 계산에는 충분하지만 실측 지점 좌표가 아니다(§18-4).
+    """
+    if not (1 <= nx <= GRID_NX_MAX and 1 <= ny <= GRID_NY_MAX):
+        raise ValueError(f"격자 범위 밖: nx={nx}, ny={ny}")
+
+    re = RE / GRID
+    slat1 = SLAT1 * _DEGRAD
+    slat2 = SLAT2 * _DEGRAD
+    olon = OLON * _DEGRAD
+    olat = OLAT * _DEGRAD
+
+    sn = math.tan(math.pi * 0.25 + slat2 * 0.5) / math.tan(math.pi * 0.25 + slat1 * 0.5)
+    sn = math.log(math.cos(slat1) / math.cos(slat2)) / math.log(sn)
+    sf = math.tan(math.pi * 0.25 + slat1 * 0.5)
+    sf = sf**sn * math.cos(slat1) / sn
+    ro = math.tan(math.pi * 0.25 + olat * 0.5)
+    ro = re * sf / ro**sn
+
+    xn = nx - XO
+    yn = ro - (ny - YO)
+    ra = math.sqrt(xn * xn + yn * yn)
+    if sn < 0.0:
+        ra = -ra
+
+    lat = 2.0 * math.atan((re * sf / ra) ** (1.0 / sn)) - math.pi * 0.5
+    lon = math.atan2(xn, yn) / sn + olon
+
+    return lat / _DEGRAD, lon / _DEGRAD

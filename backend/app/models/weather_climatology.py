@@ -20,5 +20,8 @@ class WeatherClimatology(Base):
     temp_night_min_normal: Mapped[Decimal | None] = mapped_column(Numeric)
     rainfall_normal: Mapped[Decimal | None] = mapped_column(Numeric)
     sunlight_normal: Mapped[Decimal | None] = mapped_column(Numeric)
+    solar_radiation_normal: Mapped[Decimal | None] = mapped_column(Numeric)
+    """일사량 월평년(MJ/m²/day, 농업기상 V3 srqty). 일조시간 환산용 원자료 — 실측
+    일조(sunlight_normal)가 없을 때 여기서 환산한다(services/sunlight_calculation.py)."""
     source: Mapped[str] = mapped_column()
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
