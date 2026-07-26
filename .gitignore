@@ -42,6 +42,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# 로컬 인프라 도구 (다운로드 바이너리 — 커밋 대상 아님)
+/infra/tools/
+
 # 로컬 DB 볼륨 등
 *.log
 

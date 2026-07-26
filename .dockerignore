@@ -1,0 +1,30 @@
+# 빌드 컨텍스트 = 리포 루트(backend/Dockerfile이 docs/seed/도 참조하므로).
+# backend/ 와 docs/seed/ 는 그대로 두고, 무관/무거운 것들만 제외한다.
+.git
+frontend/
+node_modules/
+knowledge-base/
+outcomes/
+infra/
+backend/.venv/
+backend/tests/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+.env
+.env.*
+!.env.example
+
+*.pdf
+*.csv
+!docs/seed/*.csv
+
+docs/data/
+docs/design/
+docs/api-specs/
+docs/ml/
+
+*.log

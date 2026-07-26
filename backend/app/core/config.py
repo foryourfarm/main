@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     # 로컬 LLM (Ollama 개발 / vLLM 서빙 — OpenAI 호환. docs/llm-integration.md)
     llm_base_url: str = "http://localhost:11434"
     llm_model: str = "exaone3.5:7.8b"
-    llm_timeout_s: float = 8.0
+    # 8초였으나 실측(Cloud Run + GPU VM, 2026-07-26)상 콜드로드(모델이 VRAM에 없을 때)가
+    # exaone3.5:7.8b 67초, bge-m3 18초까지 걸려 첫 요청이 타임아웃으로 죽었다. VM 부팅 시
+    # 워밍업 호출(infra/ollama-vm/startup.sh)로 평소엔 이 값까지 안 가지만, 안전망으로 넉넉히 둔다.
+    llm_timeout_s: float = 90.0
     # 생성 길이 캡. 200은 한국어 답변(3~5문장 + 목록)엔 부족해 문장 중간에 잘렸다 → 512로 상향.
     # 스트리밍은 read(청크 간격) 타임아웃이라 총 생성시간이 길어도 안전(llm_timeout_s는 총 시간 아님).
     llm_num_predict: int = 512
@@ -66,6 +69,10 @@ class Settings(BaseSettings):
     # (data.go.kr 키를 넣으면 401). AWS 결측 보완 계층 전용 — MappingReport.md §2 참고.
     weather_apihub_key: str = ""
     # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
+
+    fertilizer_api: str = ""  # 작물별 비료 표준사용량 처방 정보 — [확인 필요] 연동 클라이언트 미구현
+    crop_code_api: str = ""  # 작물코드 목록 정보 — [확인 필요] 연동 클라이언트 미구현
+    weather_data_apikey: str = ""  # 기상청_API-Guide/Sunlight-Calculation_API-Guide 용 — [확인 필요] 연동 클라이언트 미구현
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.
     # 비어 있으면 미로드 → 모든 예측이 Δ=0 폴백(서비스는 죽지 않음, 가이드 §2.2). 실제 artifact는
