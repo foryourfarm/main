@@ -66,46 +66,25 @@
   background: var(--card);
   border-bottom-left-radius: 4px;
 }
-/* 답변 생성 전엔 이전 말풍선 폭에 상관없이 항상 같은 고정폭 점 3개만 보여준다
-   — 텍스트("생각하고 있어요…")를 그대로 넣으면 말풍선 폭이 이전 답변보다 훅 좁아졌다가
-   실제 답변이 채워지며 다시 넓어져, 화면이 줄었다 늘었다 하는 것처럼 보인다. */
+/* 답변 대기 문구. 부모 말풍선이 answerFloor(minWidth)를 같이 받으므로 직전 답변보다
+   좁아졌다 넓어지는 것처럼 보이지 않는다(page.tsx의 applyFloor 참고). */
 .typing {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 32px;
-  padding: 4px 0;
+  opacity: 0.7;
+  animation: typing-pulse 1.4s ease-in-out infinite;
 }
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text);
-  opacity: 0.4;
-  animation: typing-bounce 1.2s infinite ease-in-out;
-}
-.dot:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.dot:nth-child(3) {
-  animation-delay: 0.3s;
-}
-@keyframes typing-bounce {
+@keyframes typing-pulse {
   0%,
-  60%,
   100% {
-    transform: translateY(0);
-    opacity: 0.4;
+    opacity: 0.5;
   }
-  30% {
-    transform: translateY(-4px);
-    opacity: 1;
+  50% {
+    opacity: 0.9;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dot {
+  .typing {
     animation: none;
-    opacity: 0.6;
+    opacity: 0.7;
   }
 }
 
