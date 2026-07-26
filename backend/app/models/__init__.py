@@ -6,6 +6,7 @@ from app.models.crop_growth_stage import CropGrowthStage
 from app.models.daily_recommendation import DailyRecommendation
 from app.models.district import District, DistrictSoil
 from app.models.farm_action_log import FarmActionLog
+from app.models.kma_observation_point import KmaObservationPoint
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.prediction_shadow import PredictionShadow
 from app.models.region import Region
@@ -32,6 +33,7 @@ __all__ = [
     "CropGrowthGuide",
     "CropGrowthStage",
     "SoilChangeRule",
+    "KmaObservationPoint",
     "User",
     "UserFarm",
     "FarmActionLog",

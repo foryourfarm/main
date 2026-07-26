@@ -10,6 +10,7 @@ from unittest.mock import patch
 from app.infra.public_api.base import PublicApiError, fetch_items
 from app.infra.public_api.soil_exam_client import get_soil_exam, get_soil_exam_list
 from app.infra.public_api.soil_profile_client import get_soil_profile
+from app.infra.public_api import weather_client
 from app.infra.public_api.weather_client import WeatherObservation
 
 SUCCESS_XML = """<response>
@@ -99,13 +100,115 @@ class TestFetchItems(unittest.TestCase):
 
 
 class TestWeatherObservationOutlierGuard(unittest.TestCase):
+    """농업기상 V3 관측값의 경계 방어(§12). 결측·이상치를 None으로 눌러 산출이 죽지 않게 한다."""
+
+    @staticmethod
+    def _obs(**overrides):
+        base = dict(
+            point_code="230802A001",
+            point_name="영월군 영월읍",
+            obs_date="2024-07-01",
+            temp_avg=25.6,
+            temp_max=31.7,
+            temp_min=20.6,
+            humidity=79.4,
+            rainfall=0.0,
+            sunlight_hours=None,
+            solar_radiation=18.82,
+        )
+        return WeatherObservation(**{**base, **overrides})
+
     def test_negative_rainfall_becomes_none(self):
-        obs = WeatherObservation(point_code="bcde", obs_date="20260102", temp_avg=1.5, rainfall=-999)
-        self.assertIsNone(obs.rainfall)
+        """-999는 공공데이터 결측 관례값이다. 강수 0mm로 오해하면 안 된다."""
+        self.assertIsNone(self._obs(rainfall=-999).rainfall)
 
     def test_valid_rainfall_kept(self):
-        obs = WeatherObservation(point_code="a", obs_date="20260101", temp_avg=-2.3, rainfall=0)
-        self.assertEqual(obs.rainfall, 0)
+        """0mm는 결측이 아니라 '비가 안 왔다'는 정보다."""
+        self.assertEqual(self._obs(rainfall=0).rainfall, 0)
+
+    def test_impossible_temperature_becomes_none(self):
+        self.assertIsNone(self._obs(temp_max=-999).temp_max)
+        self.assertIsNone(self._obs(temp_min=999).temp_min)
+        self.assertEqual(self._obs(temp_min=-30.0).temp_min, -30.0)  # 국내 최저기온 범위 내
+
+    def test_impossible_humidity_becomes_none(self):
+        self.assertIsNone(self._obs(humidity=-1).humidity)
+        self.assertIsNone(self._obs(humidity=101).humidity)
+        self.assertEqual(self._obs(humidity=100).humidity, 100)
+
+    def test_negative_radiation_becomes_none(self):
+        self.assertIsNone(self._obs(solar_radiation=-1).solar_radiation)
+
+
+class TestWeatherClientRequestShape(unittest.TestCase):
+    """요청 형식은 실호출로 확정한 것이라 회귀하면 조용히 201/204가 난다.
+
+    인증키를 주입하는 이유: `_fetch_page`는 키가 없으면 호출 전에 예외를 던진다. 그러면
+    이 테스트들이 `.env` 존재 여부에 따라 통과/실패해 CI에서 깨진다 — 테스트는 환경이
+    아니라 코드를 검증해야 한다(실제로 깨끗한 체크아웃에서 3건이 실패했다).
+    """
+
+    def setUp(self):
+        self._keys = patch.object(
+            weather_client, "_service_keys", lambda: ["dummy-key"]
+        )
+        self._keys.start()
+        self.addCleanup(self._keys.stop)
+
+    def test_period_dates_are_hyphenated(self):
+        """명세서는 YYYYMMDD로 적었지만 실제로는 하이픈이 필요하다(없으면 201)."""
+        _hyphenate = weather_client._hyphenate
+
+        self.assertEqual(_hyphenate("20240701"), "2024-07-01")
+        self.assertEqual(_hyphenate("2024-07-01"), "2024-07-01")
+
+    def test_bad_date_is_rejected_early(self):
+        """형식이 틀리면 API를 부르기 전에 잡는다 — 쿼터를 낭비하지 않는다."""
+        _hyphenate = weather_client._hyphenate
+
+        for bad in ("2024-7-1", "240701", ""):
+            with self.subTest(value=bad), self.assertRaises(ValueError):
+                _hyphenate(bad)
+
+    def test_pagination_walks_until_short_page(self):
+        """Page_Size를 넘는 결과가 잘리지 않아야 한다(실측: rcdcnt=100 vs total=6551)."""
+        pages = [
+            [{"stn_Cd": f"S{i}", "date": "2024-07-01"} for i in range(3)],
+            [{"stn_Cd": "S9", "date": "2024-07-02"}],  # 짧은 페이지 = 끝
+        ]
+        calls: list[str] = []
+
+        def fake_fetch_items(url, params, **kwargs):
+            calls.append(params["Page_No"])
+            idx = int(params["Page_No"]) - 1
+            return pages[idx] if idx < len(pages) else []
+
+        with patch.object(weather_client, "fetch_items", fake_fetch_items):
+            rows = weather_client.get_monthly_daily_weather("2024", "07", page_size=3)
+
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(calls, ["1", "2"])
+
+    def test_pagination_stops_at_max_pages(self):
+        """응답이 계속 가득 차 와도 무한 루프로 쿼터를 소진하지 않는다."""
+        def always_full(url, params, **kwargs):
+            return [{"stn_Cd": "S", "date": "2024-07-01"}] * 2
+
+        with patch.object(weather_client, "fetch_items", always_full):
+            rows = weather_client.get_monthly_daily_weather("2024", "07", page_size=2)
+        self.assertEqual(len(rows), 2 * weather_client.MAX_PAGES)
+
+    def test_month_is_zero_padded(self):
+        """search_Month는 2자리다 — "7"을 그대로 보내면 응답이 비거나 201이 난다."""
+        seen: dict[str, str] = {}
+
+        def capture(url, params, **kwargs):
+            seen.update(params)
+            return []
+
+        with patch.object(weather_client, "fetch_items", capture):
+            weather_client.get_monthly_daily_weather("2024", "7")
+        self.assertEqual(seen["search_Month"], "07")
 
 
 class TestSoilProfileClient(unittest.TestCase):

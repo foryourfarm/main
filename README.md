@@ -171,7 +171,7 @@ docker ps   # foryourfarm-db 가 보이면 정상
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
 ```
 
-**backend/.env** (`backend/.env.example` 복사해서 사용)
+**`.env`** — 리포 **루트**에 둔다 (`.env.example` 복사해서 사용)
 ```
 DATABASE_URL=postgresql+psycopg://foryourfarm:foryourfarm@localhost:5432/foryourfarm
 LLM_BASE_URL=http://localhost:11434   # GCP는 infra/ollama-vm 참고해 내부 IP로 교체
@@ -222,7 +222,7 @@ curl http://localhost:11434/api/tags
 backend/.venv/Scripts/python.exe scripts/embed_corpus.py   # 5작물 청크 임베딩·적재(재실행 안전, diff 동기화)
 ```
 
-- 두 모델은 코드에서 `keep_alive:-1`로 VRAM에 상주시킨다(재로딩이 응답 예산 초과). `EMBEDDING_MODEL`은 `backend/.env.example` 참고.
+- 두 모델은 코드에서 `keep_alive:-1`로 VRAM에 상주시킨다(재로딩이 응답 예산 초과). `EMBEDDING_MODEL`은 루트 `.env.example` 참고.
 - 챗봇 엔드포인트: `POST /api/v1/chat` (SSE 스트리밍, `ApiResponse` 래퍼 미사용). 상세 설계는 [`docs/llm-integration.md`](./docs/llm-integration.md).
 - **Ollama/모델·임베딩 데이터가 없어도 백엔드는 뜬다** — 챗봇 호출만 규칙 기반 폴백 문구로 응답하고 서비스는 죽지 않는다(`CLAUDE.md` §13, §18-5).
 

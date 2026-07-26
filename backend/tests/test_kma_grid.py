@@ -5,7 +5,7 @@
 """
 import unittest
 
-from app.infra.public_api.kma_grid import latlon_to_grid
+from app.infra.public_api.kma_grid import grid_to_latlon, latlon_to_grid
 
 # (지점명, 위도, 경도, 기대 nx, 기대 ny) — 공개된 기상청 격자 대응값.
 # 5km 격자라 좌표가 1km만 밀려도 칸이 바뀐다. 그래서 시청 좌표가 격자 경계에 걸치는
@@ -43,6 +43,33 @@ class TestLatLonToGrid(unittest.TestCase):
         b = latlon_to_grid(37.5700, 126.9800)
         self.assertLessEqual(abs(a[0] - b[0]), 1)
         self.assertLessEqual(abs(a[1] - b[1]), 1)
+
+
+class TestGridToLatLon(unittest.TestCase):
+    """역변환 검증. 일조시간 계산이 지역별 실제 위도를 쓰려면 이 변환이 맞아야 한다."""
+
+    def test_roundtrip_returns_same_grid(self):
+        """격자 → 위경도 → 격자가 제자리로 돌아와야 한다(중심점을 되돌리므로)."""
+        for name, lat, lon, nx, ny in REFERENCE:
+            with self.subTest(name=name):
+                self.assertEqual(latlon_to_grid(*grid_to_latlon(nx, ny)), (nx, ny))
+
+    def test_recovered_latitude_is_within_one_grid_cell(self):
+        """되돌린 위도는 격자 중심이라 원래 지점과 5km(약 0.05도) 안쪽이어야 한다."""
+        for name, lat, lon, nx, ny in REFERENCE:
+            with self.subTest(name=name):
+                self.assertAlmostEqual(grid_to_latlon(nx, ny)[0], lat, delta=0.05)
+
+    def test_distinguishes_south_from_north(self):
+        """제주와 강원 북부가 다른 위도로 나와야 한다 — 위도 상수 하드코딩 방어(§18-2)."""
+        jeju_lat = grid_to_latlon(*latlon_to_grid(33.4996, 126.5312))[0]
+        goseong_lat = grid_to_latlon(*latlon_to_grid(38.3806, 128.4677))[0]
+        self.assertGreater(goseong_lat - jeju_lat, 4.0)
+
+    def test_rejects_out_of_range_grid(self):
+        for nx, ny in [(0, 100), (150, 100), (60, 0), (60, 254)]:
+            with self.subTest(nx=nx, ny=ny), self.assertRaises(ValueError):
+                grid_to_latlon(nx, ny)
 
 
 if __name__ == "__main__":
