@@ -1,0 +1,45 @@
+.nav {
+  display: flex;
+  background: var(--bg-main);
+  border-bottom: 2px solid var(--bg-card);
+  padding: 0 32px;
+}
+
+body.dark-mode .nav {
+  background: var(--dark-bg);
+  border-bottom-color: #3A3A35;
+}
+
+.navItem {
+  padding: 16px 24px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+body.dark-mode .navItem {
+  color: #AAA;
+}
+
+.navItem:hover {
+  color: var(--primary);
+}
+
+.navItem.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .nav {
+    padding: 0 16px;
+    overflow-x: auto;
+  }
+}

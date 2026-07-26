@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import AuthBar from "@/components/AuthBar";
+import Header from "@/components/Header";
+import Navigation from "@/components/Navigation";
+import RequireAuth from "@/components/RequireAuth";
 import { AuthProvider } from "@/lib/auth-context";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "For Your Farm",
@@ -26,11 +17,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="ko">
       <body>
         <AuthProvider>
-          <AuthBar />
-          {children}
+          <Header />
+          <Navigation />
+          <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <RequireAuth>{children}</RequireAuth>
+          </main>
         </AuthProvider>
       </body>
     </html>

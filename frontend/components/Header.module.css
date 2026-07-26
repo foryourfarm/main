@@ -1,0 +1,62 @@
+.header {
+  background: linear-gradient(135deg, var(--primary) 0%, #1f3d0f 100%);
+  color: white;
+  padding: 20px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.1);
+}
+
+.logo {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.userInfo {
+  text-align: right;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.userLocation {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.darkToggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.darkToggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .headerRight {
+    width: 100%;
+    justify-content: center;
+  }
+}

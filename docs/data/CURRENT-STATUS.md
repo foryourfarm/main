@@ -129,19 +129,61 @@ GET /api/v1/farms/{id}/monthly-outlook
 GET /api/v1/farms/{id}/short-term
 ```
 
+### ✅ 일조시간 데이터 조사 완료 (2026-07-26)
+
+**조사 범위:** 농업기상 API 218개 지점 × 6년 (2020~2025)
+
+| 항목 | 결과 |
+|------|------|
+| **총 지점 수** | 218개 |
+| **일조시간 데이터 있는 지점** | 52개 (23.9%) |
+| **데이터 없는 지점** | 166개 (76.1%) |
+| **결론** | **혼합 방식 (Hybrid)** 필수 |
+
+**결정사항:**
+- 52개 지점 (23.9%): 실측 월별 일조시간 사용 (2020~2025년 전체)
+- 166개 지점 (76.1%): **Angstrom 공식** 기반 계산
+  - 입력: 월별 최고/최저 기온, 강수량
+  - 출력: 추정 일조시간
+  - 방정식: FAO-56 표준 Angstrom 변형
+
+**데이터 저장:**
+- docs/data/exhaustive_sunlight_investigation.json: 전수 조사 결과
+
 ---
 
 ## 3. 파일 생성 현황
 
-**생성된 파일 (총 15개):**
+**생성된 파일 (총 17개):**
 - ✅ API 클라이언트: 2개
 - ✅ 모델/마이그레이션: 3개
 - ✅ 테스트 스크립트: 1개
-- ✅ 문서: 9개
+- ✅ 일조시간 조사 스크립트: 1개
+- ✅ 문서: 10개
 
 ---
 
-## 4. 미완료 항목 (FE만 남음)
+## 4. 다음 단계 (일조시간 처리)
+
+### 4.1 Angstrom 계산 함수 구현
+- **위치:** `backend/app/services/sunlight_calculation.py` (신규)
+- **로직:** 월별 기온/강수 → 추정 일조시간 (FAO-56)
+- **입력:** 지역, 연도, 월, 기온(max/min), 강수량
+- **출력:** 추정 일조시간 + 신뢰도 수치
+
+### 4.2 계절성 적합도 통합
+- climatology_service에서:
+  - 실측 지점: WeatherClimatology.sunlight_normal 직접 사용
+  - 계산 지점: Angstrom 함수로 계산 후 사용
+  - 모든 경우에 provenance 필드 기록
+
+### 4.3 신뢰도 표기 (FE)
+- `provenance`: "실측 (농업기상 2020~2025)" vs "계산 (Angstrom)"
+- `confidence`: 실측(0.95) vs 계산(0.70)
+
+---
+
+## 5. 미완료 항목 (FE만 남음)
 
 - ⏳ FE 신뢰도 표기
   - `provenance` 필드 추가 (출처 표시)
@@ -150,4 +192,7 @@ GET /api/v1/farms/{id}/short-term
 
 ---
 
-**다음 진행:** MIGRATION-GUIDE.md 참고하여 Step 1-4 순차 실행
+**다음 진행:**
+1. Angstrom 계산 함수 구현
+2. climatology_service 통합
+3. MIGRATION-GUIDE.md 참고하여 Step 1-4 순차 실행

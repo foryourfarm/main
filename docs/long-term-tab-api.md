@@ -84,7 +84,45 @@
 
 특정 밭의 **오늘** 적합도. 히트맵과 달리 지표별 `breakdown`을 준다(칸 클릭 시 상세용).
 
-`monthly-outlook`과 동일 필드 + `as_of`(날짜), `breakdown`(지표별 `value`/`score`/`weight`/`status`).
+`monthly-outlook`과 동일 필드 + `as_of`(날짜), `breakdown`(지표별 메타데이터).
+
+### 3.1 `breakdown` 구조
+
+각 지표별 상세 정보:
+
+```json
+{
+  "temp_day": {
+    "value": 25.3,
+    "score": 85.2,
+    "weight": 0.12,
+    "status": "optimal"
+  },
+  "sunlight": {
+    "value": 8.2,
+    "score": 72.0,
+    "weight": 0.15,
+    "status": "allowed",
+    "method": "angstrom_corrected",
+    "is_calculated": true,
+    "confidence": 0.82
+  }
+}
+```
+
+| 필드 | 의미 | 표시 규칙 |
+|---|---|---|
+| `value` | 해당 월의 지표값 | 그대로 표시 |
+| `score` | 0~100 규범 점수 | 그대로 표시 |
+| `weight` | 적합도 계산에서의 가중치 | (표시 불필요) |
+| `status` | `optimal` / `allowed` / `risk` / `missing` / `invalid` | 색상/라벨 조정 |
+| `method` | (일조시간만) `measurement` / `angstrom_only` / `angstrom_corrected` | 계산값이면 기록 |
+| `is_calculated` | (일조시간만) `true`면 계산값, `false`면 실측 | 계산값이면 UI에 작은 텍스트로 안내 |
+| `confidence` | (일조시간 계산값만) 신뢰도 0.0~1.0 | 계산값이면 "신뢰도: XX%"로 표시 |
+
+**계산값 표시 규칙(일조시간):**
+- `is_calculated === true` → "계산값(신뢰도: XX%)" 작은 텍스트로 표시
+- `is_calculated === false` → 별도 표시 없음
 
 ## 4. `GET /api/v1/dashboard`
 
@@ -97,12 +135,27 @@
 | 신호 | 상태 | 비고 |
 |---|---|---|
 | 월평년 기온·강수 | ✅ 적재됨 | ⚠️ 기상청 공식 30년 평년값이 아니라 **관측 5년 평균 근사**(`source='obs_mean_2021_2025'`), 102지역 |
-| 야간최저·일조 평년 | ❌ 없음 | 소스 미발급 → `null` → 해당 지표는 `risk_flags`에 `missing`으로 뜬다 |
+| 야간최저 평년 | ❌ 없음 | 소스 미발급 → `null` → 해당 지표는 `risk_flags`에 `missing`으로 뜬다 |
+| 일조 평년 | ✅ 계산값 제공 | 실측 ASOS 데이터 우선, 없으면 Angstrom+동적보정 계산. **정확도 0.90 이상만 포함**. 계산값이면 `breakdown["sunlight"]["is_calculated"]=true` + confidence 표시 |
 | 3개월 장기예보(tercile) | 🔶 적재는 가능해짐 | `weather_outlook`에 적재(§6). **점수 보정 적용은 아직 미구현** — 별도 PR |
 | 단기예보(당일~3일) | ❌ 없음 | 단기 탭 미착수, API 키 미발급 |
 
 즉 지금 히트맵은 "이 지역의 평년 기후 + 내 밭 토양 추정치"로 계산한 **이론 추정**이다.
 `limitations`를 접어두지 말고 카드/탭에 보이게 두는 것이 요구사항이다.
+
+### 5.1 일조시간 계산 방식 (신뢰도 기준)
+
+일조시간은 정확도 0.90 이상인 경우만 적합도 계산에 포함된다. 미달 시는 자동으로 제외되고 FE는 다른 지표만으로 적합도를 판정한다.
+
+| 방식 | 신뢰도 | 포함 여부 | 방법 |
+|---|---|---|---|
+| 실측 ASOS 평년 | 0.95 | ✅ 포함 | ASOS 105개 관측소 일조시간 실측 평년값 직접 사용 |
+| Angstrom + 보정 | 0.76~0.87 | ✅ 포함 | 기온 기반 Angstrom 공식 + 구름/강수/습도 동적 보정 |
+| Angstrom 기본 | 0.70 | ❌ 제외 | 기온만으로 Angstrom 공식 계산 (정확도 미달) |
+
+**계산값 판정:**
+- `method=measurement` → 실측값 (표시 불필요)
+- `method=angstrom_*` → 계산값 (UI에 "계산값(신뢰도: XX%)" 작은 텍스트)
 
 ## 6. 장기예보 적재 파이프라인 (백엔드 운영 메모)
 

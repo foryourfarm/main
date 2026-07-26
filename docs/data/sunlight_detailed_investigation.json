@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-07-26T08:22:39.988000",
+  "investigation_period": "20250101 ~ 20250131",
+  "total_spots": 218,
+  "total_with_sunlight": 0,
+  "overall_coverage_percent": 0.0,
+  "region_stats": {
+    "Unknown": {
+      "total": 218,
+      "with_data": 0,
+      "with_sunlight": 0,
+      "error": 218,
+      "coverage_percent": 0.0
+    }
+  }
+}

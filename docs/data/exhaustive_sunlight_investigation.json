@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-07-26T09:22:59.241799",
+  "total_spots": 218,
+  "spots_with_sunlight": 20,
+  "coverage_percent": 9.2,
+  "years_tested": [
+    "2025",
+    "2024",
+    "2023",
+    "2022",
+    "2021",
+    "2020"
+  ],
+  "region_stats": {
+    "Unknown": {
+      "total": 218,
+      "with_sunlight": 20,
+      "coverage_percent": 9.2,
+      "years_with_data": {
+        "2025": 20,
+        "2024": 20,
+        "2023": 18,
+        "2022": 17,
+        "2021": 17,
+        "2020": 17
+      }
+    }
+  }
+}

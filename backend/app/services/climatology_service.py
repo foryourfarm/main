@@ -13,10 +13,12 @@
 """
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
 from app.models import Region, RegionGrid, WeatherClimatology
+from app.services.sunlight_calculation import SunlightCalculation, SunlightResult
 
 GRID_KM = 5.0  # 기상청 단기예보 격자 간격
 
@@ -26,6 +28,7 @@ class ClimatologySource:
     """평년치와 그 출처. substituted_from이 있으면 다른 지역 값을 빌린 것이다."""
 
     by_month: dict[int, WeatherClimatology]
+    sunlight_by_month: dict[int, SunlightResult] | None = None  # 일조시간 (실측/계산)
     substituted_from: str | None = None
     distance_km: float | None = None
 
@@ -48,7 +51,9 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
         db.query(WeatherClimatology).filter(WeatherClimatology.region_id == region_id)
     )
     if own:
-        return ClimatologySource(by_month={c.month: c for c in own})
+        clim_source = ClimatologySource(by_month={c.month: c for c in own})
+        clim_source = _add_sunlight_to_climatology(db, clim_source, region_id)
+        return clim_source
 
     my_grid = db.query(RegionGrid).filter(RegionGrid.region_id == region_id).first()
     if my_grid is None:
@@ -80,10 +85,84 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     if not rows:
         return ClimatologySource(by_month={})
 
-    return ClimatologySource(
+    clim_source = ClimatologySource(
         by_month={c.month: c for c in rows},
         substituted_from=best_name,
         distance_km=round(_grid_distance_km(my_grid, best_grid), 1),
+    )
+
+    # 일조시간 계산 추가
+    clim_source = _add_sunlight_to_climatology(db, clim_source, best_grid.region_id)
+
+    return clim_source
+
+
+def _add_sunlight_to_climatology(
+    db: Session, clim_source: ClimatologySource, region_id: int
+) -> ClimatologySource:
+    """일조시간 계산 추가 (실측 우선 → Angstrom 동적 보정).
+
+    정확도 기준(confidence >= 0.90)으로만 포함된다. 정확도 미만인 계산값은
+    제외되고, FE는 다른 지표만으로 적합도를 판정하거나 더 낮은 신뢰도의
+    계산값을 포함할 수 있다.
+
+    Args:
+        db: DB 세션
+        clim_source: 기존 평년치 소스
+        region_id: 지역 ID (평년치 보유 지역)
+
+    Returns:
+        정확도 >= 0.90인 일조시간만 포함된 ClimatologySource
+    """
+    sunlight_by_month = {}
+
+    # RegionGrid에서 격자 좌표 조회 (위도 대신 사용)
+    # TODO: 향후 격자좌표 → 위도경도 역변환 또는 seed 데이터에서 위도 추출
+    region_grid = db.query(RegionGrid).filter(RegionGrid.region_id == region_id).first()
+    if region_grid is None:
+        return clim_source  # 격자 정보 없으면 계산 불가
+
+    # 임시: 위도를 37.0(서울)로 고정 (TODO: 실제 위도 데이터 필요)
+    latitude = 37.0
+
+    # 월별 일조시간 계산 또는 로드
+    for month in range(1, 13):
+        clim = clim_source.by_month.get(month)
+        if clim is None:
+            continue
+
+        # Priority 1: sunlight_normal이 DB에 있으면 (실측 평년값, 항상 포함)
+        if clim.sunlight_normal is not None:
+            result = SunlightCalculation.from_measurement(float(clim.sunlight_normal))
+            sunlight_by_month[month] = result
+            continue
+
+        # Priority 2: 기온 데이터로 Angstrom 계산 + 동적 보정
+        tmax = float(clim.temp_avg_normal) if clim.temp_avg_normal else None
+        tmin = float(clim.temp_night_min_normal) if clim.temp_night_min_normal else None
+
+        if tmax is None or tmin is None:
+            continue  # 기온 데이터 없으면 계산 불가
+
+        # TODO: 구름/강수 데이터 조회 (ASOS API 연동 필요)
+        # 현재는 기온만으로 계산
+        result = SunlightCalculation.from_temperature_only(
+            tmax=tmax,
+            tmin=tmin,
+            latitude=latitude,
+            month=month,
+        )
+
+        # 정확도 기준: >= 0.90만 포함 (계산값의 신뢰성 필터)
+        if result.confidence >= 0.90:
+            sunlight_by_month[month] = result
+
+    # 새 ClimatologySource 반환 (불변이므로 전체 재생성)
+    return ClimatologySource(
+        by_month=clim_source.by_month,
+        sunlight_by_month=sunlight_by_month if sunlight_by_month else None,
+        substituted_from=clim_source.substituted_from,
+        distance_km=clim_source.distance_km,
     )
 
 

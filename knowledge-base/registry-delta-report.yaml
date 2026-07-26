@@ -1,0 +1,75 @@
+---
+timestamp: 2026-07-25
+cycle: 3
+status: delta-applied
+
+# 기본 통계
+updated: true
+papers_added_this_cycle: 9
+papers_cumulative_total: 15
+
+# 이번 사이클에서 새로 filled 상태가 된 필드
+newly_filled:
+  crop_growth_guide:
+    - "사과.ph (6.0~6.5 | 5.5~6.8) — RDA 비료사용처방 + 홍로 품종 과실품질"
+    - "사과.p2o5 (30~50 mg/kg | 20~60) — RDA 비료사용처방, Bray-1 기준"
+    - "사과.p2o5_유기 (40~60 mg/kg | 25~80) — 유기재배 매뉴얼"
+    - "사과.p2o5_실제시비 (10~12 kg/10a | +20% 보정) — 협회 가이드"
+  soil_change_rule:
+    - "LIMING → ph indicator, 석회시용량 → pH 변화, RDA 기준"
+    - "FERTILIZE_P → p2o5 indicator, Bray-1 기준, 실태조사 극단적 과잉 주시"
+
+# 여전히 missing인 고우선 필드
+still_missing_high_priority:
+  - "crop_growth_guide.ec (사과) — 흙토람/FAO 웹 접근 불가, 대체자료 필요"
+  - "crop_growth_guide.temp_day (사과) — 기초 온도 기준 미수집"
+  - "crop_growth_guide.ph (배) — 2번 우선 키워드, 시비 처방 병행 필요"
+  - "생육단계별 pH/EC 기준 (전작물) — 현재는 '전기간'만 커버"
+  - "오이·감자·상추 P0 기준 (토양검정 및 추천시비 전체) — 후순위 시작 단계"
+
+# 여전히 partial인 필드 (주시 필요)
+still_partial:
+  - "사과.p2o5_실태 (22.5 kg/10a 평균) — 극단적 과잉 원인 미분석"
+  - "사과.organic — 단일 실측 참고치만"
+
+# 큐 상태
+queue_status:
+  total_keywords_remaining: 15
+  completed_or_partial: 2
+  high_priority_count: 6
+  medium_priority_count: 5
+  low_priority_count: 4
+  future_candidate_papers: 7
+
+# 구조적 이슈 (팀 결정 대기)
+structural_issues_flagged: 2
+issues:
+  1: |
+    사과 EC 원문 접근 불가
+    - 증상: 흙토람/FAO 웹 타임아웃, RDA 문서도 미수록
+    - 대체자료 후보: 배경학·이화여대 사과 EC 시험, 한토학회지 특집
+    - 액션: 웹검색 + 한토학회 데이터베이스 접근 시도
+  2: |
+    사과 P2O5 극단적 과잉 (gap 분석 필요)
+    - 이론: RDA 비료사용처방 8~10 kg/10a
+    - 현실: 실태조사 805농가 평균 22.5 kg/10a (이론의 125%)
+    - 현장값: 협회 가이드 10~12 kg/10a (+20% 보정, 여전히 높음)
+    - 근원: 역사적 P 축적 vs 토양검정 부실 vs 재배 관성
+    - 액션: 장기 추세 문헌 (1980~2020 토양검정 통계) + 지역별 P 함량 현황 조사
+
+# 데이터 품질 주의사항
+data_quality_flags:
+  - "suitability_method: 아직 MLCM vs 점수제 미결정 (배 GIS 논문 논의 중)"
+  - "unit_consistency: pH(무차원), P2O5(mg/kg vs kg/10a 이중 기록 필요, Bray-1 명시)"
+  - "n_indicator: 질소 지표 미정 (EC로 대리 vs 별도 지표 신설), 배 실험들이 N 의존적"
+
+# 다음 사이클 권장 액션
+stop_recommended: false
+next_action: |
+  1순위: 사과 EC (대체자료 리서치 48h, 웹+학회)
+  2순위: 배 pH (시비 처방 함께) — 차순위 키워드 진행
+  3순위: 오이·감자·상추 기초 화학성 (P, K, EC, pH) — 후순위 시작
+  병렬: 사과 P 극단적 과잉 원인 분석 (구조적 이슈 #2) — 별도 탐색 태스크
+
+estimated_cycle_time: "5-7 days (EC 대체자료 + 배·채소 3종 병렬)"
+papers_target_next_cycle: "7-10편 (배 1-2, 채소 4-5, 구조 분석 1-2)"

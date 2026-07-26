@@ -1,13 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@700&family=JetBrains+Mono:wght@400;700&display=swap');
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Design01 팔레트 */
+  --primary: #2D5016;
+  --secondary: #D4AF37;
+  --tertiary: #8B6F47;
+  --success: #A4D65E;
+  --warning: #E8A76B;
+  --error: #C54245;
+  --bg-main: #FAFAF7;
+  --bg-card: #E8E6E1;
+  --text-primary: #1A1815;
+  --text-secondary: #4A4643;
+  --border: #D0CEC9;
+
+  /* Dark mode */
+  --dark-bg: #1A1815;
+  --dark-text: #F5F3F0;
+
+  /* Fonts */
+  --font-body: 'Noto Sans KR', sans-serif;
+  --font-heading: 'Noto Serif KR', serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body.dark-mode {
+  --bg-main: var(--dark-bg);
+  --text-primary: var(--dark-text);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
@@ -21,20 +46,15 @@ body {
 }
 
 body {
-  min-height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-main);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+  transition: all 0.3s ease;
 }
 
 a {
@@ -42,8 +62,9 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
 }

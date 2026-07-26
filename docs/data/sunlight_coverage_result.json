@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-07-26T06:45:35.142964",
+  "total_observation_spots": 218,
+  "total_checked": 218,
+  "total_with_sunlight": 0,
+  "total_without_sunlight": 218,
+  "overall_coverage_percent": 0.0,
+  "recommendation": "낮은 커버율 (<50%) → 계산값 우선 (Angstrom)",
+  "region_stats": {
+    "Unknown": {
+      "total": 218,
+      "with_sunlight": 0,
+      "coverage_percent": 0.0
+    }
+  }
+}

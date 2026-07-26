@@ -1,0 +1,21 @@
+{
+  "getWeatherMonDayList3": {
+    "status": "success",
+    "items": 31,
+    "has_sun_time": false,
+    "sun_time_count": 0
+  },
+  "getWeatherYearDayList3": {
+    "status": "success",
+    "items": 100,
+    "has_sun_time": false,
+    "sun_time_count": 0
+  },
+  "getWeatherYearMonList3": {
+    "status": "success",
+    "items": 12,
+    "has_sun_time": false,
+    "sun_time_count": 0,
+    "is_monthly": true
+  }
+}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
-from app.services.climatology_service import load_climatology, substitution_limitation
+from app.services.climatology_service import ClimatologySource, load_climatology, substitution_limitation
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
@@ -170,18 +170,30 @@ def calculate_suitability(
 
 
 def gather_indicator_values(
-    soil: SoilState | None, clim: WeatherClimatology | None
+    soil: SoilState | None,
+    clim: WeatherClimatology | None,
+    clim_source: ClimatologySource | None = None,
+    month: int | None = None,
 ) -> dict[str, float | Decimal | None]:
     """지표 값을 데이터원에서 모은다. 토양은 밭 실측 추정, 기상은 지역 월평년.
 
     temp_day는 월평년 근사(승인됨). 결측은 None으로 두고 룰 엔진이 제외한다(§12 결측 방어).
+    일조시간은 clim_source에서 계산된 값을 우선 사용한다(실측/계산, 정확도 >= 0.90만).
     """
+    # 일조시간: 계산된 값 우선 (정확도 >= 0.90만), 없으면 DB 값
+    sunlight_value = None
+    if clim_source and month and clim_source.sunlight_by_month:
+        sunlight_result = clim_source.sunlight_by_month.get(month)
+        if sunlight_result:
+            sunlight_value = sunlight_result.value
+    if sunlight_value is None and clim:
+        sunlight_value = clim.sunlight_normal
+
     return {
         "temp_day": clim.temp_avg_normal if clim else None,  # 월평년 근사
         "temp_night_min": clim.temp_night_min_normal if clim else None,
-        # 장기 탭은 월평년만 채운다. 일 단위 지표는 단기 탭에서만 값이 생긴다.
         "rainfall_monthly": clim.rainfall_normal if clim else None,
-        "sunlight": clim.sunlight_normal if clim else None,
+        "sunlight": sunlight_value,
         "ph": soil.ph if soil else None,
         "ec": soil.ec if soil else None,
         "p2o5": soil.p2o5 if soil else None,
@@ -252,10 +264,21 @@ def compute_farm_suitability(
     # 장기예보 보정은 read-time에만 얹는다(캐시 금지 — §3.13 B1).
     corrections = load_corrections(db, farm.region_id, [on_date.month], on_date.year)
     values, applied = apply_corrections(
-        gather_indicator_values(soil, clim), corrections, on_date.month
+        gather_indicator_values(soil, clim, clim_source, on_date.month),
+        corrections,
+        on_date.month,
     )
     result = calculate_suitability(guides, values, applied)
     status = derive_status(bool(guides), result["score"], result["breakdown"])
+
+    # 일조시간 메타데이터 추가 (계산값인 경우 FE에서 작게 표시)
+    if clim and on_date.month in clim_source.sunlight_by_month:
+        sunlight_result = clim_source.sunlight_by_month[on_date.month]
+        if "sunlight" in result["breakdown"] and result["breakdown"]["sunlight"].get("score") is not None:
+            result["breakdown"]["sunlight"]["method"] = sunlight_result.method
+            result["breakdown"]["sunlight"]["is_calculated"] = sunlight_result.is_calculated
+            if sunlight_result.is_calculated:
+                result["breakdown"]["sunlight"]["confidence"] = sunlight_result.confidence
 
     limitations = [TEMP_DAY_LIMITATION]
     substitution = substitution_limitation(clim_source)

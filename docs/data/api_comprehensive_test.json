@@ -1,0 +1,17 @@
+{
+  "getWeatherTenMinList3": {
+    "error": "Expecting value: line 7 column 1 (char 12)"
+  },
+  "getWeatherTimeList3": {
+    "error": "Expecting value: line 7 column 1 (char 12)"
+  },
+  "getWeatherMonDayList3": {
+    "error": "Expecting value: line 7 column 1 (char 12)"
+  },
+  "getWeatherYearDayList3": {
+    "error": "Expecting value: line 7 column 1 (char 12)"
+  },
+  "getWeatherYearMonList3": {
+    "error": "Expecting value: line 7 column 1 (char 12)"
+  }
+}

@@ -7,19 +7,18 @@ import type { ChatMessage } from "@/types/chat";
 
 import styles from "./chat.module.css";
 
-const GREETING =
-  "농사 관련 질문을 물어보세요. 생육 단계, 토양 관리, 기후 대응 등 궁금한 점을 편하게요!";
+const GREETING = "농사 관련 질문을 물어보세요. 생육 단계, 토양 관리, 기후 대응 등 궁금한 점을 편하게요!";
 const THINKING = "답변을 생각하고 있어요…";
 const ERROR_TEXT = "답변을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
 export default function ChatPage() {
+  const [isChatStarted, setIsChatStarted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const scrollToEnd = () => {
-    // 렌더 후 맨 아래로(스트리밍 중 새 토큰 따라가기).
     requestAnimationFrame(() => {
       if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
     });
@@ -31,7 +30,6 @@ export default function ChatPage() {
     setInput("");
     setBusy(true);
 
-    // 게스트 멀티턴: 지금까지 대화를 history로 재전송(백엔드가 최근 6개만 사용).
     const history = messages;
     setMessages((m) => [...m, { role: "user", content: question }, { role: "assistant", content: "" }]);
     scrollToEnd();
@@ -51,7 +49,6 @@ export default function ChatPage() {
     } catch {
       setMessages((m) => {
         const next = [...m];
-        // 답변이 하나도 안 온 경우에만 오류 문구로 대체(부분 응답은 보존).
         if (next[next.length - 1].content === "") {
           next[next.length - 1] = { role: "assistant", content: ERROR_TEXT };
         }
@@ -68,6 +65,24 @@ export default function ChatPage() {
       e.preventDefault();
       void send();
     }
+  }
+
+  if (!isChatStarted) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.chatbotSection}>
+          <div className={styles.chatbotCharacter}>🧑‍🌾</div>
+          <div className={styles.chatbotInfo}>
+            <h2 className={styles.chatbotName}>텃밭이</h2>
+            <p>농사 관련 질문을 물어보세요. 나는 당신의 밭에서 함께 일하는 이웃이에요.</p>
+            <p>생육 단계, 토양 관리, 기후 대응 등 궁금한 점을 편하게 질문해보세요.</p>
+            <button className={styles.chatButton} onClick={() => setIsChatStarted(true)}>
+              💬 채팅 시작하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
