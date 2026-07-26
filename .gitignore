@@ -8,6 +8,16 @@
 .classpath
 .project
 
+# Java / Gradle / Maven
+backend/build/
+backend/out/
+backend/bin/
+backend/.gradle/
+backend/.gradle-user-home/
+backend/target/
+*.class
+HELP.md
+
 # Python
 backend/.venv/
 __pycache__/
