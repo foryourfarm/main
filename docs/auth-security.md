@@ -62,3 +62,29 @@ JWT payload는 서명일 뿐 암호화 아님 → 민감정보 없음(`sub=user_
 ## 인증 ≠ 인가
 - 인증(누구냐): access 검증(`get_current_user`), 라우터 경계.
 - 인가(권한 있냐): 소유권 검증(요청유저 == 리소스 소유자), **서비스 계층**. 챗봇 히스토리·밭 접근이 여기 걸림.
+
+## 배포 인시던트: 크로스사이트 배포에서 refresh가 항상 401 (2026-07-26)
+
+**증상**: 로그인 직후엔 정상 동작하다가 새로고침/새 탭을 열면 로그인 상태 복구 불능(재로그인 강제).
+
+**원인**: FE(`foryourfarm.duckdns.org`)와 BE(`*.run.app`)가 등록 도메인(eTLD+1) 자체가 다른
+크로스사이트 구성인데, `config.py` 기본값 `cookie_samesite="lax"`가 그대로 운영에 나갔다.
+`SameSite=Lax` 쿠키는 top-level GET 네비게이션에만 실리고 `fetch`/`XHR` 같은 서브리퀘스트에는
+크로스사이트일 때 절대 첨부되지 않는다(`credentials: "include"`를 붙여도 무관). 그래서
+`POST /api/v1/auth/refresh`가 쿠키를 받지 못해 `request.cookies.get(REFRESH_COOKIE)`가 항상
+`None` → `401 UNAUTHORIZED`. 로그인 직후엔 응답 바디로 받은 access token이 메모리에 살아있어
+증상이 안 보이다가, 메모리가 비는 순간(새로고침 등)부터 복구가 막힌다. 로그인 자체는
+CORS(`allow_credentials=True` + 정확한 origin)가 맞게 설정돼 있어 별개로 통과한다.
+
+**수정**: 운영 Cloud Run 서비스 환경변수에 아래를 설정한다(SameSite=None은 Secure 없이는
+브라우저가 거부하므로 반드시 같이 켠다). 코드/설정 자체는 이미 env로 오버라이드 가능하게
+돼 있었고, 이번 케이스는 값 누락이었다 — 참고로 `.env.example`에 항목과 근거를 추가했다.
+
+```
+gcloud run services update <backend-service-name> \
+  --region asia-northeast3 \
+  --update-env-vars COOKIE_SECURE=true,COOKIE_SAMESITE=none
+```
+
+FE·BE를 같은 사이트(서브도메인 등)로 묶으면 `SameSite=Lax`를 유지할 수도 있으나, 지금 구조를
+바꾸는 건 별도 결정 사항이라 여기서는 다루지 않는다.

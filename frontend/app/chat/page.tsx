@@ -11,7 +11,7 @@ import styles from "./chat.module.css";
 
 const GREETING =
   "농사 관련 질문을 물어보세요. 생육 단계, 토양 관리, 기후 대응 등 궁금한 점을 편하게요!";
-const THINKING = "답변을 생각하고 있어요…";
+const THINKING = "답변을 입력하는 중입니다…";
 const ERROR_TEXT = "답변을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.";
 
 function ChatView() {
@@ -117,18 +117,19 @@ function ChatView() {
           const isLast = i === messages.length - 1;
           const pending = busy && isLast && m.role === "assistant" && m.content === "";
           const isAnswer = m.role === "assistant" && !pending;
+          // pending도 answerFloor를 받아야 한다 — 안 그러면 직전 답변보다 짧은 "생각 중" 상태로
+          // 훅 좁아졌다가 답변이 오면서 다시 넓어져 화면이 줄었다 늘었다 하는 것처럼 보인다.
+          const applyFloor = (isAnswer || pending) && answerFloor;
           return (
             <div
               key={i}
               className={`${styles.bubble} ${m.role === "user" ? styles.user : styles.assistant}`}
               data-answer-bubble={isAnswer ? "" : undefined}
-              style={isAnswer && answerFloor ? { minWidth: answerFloor } : undefined}
+              style={applyFloor ? { minWidth: answerFloor } : undefined}
             >
               {pending ? (
-                <span className={styles.typing} role="status" aria-label={THINKING}>
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
-                  <span className={styles.dot} />
+                <span className={styles.typing} role="status">
+                  {THINKING}
                 </span>
               ) : (
                 m.content
