@@ -1,5 +1,6 @@
 """DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
 from calendar import monthrange
+from math import log1p
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
@@ -14,6 +15,13 @@ from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
 ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
+# 최적구간을 벗어나는 순간의 점수. 100에서 이어지지 않고 여기서 시작한다 — "최적 이탈" 자체에
+# 붙는 고정 감점(5점)이라 경계를 넘었다는 사실이 점수에 바로 드러난다. 2026-07-27 사용자 지정.
+OPTIMAL_EXIT_SCORE = 95.0
+# 로그 감쇠 곡률. 9면 ln(1+9x)/ln(10) → x=1에서 1, x=0에서 0. 1 근처는 완만, 0 근처는 급하다.
+# 허용구간(완만→급락)과 위험구간(급락→완만)에 같은 곡률을 반대로 걸어 전체가 정규분포
+# 한쪽 날개 모양이 된다. 2026-07-27 사용자 선택(선형·이차·로그 중 로그).
+DECAY_CURVATURE = 9.0
 
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
@@ -68,21 +76,56 @@ def load_guides(db: Session, crop_id: int, growth_stage: str) -> list[CropGrowth
     return list(db.scalars(stmt))
 
 
+def _log_falloff(x: float) -> float:
+    """x=1 → 1, x=0 → 0인 로그 계수. 1 근처는 평평하고 0 근처에서 가파르다."""
+    return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
+
+
+def _allowed_score(nearness: float) -> float:
+    """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
+
+    최적 근처에서는 거의 안 깎이고 허용경계에 다가갈수록 가파르게 떨어진다 — 소폭 이탈은
+    실제로 해가 적고 내성 한계에 가까울수록 위험이 커진다는 쪽에 맞춘 곡선.
+    """
+    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
+        nearness
+    )
+
+
+def _risk_score(overshoot: float, buffer: float) -> float:
+    """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
+
+    절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
+    허용구간과 곡률을 반대로 걸어(여기는 급락 후 완만) 전체가 정규분포 한쪽 날개처럼 이어진다.
+    감쇠 거리는 새 상수를 만들지 않고 지침에 이미 있는 완충폭(허용~최적 간격) 1배를 쓴다 —
+    즉 최적구간에서 완충폭의 2배만큼 벗어나면 0점. 완충폭이 없으면(allowed 미지정) 척도를
+    못 정하므로 종전대로 0점.
+    """
+    if buffer <= 0:
+        return 0.0
+    t = overshoot / buffer
+    if t >= 1:
+        return 0.0
+    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+
+
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
     lo, hi = float(guide.optimal_min), float(guide.optimal_max)
     if lo <= value <= hi:
         return 100.0, "optimal"
-    if value < lo and guide.allowed_min is not None and value >= float(guide.allowed_min):
+    if value < lo:
+        if guide.allowed_min is None:
+            return 0.0, "risk"
         edge = float(guide.allowed_min)
-        return ALLOWED_BOUNDARY_SCORE + (100 - ALLOWED_BOUNDARY_SCORE) * (
-            (value - edge) / (lo - edge)
-        ), "allowed"
-    if value > hi and guide.allowed_max is not None and value <= float(guide.allowed_max):
-        edge = float(guide.allowed_max)
-        return ALLOWED_BOUNDARY_SCORE + (100 - ALLOWED_BOUNDARY_SCORE) * (
-            (edge - value) / (edge - hi)
-        ), "allowed"
-    return 0.0, "risk"
+        if value >= edge:
+            return _allowed_score((value - edge) / (lo - edge)), "allowed"
+        return _risk_score(edge - value, lo - edge), "risk"
+    if guide.allowed_max is None:
+        return 0.0, "risk"
+    edge = float(guide.allowed_max)
+    if value <= edge:
+        return _allowed_score((edge - value) / (edge - hi)), "allowed"
+    return _risk_score(value - edge, edge - hi), "risk"
 
 
 def _is_valid(indicator: str, value: float) -> bool:

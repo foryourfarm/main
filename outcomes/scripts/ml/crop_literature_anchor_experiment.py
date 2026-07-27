@@ -51,6 +51,7 @@ if str(SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ML))
 
 from crop_anchors import apple, cucumber, lettuce, pear, potato
+from scoring import band_score  # 백엔드 룰 엔진과 같은 곡선(모듈 docstring 참조)
 
 CROP_ANCHORS = {
     "09001": apple.ANCHOR,
@@ -59,22 +60,6 @@ CROP_ANCHORS = {
     "03001": potato.ANCHOR,
     "04009": cucumber.ANCHOR,
 }
-
-
-def band_score(value, rule):
-    if value is None or pd.isna(value) or rule is None:
-        return np.nan
-    lo, hi = rule["optimal_min"], rule["optimal_max"]
-    alo, ahi = rule.get("allowed_min"), rule.get("allowed_max")
-    if lo <= value <= hi:
-        return 100.0
-    if value < lo:
-        if alo is None or value < alo:
-            return 0.0
-        return 100 * (value - alo) / (lo - alo)
-    if ahi is None or value > ahi:
-        return 0.0
-    return 100 * (ahi - value) / (ahi - hi)
 
 
 def load_regions_weather():

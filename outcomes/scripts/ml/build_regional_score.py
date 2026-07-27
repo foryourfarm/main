@@ -29,8 +29,11 @@
 총점을 낸다. 강수 미포함을 숨기지 않고 명시적으로 표기한다.
 
 이진(binary) 채점 폐기(2026-07-25, 사용자 확인): pH·유기물·유효인산 모두 이제
-`allowed_min/max`를 가져 optimal 이탈 시 0으로 뚝 떨어지지 않고 선형으로
-점진 감점된다. 실제 흙토람 공식 완충구간(진단기준표)은 여전히 로컬에 없어
+`allowed_min/max`를 가져 optimal 이탈 시 0으로 뚝 떨어지지 않고 점진 감점된다.
+감점 곡선은 2026-07-27 로그로 개정됐다(`scripts/ml/scoring.py`) — 최적 이탈 시 95에서
+시작해 허용경계 60, 그 밖은 완충폭 1배에 걸쳐 0까지. 허용경계 밖이 곧바로 0점이던
+절벽이 사라졌으므로 이 개정 이후 산출한 점수는 이전 CSV와 직접 비교할 수 없다.
+실제 흙토람 공식 완충구간(진단기준표)은 여전히 로컬에 없어
 (`scripts/ml/baselines.py`·`docs/ml/experiment_report.md`·`scripts/collect_soil_data.py`
 재확인됨, 추측 금지 원칙 유지) — allowed 값은 optimal 폭의 ±50% **명시적
 휴리스틱**이다(`memory/crop_rules/_shared.json` source 필드에 근거 기록,
@@ -41,6 +44,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from scoring import band_score  # 백엔드 룰 엔진과 같은 곡선(scoring.py docstring 참조)
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -81,22 +86,6 @@ def haversine_km(lat1, lon1, lat2, lon2):
     dlat, dlon = lat2 - lat1, lon2 - lon1
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     return 2 * 6371.0 * np.arcsin(np.sqrt(a))
-
-
-def band_score(value, rule):
-    if pd.isna(value):
-        return np.nan
-    lo, hi = rule["optimal_min"], rule["optimal_max"]
-    alo, ahi = rule.get("allowed_min"), rule.get("allowed_max")
-    if lo <= value <= hi:
-        return 100.0
-    if value < lo:
-        if alo is None or value < alo:
-            return 0.0
-        return 100 * (value - alo) / (lo - alo)
-    if ahi is None or value > ahi:
-        return 0.0
-    return 100 * (ahi - value) / (ahi - hi)
 
 
 def impute_score_column(scores, lat, lon, k=NEIGHBOR_K):
