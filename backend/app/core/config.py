@@ -34,9 +34,10 @@ class Settings(BaseSettings):
     # exaone3.5:7.8b 67초, bge-m3 18초까지 걸려 첫 요청이 타임아웃으로 죽었다. VM 부팅 시
     # 워밍업 호출(infra/ollama-vm/startup.sh)로 평소엔 이 값까지 안 가지만, 안전망으로 넉넉히 둔다.
     llm_timeout_s: float = 90.0
-    # 생성 길이 캡. 200은 한국어 답변(3~5문장 + 목록)엔 부족해 문장 중간에 잘렸다 → 512로 상향.
+    # 생성 길이 캡. 200 -> 512로 올렸는데도 목록형 답변(예: "~할 때 주의할 점")이 여전히 잘려
+    # 768로 재상향 + 프롬프트에서 목록 대신 문장으로 답하도록 제약 추가(chatbot.py PROMPT_VERSION v5).
     # 스트리밍은 read(청크 간격) 타임아웃이라 총 생성시간이 길어도 안전(llm_timeout_s는 총 시간 아님).
-    llm_num_predict: int = 512
+    llm_num_predict: int = 768
     # 사실 기반이라 일관성 우선으로 낮게(docs/llm-integration.md §6).
     llm_temperature: float = 0.4
 
