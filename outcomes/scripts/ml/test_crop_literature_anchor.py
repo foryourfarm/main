@@ -26,6 +26,13 @@ from crop_literature_anchor_experiment import CROP_ANCHORS
 
 
 def test_crop_anchors_new_entries():
+    crop_names = ("apple", "pear", "lettuce", "potato", "cucumber")
+    missing_anchor_files = [
+        name for name in crop_names
+        if not (SCRIPTS_ML / "crop_anchors" / f"{name}.py").exists()
+    ]
+    assert not missing_anchor_files, f"Missing crop anchor files: {missing_anchor_files}"
+
     # 2. Assert "09001" and "09011" are present in CROP_ANCHORS
     assert "09001" in CROP_ANCHORS, "'09001' (사과) missing from CROP_ANCHORS"
     assert "09011" in CROP_ANCHORS, "'09011' (배) missing from CROP_ANCHORS"
@@ -72,6 +79,13 @@ def test_crop_anchors_new_entries():
 
 def test_approved_rules_json_and_boundary_checks():
     crop_rules_dir = ROOT / "memory" / "crop_rules"
+    required_rule_files = {
+        "_shared.json", "apple.json", "pear.json",
+        "lettuce.json", "potato.json", "cucumber.json",
+    }
+    missing_rule_files = required_rule_files - {path.name for path in crop_rules_dir.glob("*.json")}
+    assert not missing_rule_files, f"Missing crop rule files: {sorted(missing_rule_files)}"
+
     apple_json_path = crop_rules_dir / "apple.json"
     pear_json_path = crop_rules_dir / "pear.json"
     assert apple_json_path.exists() and pear_json_path.exists(), "memory/crop_rules/{apple,pear}.json missing"
@@ -109,6 +123,28 @@ def test_approved_rules_json_and_boundary_checks():
 
 
 
+def test_band_score_curve():
+    """채점 곡선 계약(scripts/ml/scoring.py). 백엔드 룰 엔진의 _indicator_score와 같아야 한다."""
+    from scoring import band_score
+
+    rule = {"optimal_min": 20, "optimal_max": 22, "allowed_min": 15, "allowed_max": 30}
+    assert band_score(21, rule) == 100.0, "최적구간은 만점"
+    # 최적 이탈 순간 95에서 시작한다 — 100에서 이어지지 않는다.
+    assert round(band_score(22.001, rule), 1) == 95.0, "최적 이탈 시작점이 95가 아님"
+    # 허용경계는 정확히 60(B등급 하한), 상·하한 양쪽 동일.
+    assert round(band_score(30, rule), 1) == 60.0 and round(band_score(15, rule), 1) == 60.0
+    # 허용구간은 최적 근처가 완만하고 허용경계 근처가 가파르다.
+    assert 95.0 - band_score(24, rule) < band_score(28, rule) - 60.0, "허용구간 곡률 방향 반대"
+    # 위험구간은 절벽이 아니라 단조 감소하고, 최적경계에서 완충폭 2배 밖이면 0.
+    risk = [band_score(v, rule) for v in (31, 33, 35, 37)]
+    assert all(0 < s < 60 for s in risk), risk
+    assert all(a > b for a, b in zip(risk, risk[1:])), risk
+    assert band_score(38, rule) == 0.0 and band_score(10, rule) == 0.0
+    # 완충폭이 없으면 척도를 정할 수 없어 종전대로 즉시 0.
+    assert band_score(8, {"optimal_min": 6, "optimal_max": 7}) == 0.0
+    assert pd.isna(band_score(None, rule)), "결측은 NaN 유지(강제 대체 금지)"
+
+
 def test_output_csv_integrity():
     # 8. Output CSV integrity checks
     experiment_csv = ROOT / "data" / "ml" / "crop_literature_anchor_experiment.csv"
@@ -141,11 +177,14 @@ def test_output_csv_integrity():
             tot_col = f"total_score_{crop_id}_{name}"
             assert tot_col in df_reg.columns, f"Column {tot_col} missing in RegionalScore.csv"
             assert df_reg[tot_col].between(0, 100).all(), f"Column {tot_col} out of 0-100 bounds"
+            assert df_reg[tot_col].gt(0).any(), f"Column {tot_col} has no positive scores"
+            assert df_reg[tot_col].nunique() > 1, f"Column {tot_col} has no regional variation"
 
 
 def main():
     test_crop_anchors_new_entries()
     test_approved_rules_json_and_boundary_checks()
+    test_band_score_curve()
     test_output_csv_integrity()
     print("ALL REGRESSION TESTS PASSED.")
 
