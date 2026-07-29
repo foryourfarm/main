@@ -32,9 +32,10 @@ class SoilExam(BaseModel):
     avail_p: float | None  # VLDPHA (mg/kg)
     avail_silica: float | None  # VLDSIA (mg/kg)
     organic_matter: float | None  # OM (g/kg)
-    mg: float | None  # POSIFERT_MG
-    k: float | None  # POSIFERT_K
-    ca: float | None  # POSIFERT_CA
+    # 단위는 기술명세서 응답 명세로 확인(docs/api-specs/OPENAPI_chemistry_V2.pdf) — cmol+/kg.
+    mg: float | None  # POSIFERT_MG (cmol+/kg)
+    k: float | None  # POSIFERT_K (cmol+/kg)
+    ca: float | None  # POSIFERT_CA (cmol+/kg)
     ec: float | None  # SELC (dS/m)
 
     @field_validator("ph")

@@ -69,6 +69,11 @@ def summarize(exams: list[SoilExam], field_type: str) -> dict[str, object]:
         "ec": _avg([e.ec for e in matched]),
         "p2o5": _avg([e.avail_p for e in matched]),
         "organic_matter": _avg([e.organic_matter for e in matched]),
+        # 치환성 양이온(cmol+/kg). 상추 지침이 채점에 쓴다(0023) — 다른 작물은 지침이 없어
+        # 값만 저장되고 채점에는 걸리지 않는다.
+        "k": _avg([e.k for e in matched]),
+        "ca": _avg([e.ca for e in matched]),
+        "mg": _avg([e.mg for e in matched]),
         "sample_count": len(matched),
     }
 

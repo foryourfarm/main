@@ -38,6 +38,12 @@ class DistrictSoil(Base):
     ec: Mapped[Decimal | None] = mapped_column(Numeric)
     p2o5: Mapped[Decimal | None] = mapped_column(Numeric)
     organic_matter: Mapped[Decimal | None] = mapped_column(Numeric)
+    k: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 칼륨 cmol+/kg (흙토람 POSIFERT_K, 0023)."""
+    ca: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 칼슘 cmol+/kg (흙토람 POSIFERT_CA, 0023)."""
+    mg: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 마그네슘 cmol+/kg (흙토람 POSIFERT_MG, 0023)."""
     sample_count: Mapped[int] = mapped_column()
     """평균에 쓴 표본 수. 0이면 그 경지구분 표본이 없다는 뜻(값은 전부 NULL)."""
     source: Mapped[str] = mapped_column()

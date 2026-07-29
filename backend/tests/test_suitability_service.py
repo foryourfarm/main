@@ -1,9 +1,23 @@
 """적합도 룰 엔진의 경계값·결측 방어 검증."""
+import importlib.util
 import unittest
 from decimal import Decimal
+from pathlib import Path
+from types import ModuleType
 
 from app.models import CropGrowthGuide
-from app.services.suitability_service import calculate_suitability
+from app.services.suitability_service import INDICATOR_SOURCE_FIELDS, calculate_suitability
+
+_VERSIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+
+
+def load_migration(name: str) -> ModuleType:
+    """마이그레이션 모듈을 파일 경로로 불러온다 — 파일명이 숫자로 시작해 일반 import가 안 된다."""
+    spec = importlib.util.spec_from_file_location(name, _VERSIONS / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def guide(
@@ -125,6 +139,69 @@ class TestSuitabilityService(unittest.TestCase):
         self.assertIsNone(result["score"])
         self.assertIsNone(result["grade"])
         self.assertEqual(result["risk_flags"], ["ph:invalid"])
+
+
+class TestSoilCationIndicators(unittest.TestCase):
+    """0023이 배선한 치환성 K/Ca/Mg 채점(P3) 검증."""
+
+    def test_cations_are_mapped_to_soil_state_columns(self):
+        """매핑이 없으면 지침 행을 넣어도 값이 영원히 결측이다(P3의 근본 원인)."""
+        for indicator in ("k", "ca", "mg"):
+            self.assertEqual(INDICATOR_SOURCE_FIELDS[indicator], indicator)
+
+    def test_lettuce_cation_guide_is_scored(self):
+        """상추 K 지침(0.40~0.60, allowed 0.30~0.70, risk_width 0.5041)이 실제로 채점된다."""
+        g = [guide("k", "0.40", "0.60", "0.30", "0.70", risk_width="0.5041")]
+        self.assertEqual(calculate_suitability(g, {"k": 0.5})["score"], 100.0)
+        self.assertEqual(calculate_suitability(g, {"k": 0.30})["score"], 60.0)
+        risk = calculate_suitability(g, {"k": 0.2})["score"]
+        self.assertTrue(0 < risk < 60, risk)
+        # 값이 없는 밭(컬럼 신설 직후)은 0점이 아니라 결측으로 빠진다.
+        missing = calculate_suitability(g, {"k": None})
+        self.assertIsNone(missing["score"])
+        self.assertEqual(missing["risk_flags"], ["k:missing"])
+
+    def test_negative_cation_is_rejected_as_invalid(self):
+        result = calculate_suitability([guide("ca", "6", "7", "5.5", "7.5")], {"ca": -1})
+        self.assertEqual(result["risk_flags"], ["ca:invalid"])
+
+
+class TestPotatoTuberAllowedBounds(unittest.TestCase):
+    """0022가 채운 감자 tuber 허용하한(P2) 검증 — docs/guide-seed-known-issues.md."""
+
+    # 0004 시드의 optimal. 여기 값이 바뀌면 0022의 하한도 함께 바뀌어야 한다.
+    OPTIMAL = {"temp_day": (23.0, 24.0), "temp_night_min": (10.0, 14.0)}
+
+    def test_allowed_min_follows_0019_heuristic(self):
+        """`allowed_min = optimal_min - optimal 폭 x 0.5` — 0019·0021과 같은 산출식."""
+        migration = load_migration("0022_potato_tuber_allowed_bounds")
+        self.assertEqual(len(migration.TUBER_ALLOWED_MIN), 2)
+        for indicator, allowed_min in migration.TUBER_ALLOWED_MIN:
+            lo, hi = self.OPTIMAL[indicator]
+            self.assertAlmostEqual(allowed_min, lo - (hi - lo) * 0.5, msg=indicator)
+
+    def test_lower_bound_replaces_cliff_with_decay(self):
+        """하한이 생기면 optimal 미만이 즉시 0점이 아니라 감쇠 점수를 받는다."""
+        # temp_day: risk_width는 0020의 전국 실측 산포도(2.2408).
+        before = guide("temp_day", "23", "24", None, "27", weight="2.5", risk_width="2.2408")
+        after = guide("temp_day", "23", "24", "22.5", "27", weight="2.5", risk_width="2.2408")
+        self.assertEqual(calculate_suitability([before], {"temp_day": 22.5})["score"], 0.0)
+        self.assertEqual(calculate_suitability([after], {"temp_day": 22.5})["score"], 60.0)
+        risk = calculate_suitability([after], {"temp_day": 22})["score"]
+        self.assertTrue(0 < risk < 60, risk)
+        # 최적구간은 불변 — 회귀 없음.
+        self.assertEqual(calculate_suitability([after], {"temp_day": 23.5})["score"], 100.0)
+        # 남은 한계(문서화됨): 감쇠폭 밖(약 20.26도 미만)은 여전히 0점이다.
+        self.assertEqual(calculate_suitability([after], {"temp_day": 20})["score"], 0.0)
+
+    def test_night_temp_falls_back_to_buffer_width(self):
+        """temp_night_min은 risk_width가 NULL(P4) — 하한이 생기며 완충폭 폴백이 발동한다."""
+        # 완충폭 2(=10-8) → 8도에서 60점, 6도에서 0점, 그 사이는 감쇠.
+        g = [guide("temp_night_min", "10", "14", "8", "28", weight="2")]
+        self.assertEqual(calculate_suitability(g, {"temp_night_min": 8})["score"], 60.0)
+        mid = calculate_suitability(g, {"temp_night_min": 7.5})["score"]
+        self.assertTrue(0 < mid < 60, mid)
+        self.assertEqual(calculate_suitability(g, {"temp_night_min": 6})["score"], 0.0)
 
 
 if __name__ == "__main__":
