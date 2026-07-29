@@ -1,0 +1,153 @@
+{
+  "generated_from": [
+    "data/01_soil_chemistry_modified.csv",
+    "data/03_weather_monthly_modified.csv (year=2025)"
+  ],
+  "method": "risk_width = RISK_SD_MULTIPLIER x robust_sd, robust_sd = 1.4826 x MAD. 표준편차 대신 robust 추정치를 쓰는 이유는 모듈 docstring 참조(유효인산 극단값).",
+  "multiplier": 2.0,
+  "limitation": "multiplier는 문헌 근거가 아니라 명시적 휴리스틱이다 — 실제 감수 곡선 문헌 확보 시 교체 대상 [확인 필요].",
+  "soil": {
+    "ph": {
+      "n": 126,
+      "median": 5.908,
+      "sd": 0.2619,
+      "robust_sd": 0.232,
+      "risk_width": 0.4641
+    },
+    "organic_matter": {
+      "n": 126,
+      "median": 23.97,
+      "sd": 6.7336,
+      "robust_sd": 4.6035,
+      "risk_width": 9.2069
+    },
+    "available_p": {
+      "n": 126,
+      "median": 419.6565,
+      "sd": 178.2121,
+      "robust_sd": 137.6661,
+      "risk_width": 275.3322
+    },
+    "k": {
+      "n": 105,
+      "median": 0.739,
+      "sd": 0.2819,
+      "robust_sd": 0.252,
+      "risk_width": 0.5041
+    },
+    "ca": {
+      "n": 103,
+      "median": 7.231,
+      "sd": 2.0305,
+      "robust_sd": 1.8888,
+      "risk_width": 3.7777
+    },
+    "mg": {
+      "n": 103,
+      "median": 1.859,
+      "sd": 0.5613,
+      "robust_sd": 0.6316,
+      "risk_width": 1.2632
+    }
+  },
+  "temp_by_crop": {
+    "09001": {
+      "n": 150,
+      "median": 20.7643,
+      "sd": 1.2316,
+      "robust_sd": 1.059,
+      "risk_width": 2.118,
+      "months": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    "09011": {
+      "n": 150,
+      "median": 20.7643,
+      "sd": 1.2316,
+      "robust_sd": 1.059,
+      "risk_width": 2.118,
+      "months": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    "07001": {
+      "n": 151,
+      "median": 13.3,
+      "sd": 1.9832,
+      "robust_sd": 1.4455,
+      "risk_width": 2.8911,
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ]
+    },
+    "03001": {
+      "n": 150,
+      "median": 14.925,
+      "sd": 1.2217,
+      "robust_sd": 1.0008,
+      "risk_width": 2.0015,
+      "months": [
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    "04009": {
+      "n": 150,
+      "median": 21.55,
+      "sd": 1.1794,
+      "robust_sd": 1.0378,
+      "risk_width": 2.0756,
+      "months": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    }
+  },
+  "rainfall_monthly": {
+    "n": 164,
+    "median": 107.5208,
+    "sd": 36.9926,
+    "robust_sd": 24.4011,
+    "risk_width": 48.8023
+  },
+  "backend_indicator_risk_width": {
+    "ph": 0.4641,
+    "organic": 9.2069,
+    "p2o5": 275.3322,
+    "k": 0.5041,
+    "ca": 3.7777,
+    "mg": 1.2632,
+    "temp_day": 2.2408
+  },
+  "backend_note": "temp_night_min·rainfall_daily는 이 데이터로 지역간 산포도를 낼 수 없어 제외한다 — 백엔드는 그 지표에서 종전 완충폭 기준으로 폴백한다(숨기지 않음). temp_day는 작물별 앵커월 산포도의 평균이다 [확인 필요]."
+}

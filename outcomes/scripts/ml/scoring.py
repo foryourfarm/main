@@ -11,10 +11,16 @@
     허용구간                     95 → 60, 최적 근처는 완만하고 허용경계에 다가갈수록 급락
     허용경계                      60   (B등급 하한)
     허용경계 밖                  60 → 0, 급락 후 완만한 꼬리
-    최적경계에서 완충폭 2배 밖      0
+    허용경계에서 감쇠폭 밖          0
 
 허용구간과 위험구간에 같은 로그 곡률을 반대로 걸어 전체가 정규분포 한쪽 날개 모양이 된다.
-감쇠 거리는 새 상수를 만들지 않고 지침에 이미 있는 완충폭(허용~최적 간격)을 그대로 쓴다.
+
+**감쇠폭(2026-07-29 개정)**: 종전엔 완충폭(허용~최적 간격) 1배를 감쇠 거리로 썼다. 완충폭은
+`allowed = optimal 폭 ±50%` 휴리스틱에서 나오므로 optimal이 좁은 지표는 완충폭도, 위험구간도
+함께 좁아졌다 — 3중 압축이라 채점이 사실상 이진이 됐다(상추 pH 0점 107/150, 사과 기온
+0점 92/150). 이제 규칙에 `risk_width`(그 지표의 전국 실측 산포도 기반 절대폭,
+`memory/indicator_dispersion.json`)가 있으면 그걸 감쇠 거리로 쓴다. 없으면 종전대로
+완충폭 1배로 폴백한다 — 산포도를 낼 수 없는 지표에서 조용히 값을 만들어내지 않는다.
 
 이전 곡선과의 차이(산출 CSV 숫자가 전부 바뀐다): 예전엔 허용경계가 0점이고 허용구간이
 0→100 선형이었다. 즉 허용구간 안이어도 경계 근처면 0점에 가까웠고, 경계를 조금만 넘어도
@@ -42,11 +48,13 @@ def _allowed_score(nearness):
     )
 
 
-def _risk_score(overshoot, buffer):
-    """허용구간 밖 감쇠. 완충폭이 없으면 척도를 정할 수 없으므로 종전대로 0점."""
-    if buffer <= 0:
+def _risk_score(overshoot, buffer, risk_width=None):
+    """허용구간 밖 감쇠. 감쇠폭은 `risk_width`(전국 실측 산포도 기반)를 우선 쓰고,
+    없으면 완충폭 1배로 폴백한다. 둘 다 없으면 척도를 정할 수 없어 종전대로 0점."""
+    width = risk_width if risk_width and risk_width > 0 else buffer
+    if width <= 0:
         return 0.0
-    t = overshoot / buffer
+    t = overshoot / width
     if t >= 1:
         return 0.0
     return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
@@ -58,6 +66,7 @@ def band_score(value, rule):
         return np.nan
     lo, hi = rule["optimal_min"], rule["optimal_max"]
     alo, ahi = rule.get("allowed_min"), rule.get("allowed_max")
+    risk_width = rule.get("risk_width")
     if lo <= value <= hi:
         return 100.0
     if value < lo:
@@ -65,9 +74,9 @@ def band_score(value, rule):
             return 0.0
         if value >= alo:
             return _allowed_score((value - alo) / (lo - alo))
-        return _risk_score(alo - value, lo - alo)
+        return _risk_score(alo - value, lo - alo, risk_width)
     if ahi is None:
         return 0.0
     if value <= ahi:
         return _allowed_score((ahi - value) / (ahi - hi))
-    return _risk_score(value - ahi, ahi - hi)
+    return _risk_score(value - ahi, ahi - hi, risk_width)

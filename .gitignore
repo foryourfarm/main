@@ -82,8 +82,15 @@ Thumbs.db
 /data/soil_farm_stat.csv
 /docs/ml/*
 !/docs/ml/backend_ml_handoff.md
+!/docs/ml/knn-imputation-backend-order.md
 /scripts/ml/
 /scripts/build_crop_outcome*.py
 /scripts/build_soil_*.py
 /.claude/agents/soil-ml-*.md
 /.codex/agents/soil-ml-*.toml
+
+#ppt
+/ppt/
+*.ppt
+frame.pdf
+PPT.md

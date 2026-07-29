@@ -10,13 +10,23 @@
     포함되고 다른 크롭에는 전혀 영향 없다.
   - 기온: `data/ml/crop_literature_anchor_experiment.csv`(3작물 문헌 앵커 편차 점수, 이미 산출됨).
 
-결측 처리(2026-07-25 개정 — §7 원안의 전역평균을 공간 최근접평균으로 대체):
-  1순위: 위경도(`instl_la`/`instl_lo`) 기준 최근접 K개 지역(결측 아닌 곳) 점수 평균.
-    공간자기상관(가까운 지역은 토양·기후가 비슷함) 가정 — 전역평균보다 그럴듯한 근사.
-    단 결측 지역은 실측값이 없어 실제 오차 개선 여부는 검증 불가([확인 필요]).
-  2순위: 최근접 지역도 전부 결측(고립)이면 전역 평균으로 대체.
-  3순위: 컬럼 전체가 결측이면 최고점(100)의 정확히 50%를 적용.
-  원본 결측 여부는 `*_missing` 컬럼(TRUE/FALSE)으로 항상 보존.
+결측·이상치 처리(2026-07-29 개정 — 점수공간 최근접 단순평균을 원시피처 KNN으로 교체):
+  대체는 `scripts/ml/imputation.py`가 담당한다. 핵심 변경 3가지.
+  1. **점수 공간 → 원시값 공간**. band_score가 비선형(로그 감쇠)이라
+     mean(score) != score(mean) — 종전엔 이 왜곡이 대체값에 그대로 들어갔다. 이제
+     pH·유기물·유효인산·K·Ca·Mg와 작물 앵커월 평균기온을 원시값으로 채운 뒤 채점한다.
+  2. **거리역수 가중 + CV로 k 선택**. k=5 고정·단순평균을 버리고 홀드아웃 20%로
+     k∈{1,3,5,7,10,15}를 고른다. 종전 방식(neighbor_mean_k5)·전역평균과의 MAE 비교를
+     `data/ml/imputation_validation.json`에 남긴다 — 종전 docstring의 "개선 여부 검증
+     불가 [확인 필요]"를 실측으로 대체한 산출물이다.
+  3. **다변량 예측인자**. 예측인자 = 공간(위경도→km 평면) + 기후 4피처 + 나머지 원시변수.
+     K·Ca·Mg 결측 47개 중 23개는 pH·유기물·유효인산을 보유하므로 그 상관이 실제로 쓰인다.
+  이상치: 이웃 대비 KNN 잔차가 크면(modified z>3.5) 결측 처리해 재대체한다. 판정된
+  원본값은 `data/ml/imputation_outliers.csv`에 보존한다 — 지우지 않는다.
+  폴백은 유지: KNN 불가 → 컬럼 평균 → (그래도 결측이면) 점수 50.0.
+  원본 결측 여부는 `*_missing` 컬럼(TRUE/FALSE)으로 항상 보존하고, 대체 방법·빌린
+  지역·거리는 `{변수}_impute_method` / `{변수}_impute_source` 컬럼으로 노출한다(§18-4).
+  한계: 결측 지역엔 실측이 없어 그 지역의 대체 오차는 여전히 직접 검증 불가([확인 필요]).
 
 신뢰도 플래그(2026-07-25 결정): pH·유기물·유효인산 결측이 변수별 무작위가 아니라
 "토양조사 자체가 없는 동일 24개 지역"에서 항상 동시 발생함(EDA 확인). 개별
@@ -40,26 +50,61 @@
 `[확인 필요]`). 실제 완충구간 문헌 확보 시 교체 대상.
 """
 import json
+import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
+SCRIPTS_ML = Path(__file__).resolve().parent
+if str(SCRIPTS_ML) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ML))
+
+from dispersion import soil_rule, temp_rule
+from imputation import impute, latlon_to_km
 from scoring import band_score  # 백엔드 룰 엔진과 같은 곡선(scoring.py docstring 참조)
 
+# 앵커월 평균기온 산출은 실험 스크립트와 **같은 함수**를 써야 한다 — 복제하면 두 산출물의
+# 기온 정의가 조용히 갈라진다. `_anchor_month_temp`는 밑줄 이름이지만 이 목적상 의도적 재사용.
+from crop_literature_anchor_experiment import (  # noqa: E402
+    CROP_ANCHORS,
+    _anchor_month_temp,
+    climate_features,
+    load_regions_weather,
+)
+
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
+# 원본 산출물 이관 시 `outcomes/data/`는 함께 오지 않았다(git 미추적). 동일 파일명 데이터가
+# 레포 루트 `/data`에 있어 거기를 가리킨다 — outcomes/ 안에 데이터를 중복 복사하지 않는다.
+DATA = ROOT.parent / "data"
 CROP_RULES_DIR = ROOT / "memory" / "crop_rules"
 RULES = CROP_RULES_DIR / "_shared.json"
 OUT = ROOT / "RegionalScore.csv"
 MANIFEST = DATA / "ml" / "regional_score_manifest.json"
+VALIDATION = DATA / "ml" / "imputation_validation.json"
+OUTLIERS = DATA / "ml" / "imputation_outliers.csv"
 
 SOIL_WEIGHT, TEMP_WEIGHT = 45, 30
 SOIL_FRAC = SOIL_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 TEMP_FRAC = TEMP_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 
 CROPS = {"09001": "사과", "09011": "배", "07001": "상추", "03001": "감자", "04009": "오이"}
-NEIGHBOR_K = 5
+
+# 대체 대상 원시 변수. 토양 6종 + 작물별 앵커월 평균기온 5종을 **한 번에** 대체한다 —
+# 따로 돌리면 서로를 예측인자로 쓸 수 없고, 이미 대체된 값이 다음 대체에 섞여 들어간다.
+SOIL_VALUE_COLS = ["pH", "organic_matter", "available_p", "k", "ca", "mg"]
+CLIMATE_COLS = ["annual_mean_temp", "growing_temp", "temp_seasonality", "annual_precip"]
+UNFILLED_SCORE = 50.0  # 원시값이 끝까지 결측인 경우의 최종 폴백(최고점의 50%)
+
+# 이웃 대비 이상치로 판정된 값을 KNN으로 **치환**할지. 탐지·플래그는 항상 한다.
+#
+# [확인 필요] 2026-07-29 1차 실행에서 판정된 20건을 전수 확인한 결과 전부 물리적으로 실재
+# 가능한 극단값이었다: 태백시·홍천군·봉화군 명호면(고지대 저온 — 예측인자에 고도가 없어
+# 잔차가 큰 것이지 데이터 오류가 아니다), 유효인산 1288·1261mg/kg(시설재배 인산 과다 축적),
+# Ca 14.4cmol/kg(석회 과용), 제주 유기물 43g/kg(화산토). 이 값들을 이웃값으로 치환하면
+# 제품이 경고해야 할 진짜 신호를 지운다(CLAUDE.md §1 정확성 우선, §18-4).
+# 그래서 기본은 치환하지 않고 플래그만 남긴다 — `{변수}_outlier` 컬럼으로 노출된다.
+# 데이터 오류(센서 고장·단위 혼입)가 실제로 확인되면 True로 바꾼다.
+REPLACE_KNN_OUTLIERS = False
 
 SOIL_COL = {"ph": "pH", "organic_matter": "organic_matter", "available_p": "available_p"}
 # 공유 3지표 외에 크롭전용 override만 쓸 수 있는 추가 지표(예: 상추 K/Ca/Mg, 2026-07-25 도입).
@@ -81,63 +126,54 @@ def load_crop_soil_overrides():
     return overrides
 
 
-def haversine_km(lat1, lon1, lat2, lon2):
-    lat1, lon1, lat2, lon2 = (np.radians(x) for x in (lat1, lon1, lat2, lon2))
-    dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    return 2 * 6371.0 * np.arcsin(np.sqrt(a))
+def temp_raw_col(crop_code: str) -> str:
+    return f"temp_raw_{crop_code}"
 
 
-def impute_score_column(scores, lat, lon, k=NEIGHBOR_K):
-    """1순위 최근접 k개 지역 평균, 2순위 전역 평균, 3순위(전부 결측) 50점.
-    반환: (대체후 시리즈, 지역별 대체방법 라벨 시리즈, 결측 플래그)."""
-    missing = scores.isna()
-    filled = scores.copy()
-    method = pd.Series("measured", index=scores.index)
-    method[missing] = ""
+def load_raw_features(regions):
+    """지역별 원시 변수(토양 6 + 작물 앵커월 평균기온 5)와 KNN 예측인자 기본 피처.
 
-    valid_idx = scores.index[~missing]
-    global_mean = scores.mean()
-
-    for idx in scores.index[missing]:
-        if len(valid_idx) == 0:
-            filled.loc[idx] = 50.0
-            method.loc[idx] = "fallback_50"
-            continue
-        d = pd.Series(
-            haversine_km(lat.loc[idx], lon.loc[idx], lat.loc[valid_idx].to_numpy(), lon.loc[valid_idx].to_numpy()),
-            index=valid_idx,
-        )
-        nearest = d.nsmallest(min(k, len(valid_idx))).index
-        neighbor_scores = scores.loc[nearest].dropna()
-        if not neighbor_scores.empty:
-            filled.loc[idx] = round(neighbor_scores.mean(), 2)
-            method.loc[idx] = f"neighbor_mean_k{len(neighbor_scores)}"
-        elif pd.notna(global_mean):
-            filled.loc[idx] = round(global_mean, 2)
-            method.loc[idx] = "global_mean"
-        else:
-            filled.loc[idx] = 50.0
-            method.loc[idx] = "fallback_50"
-    return filled, method, missing
-
-
-def build_soil(regions, crop_soil_overrides):
+    반환: (원시값 프레임, 예측인자 base 프레임, 대체 대상 컬럼 목록).
+    base = 위경도 등거리 평면(x_km,y_km) + 기후 4피처. 기후 피처는 기상 관측이 없는
+    14개 지역에서 결측이지만 nan-aware 거리라 남은 피처로 거리가 계산된다.
+    """
     soil = pd.read_csv(DATA / "01_soil_chemistry_modified.csv", dtype={"region_code": str})
-    soil = soil[["region_code", "pH", "organic_matter", "available_p", "k", "ca", "mg"]].drop_duplicates("region_code")
+    soil = soil[["region_code", *SOIL_VALUE_COLS]].drop_duplicates("region_code")
+
+    regions_full, weather = load_regions_weather()
+    climate = climate_features(regions_full, weather)[["region_code", *CLIMATE_COLS]]
+
+    frame = regions.merge(soil, on="region_code", how="left").merge(
+        climate, on="region_code", how="left"
+    )
+    targets = list(SOIL_VALUE_COLS)
+    for crop_code in CROPS:
+        rule = CROP_ANCHORS[crop_code]["temp"]
+        col = temp_raw_col(crop_code)
+        if rule is None:  # 앵커 없는 작물은 기온 채점 자체가 없다 — 대체 대상도 아님
+            frame[col] = pd.NA
+            continue
+        frame[col] = frame["region_code"].map(_anchor_month_temp(weather, rule["months"]))
+        targets.append(col)
+
+    base = pd.concat(
+        [latlon_to_km(frame["instl_la"], frame["instl_lo"]), frame[CLIMATE_COLS]], axis=1
+    )
+    return frame, base, targets
+
+
+def score_column(values, rule):
+    """원시값 → 점수. 대체 실패로 값이 끝까지 결측이면 최종 폴백 50점(종전 3순위와 동일)."""
+    return values.apply(lambda v: band_score(v, rule)).fillna(UNFILLED_SCORE)
+
+
+def build_soil(df, raw_missing, crop_soil_overrides):
+    """대체 완료된 원시 토양값으로 채점한다. 대체 자체는 main에서 한 번에 끝난 상태다."""
     rules = json.loads(RULES.read_text(encoding="utf-8"))["soil_rules"]
 
-    df = regions.merge(soil, on="region_code", how="left")
-    fill_log = {}
     for var, col in SOIL_COL.items():
-        raw_score = df[col].apply(lambda v: band_score(v, rules[var]))
-        filled, method, missing = impute_score_column(raw_score, df["instl_la"], df["instl_lo"])
-        df[f"{var}_score"] = filled.round(1)
-        df[f"{var}_missing"] = missing
-        fill_log[f"{var}_score"] = {
-            "missing_count": int(missing.sum()),
-            "method_counts": method[missing].value_counts().to_dict(),
-        }
+        df[f"{var}_score"] = score_column(df[col], soil_rule(rules[var], var)).round(1)
+        df[f"{var}_missing"] = raw_missing[col]
     df["soil_score_total"] = df[["ph_score", "organic_matter_score", "available_p_score"]].mean(axis=1).round(1)
     df["soil_score_total_missing"] = df["ph_missing"] | df["organic_matter_missing"] | df["available_p_missing"]
 
@@ -149,51 +185,53 @@ def build_soil(regions, crop_soil_overrides):
         missing_flags = []
         for var, col in SOIL_COL.items():
             if var in override_rules:
-                raw_score = df[col].apply(lambda v: band_score(v, override_rules[var]))
-                filled, method, missing = impute_score_column(raw_score, df["instl_la"], df["instl_lo"])
                 score_col = f"{var}_score_{crop_code}"
-                df[score_col] = filled.round(1)
-                fill_log[score_col] = {
-                    "missing_count": int(missing.sum()),
-                    "method_counts": method[missing].value_counts().to_dict(),
-                }
+                df[score_col] = score_column(
+                    df[col], soil_rule(override_rules[var], var)
+                ).round(1)
                 indicator_scores.append(score_col)
-                missing_flags.append(missing)
             else:
                 indicator_scores.append(f"{var}_score")
-                missing_flags.append(df[f"{var}_missing"])
+            # 원본 결측 여부는 채점 규칙과 무관하므로 override 여부와 상관없이 원시값 기준.
+            missing_flags.append(raw_missing[col])
         for var, rule in override_rules.items():
             if var in SOIL_COL:
                 continue
             col = EXTRA_SOIL_COL[var]
-            raw_score = df[col].apply(lambda v: band_score(v, rule))
-            filled, method, missing = impute_score_column(raw_score, df["instl_la"], df["instl_lo"])
             score_col = f"{var}_score_{crop_code}"
-            df[score_col] = filled.round(1)
-            fill_log[score_col] = {
-                "missing_count": int(missing.sum()),
-                "method_counts": method[missing].value_counts().to_dict(),
-            }
+            df[score_col] = score_column(df[col], soil_rule(rule, var)).round(1)
             indicator_scores.append(score_col)
-            missing_flags.append(missing)
+            missing_flags.append(raw_missing[col])
         df[f"soil_score_total_{crop_code}"] = df[indicator_scores].mean(axis=1).round(1)
         df[f"soil_score_total_{crop_code}_missing"] = pd.concat(missing_flags, axis=1).any(axis=1)
-    return df, fill_log
+    return df
 
 
-def build_temp(df):
-    anchor = pd.read_csv(DATA / "ml" / "crop_literature_anchor_experiment.csv", dtype={"region_code": str})
-    fill_log = {}
+def build_temp(df, raw_missing):
+    """대체 완료된 앵커월 평균기온으로 채점 + 작물별 총점 조립.
+
+    종전엔 실험 CSV의 **점수**를 읽어 점수공간에서 대체했다. 이제 원시 기온을 대체한 뒤
+    같은 곡선으로 채점한다 — 원래 관측이 있던 지역의 점수는 실험 CSV와 일치해야 하므로
+    아래에서 교차검증한다. 두 산출물의 기온 정의가 갈라지면 즉시 실패한다.
+    """
+    anchor = pd.read_csv(
+        DATA / "ml" / "crop_literature_anchor_experiment.csv", dtype={"region_code": str}
+    ).set_index("region_code")
     for crop_code, name in CROPS.items():
-        col = f"score_{crop_code}_temp"
-        raw = anchor.set_index("region_code")[col].reindex(df["region_code"]).reset_index(drop=True)
-        filled, method, missing = impute_score_column(raw, df["instl_la"], df["instl_lo"])
-        df[f"temp_{crop_code}_{name}_score"] = filled.round(1)
-        df[f"temp_{crop_code}_{name}_missing"] = missing
-        fill_log[f"temp_{crop_code}_{name}_score"] = {
-            "missing_count": int(missing.sum()),
-            "method_counts": method[missing].value_counts().to_dict(),
-        }
+        col = temp_raw_col(crop_code)
+        score = score_column(
+            df[col], temp_rule(CROP_ANCHORS[crop_code]["temp"], crop_code)
+        ).round(1)
+        df[f"temp_{crop_code}_{name}_score"] = score
+        df[f"temp_{crop_code}_{name}_missing"] = raw_missing[col]
+
+        # 대체·이상치치환이 없었던 행만 비교한다(치환된 행은 당연히 달라진다).
+        reference = df["region_code"].map(anchor[f"score_{crop_code}_temp"])
+        observed = (df[f"{col}__impute_method"] == "measured") & reference.notna()
+        if observed.any():
+            drift = float((score[observed] - reference[observed]).abs().max())
+            assert drift <= 0.1, f"{name} 기온 점수가 실험 CSV와 불일치(최대 {drift})"
+
         # 크롭전용 soil override가 있으면 그 총점(soil_score_total_{crop_code})을 쓰고, 없으면 공유 총점 사용.
         soil_col = f"soil_score_total_{crop_code}" if f"soil_score_total_{crop_code}" in df.columns else "soil_score_total"
         soil_missing_col = f"{soil_col}_missing"
@@ -203,7 +241,7 @@ def build_temp(df):
         df[f"total_score_{crop_code}_{name}_missing"] = (
             df[soil_missing_col] | df[f"temp_{crop_code}_{name}_missing"]
         )
-    return df, fill_log
+    return df
 
 
 def add_percentile_columns(df):
@@ -226,9 +264,25 @@ def main():
     regions = regions[["region_code", "region_name", "instl_la", "instl_lo"]].drop_duplicates("region_code")
 
     crop_soil_overrides = load_crop_soil_overrides()
-    df, soil_fill_log = build_soil(regions, crop_soil_overrides)
-    df, temp_fill_log = build_temp(df)
+
+    # 원시값 대체를 **한 번에** 끝낸 뒤 채점한다(모듈 docstring 결측·이상치 처리 참조).
+    frame, base, targets = load_raw_features(regions)
+    raw_missing = frame[targets].isna()
+    df, impute_report = impute(
+        frame,
+        targets,
+        base,
+        labels=frame["region_name"],
+        replace_outliers=REPLACE_KNN_OUTLIERS,
+    )
+
+    df = build_soil(df, raw_missing, crop_soil_overrides)
+    df = build_temp(df, raw_missing)
     df = add_percentile_columns(df)
+    # 대체 출처 컬럼은 사람이 읽는 이름으로 노출한다(§18-4 근사 표기 의무).
+    df = df.rename(
+        columns=lambda c: c.replace("__impute_", "_impute_").replace("__outlier", "_outlier")
+    )
 
     score_cols = [c for c in df.columns if "_score" in c and not c.startswith("total_")]
     assert df[score_cols].apply(lambda s: s.between(0, 100)).all().all(), "점수 0-100 범위 위반"
@@ -249,20 +303,33 @@ def main():
                             "토양기준이 감자보다 훨씬 좁음, 전국 pH 중앙값 5.91이 상추 optimal 6.5~7.0과 구조적으로 "
                             "어긋남) total_score_{crop} 절대값 자체는 그대로 둔다 — 가중치를 임의로 조정해 크롭간 "
                             "점수를 맞추지 않는다(CLAUDE.md §2·§8).",
-        "imputation_rule": f"1순위: 최근접 {NEIGHBOR_K}개 지역(위경도 기준) 평균 대체. "
-                            "2순위: 최근접도 전부 결측이면 전역 평균. 3순위: 컬럼 전체 결측이면 최고점 50%(=50.0).",
+        "imputation_rule": "2026-07-29 개정: 원시값 공간에서 거리역수 가중 KNN 대체"
+                            f"(k={impute_report['k_used']}, 홀드아웃 CV로 선택). 예측인자 = 공간(위경도→km "
+                            "평면) + 기후 4피처 + 나머지 원시변수. 폴백: KNN 불가 → 컬럼 평균 → 점수 50.0. "
+                            "이상치는 이웃 대비 KNN 잔차 modified z>3.5를 결측 처리해 재대체하고 원본값은 "
+                            "imputation_outliers.csv에 보존한다. 상세·베이스라인 비교는 imputation_validation.json.",
         "reliability_flag_rule": "soil_score_total_missing = ph/유기물/유효인산 중 하나라도 결측. "
                                   "total_score_{crop}_missing = 토양 결측 or 해당 작물 기온 결측. "
                                   "대체값 자체는 그대로 쓰되(총점 계산엔 포함), 신뢰도만 별도 표시.",
-        "fill_log": {**soil_fill_log, **temp_fill_log},
+        "imputation": {k: v for k, v in impute_report.items() if k != "outliers"},
         "soil_score_total_missing_count": int(df["soil_score_total_missing"].sum()),
         "crop_soil_overrides": {code: list(rules.keys()) for code, rules in crop_soil_overrides.items()} or "없음",
         "regions": len(df),
     }
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"{OUT.name}: {len(df)} regions")
-    for col, v in manifest["fill_log"].items():
-        print(f"  {col}: 결측 {v['missing_count']}건, 방법={v['method_counts']}")
+    VALIDATION.write_text(
+        json.dumps(impute_report["k_selection"], ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    # 이상치로 판정된 원본값은 지우지 않고 남긴다 — "진짜 특이 토양"일 수 있다(§18-4).
+    pd.DataFrame(impute_report["outliers"]).to_csv(OUTLIERS, index=False, encoding="utf-8")
+
+    print(f"{OUT.name}: {len(df)} regions | KNN k={impute_report['k_used']}")
+    for name, mae in impute_report["k_selection"].get("normalized_mae", {}).items():
+        print(f"  CV 정규화 MAE {name}: {mae}")
+    for col, v in impute_report["columns"].items():
+        print(f"  {col}: 원본결측 {v['original_missing']}, 이상치 {v['knn_outlier']}, "
+              f"물리범위위반 {v['physical_violation']}, 방법={v['method_counts']}")
 
 
 if __name__ == "__main__":

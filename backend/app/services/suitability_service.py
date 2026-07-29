@@ -92,18 +92,24 @@ def _allowed_score(nearness: float) -> float:
     )
 
 
-def _risk_score(overshoot: float, buffer: float) -> float:
+def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None) -> float:
     """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
 
     절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
     허용구간과 곡률을 반대로 걸어(여기는 급락 후 완만) 전체가 정규분포 한쪽 날개처럼 이어진다.
-    감쇠 거리는 새 상수를 만들지 않고 지침에 이미 있는 완충폭(허용~최적 간격) 1배를 쓴다 —
-    즉 최적구간에서 완충폭의 2배만큼 벗어나면 0점. 완충폭이 없으면(allowed 미지정) 척도를
-    못 정하므로 종전대로 0점.
+
+    감쇠폭(2026-07-29 개정): 종전엔 완충폭(허용~최적 간격) 1배를 감쇠 거리로 썼다. 완충폭은
+    `allowed = optimal 폭 ±50%` 휴리스틱에서 나오므로 optimal이 좁은 지표는 완충폭도, 위험
+    구간도 함께 좁아졌다 — 3중 압축이라 채점이 사실상 이진이 됐다(outcomes 150지역 측정:
+    상추 pH 0점 107건, 사과 기온 0점 92건). 이제 지침의 `risk_width`(그 지표의 전국 실측
+    산포도 기반 절대폭, 마이그레이션 0020)가 있으면 그것을 감쇠 거리로 쓴다.
+    없으면 종전대로 완충폭 1배로 폴백한다 — 산포도를 낼 수 없는 지표(temp_night_min,
+    rainfall_daily)에서 척도를 지어내지 않는다. 둘 다 없으면 종전대로 0점.
     """
-    if buffer <= 0:
+    width = risk_width if risk_width and risk_width > 0 else buffer
+    if width <= 0:
         return 0.0
-    t = overshoot / buffer
+    t = overshoot / width
     if t >= 1:
         return 0.0
     return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
@@ -111,6 +117,8 @@ def _risk_score(overshoot: float, buffer: float) -> float:
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
     lo, hi = float(guide.optimal_min), float(guide.optimal_max)
+    # 지침에 감쇠폭이 있으면 위험구간 척도로 쓴다(없으면 _risk_score가 완충폭으로 폴백).
+    risk_width = None if guide.risk_width is None else float(guide.risk_width)
     if lo <= value <= hi:
         return 100.0, "optimal"
     if value < lo:
@@ -119,13 +127,13 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
         edge = float(guide.allowed_min)
         if value >= edge:
             return _allowed_score((value - edge) / (lo - edge)), "allowed"
-        return _risk_score(edge - value, lo - edge), "risk"
+        return _risk_score(edge - value, lo - edge, risk_width), "risk"
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
     if value <= edge:
         return _allowed_score((edge - value) / (edge - hi)), "allowed"
-    return _risk_score(value - edge, edge - hi), "risk"
+    return _risk_score(value - edge, edge - hi, risk_width), "risk"
 
 
 def _is_valid(indicator: str, value: float) -> bool:

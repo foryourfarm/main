@@ -21,6 +21,10 @@ class CropGrowthGuide(Base):
     allowed_min: Mapped[Decimal | None] = mapped_column(Numeric)
     allowed_max: Mapped[Decimal | None] = mapped_column(Numeric)
     weight: Mapped[Decimal] = mapped_column(Numeric)
+    # 위험구간(허용경계 밖) 감쇠폭. 전국 실측 산포도 기반 절대폭(마이그레이션 0020).
+    # NULL이면 룰 엔진이 종전 완충폭 1배로 폴백한다 — 척도를 지어내지 않는다.
+    risk_width: Mapped[Decimal | None] = mapped_column(Numeric)
+    risk_width_source: Mapped[str | None] = mapped_column()
     source_ref: Mapped[str | None] = mapped_column()
     """이 기준값의 근거(문헌·시드 출처). "이 숫자 어디서 왔나"에 답할 수 있어야 한다."""
     confidence: Mapped[str | None] = mapped_column()
