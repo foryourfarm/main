@@ -32,7 +32,9 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT / "data"
+# 원본 산출물 이관 시 `outcomes/data/`는 함께 오지 않았다(git 미추적). 동일 파일명 데이터가
+# 레포 루트 `/data`에 있어 거기를 가리킨다 — outcomes/ 안에 데이터를 중복 복사하지 않는다.
+DATA = ROOT.parent / "data"
 OUT = DATA / "ml" / "crop_literature_anchor_experiment.csv"
 MANIFEST = DATA / "ml" / "crop_literature_anchor_manifest.json"
 SCORE_YEAR = 2025
@@ -51,6 +53,7 @@ if str(SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ML))
 
 from crop_anchors import apple, cucumber, lettuce, pear, potato
+from dispersion import temp_rule  # 감쇠폭(전국 실측 산포도) 주입
 from scoring import band_score  # 백엔드 룰 엔진과 같은 곡선(모듈 docstring 참조)
 
 CROP_ANCHORS = {
@@ -100,7 +103,11 @@ def deterministic_scores(df, w):
             df[f"score_{crop_code}_temp"] = np.nan
         else:
             t = _anchor_month_temp(w, rule["months"])
-            df[f"score_{crop_code}_temp"] = df["region_code"].map(t).apply(lambda v: band_score(v, rule)).round(1)
+            # 감쇠폭은 그 작물 앵커월 기온의 전국 실측 산포도 기반(2026-07-29, dispersion.py).
+            scored_rule = temp_rule(rule, crop_code)
+            df[f"score_{crop_code}_temp"] = (
+                df["region_code"].map(t).apply(lambda v: band_score(v, scored_rule)).round(1)
+            )
         # 토양 편차: 조인 실패로 사실상 결측. 이 실험에서는 기온만 총점 성분.
         df[f"score_{crop_code}_total"] = df[f"score_{crop_code}_temp"]
     return df
