@@ -142,12 +142,23 @@ def test_band_score_curve():
     assert band_score(38, rule) == 0.0 and band_score(10, rule) == 0.0
     # 완충폭이 없으면 척도를 정할 수 없어 종전대로 즉시 0.
     assert band_score(8, {"optimal_min": 6, "optimal_max": 7}) == 0.0
+
+    # risk_width(전국 실측 산포도)가 있으면 감쇠 거리가 완충폭 대신 그 값이 된다.
+    # 백엔드 _risk_score와 같은 계약이다(2026-07-29 개정).
+    narrow = {"optimal_min": 6.5, "optimal_max": 7.0, "allowed_min": 6.25, "allowed_max": 7.25}
+    wide = {**narrow, "risk_width": 0.4641}
+    assert band_score(5.91, narrow) == 0.0, "종전 완충폭(0.25)이면 0점이어야 한다"
+    assert 0 < band_score(5.91, wide) < 60, "감쇠폭을 넓혔는데 점수가 안 매겨졌다"
+    assert band_score(5.5, wide) == 0.0, "감쇠폭 밖은 여전히 0점(절벽 제거가 0점 제거는 아님)"
+    for v in (6.2, 6.1, 6.0, 5.95):
+        assert band_score(v, wide) >= band_score(v, narrow), f"넓은 감쇠폭이 더 박하다: {v}"
     assert pd.isna(band_score(None, rule)), "결측은 NaN 유지(강제 대체 금지)"
 
 
 def test_output_csv_integrity():
     # 8. Output CSV integrity checks
-    experiment_csv = ROOT / "data" / "ml" / "crop_literature_anchor_experiment.csv"
+    # 데이터는 레포 루트 /data에 있다(outcomes/data는 이관되지 않음) — 산출 스크립트와 동일 경로.
+    experiment_csv = ROOT.parent / "data" / "ml" / "crop_literature_anchor_experiment.csv"
     answer_data_csv = ROOT / "AnswerData.csv"
     regional_score_csv = ROOT / "RegionalScore.csv"
 
