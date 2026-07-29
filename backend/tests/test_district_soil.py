@@ -10,7 +10,8 @@ from app.services.district_soil_service import summarize
 
 
 def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | None = None,
-          ec: float | None = None) -> SoilExam:
+          ec: float | None = None, k: float | None = None, ca: float | None = None,
+          mg: float | None = None) -> SoilExam:
     return SoilExam(
         pnu_code="4615010100100010001",
         sample_year="2023",
@@ -22,9 +23,9 @@ def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | N
         avail_p=p,
         avail_silica=None,
         organic_matter=om,
-        mg=None,
-        k=None,
-        ca=None,
+        mg=mg,
+        k=k,
+        ca=ca,
         ec=ec,
     )
 
@@ -76,6 +77,17 @@ class TestSummarize(unittest.TestCase):
         result = summarize([], "4")
         self.assertEqual(result["sample_count"], 0)
         self.assertIsNone(result["ec"])
+
+    def test_cations_are_averaged_for_scoring(self):
+        """치환성 K/Ca/Mg도 평균에 포함된다(0023) — 값이 없으면 상추 지침이 채점 못 한다."""
+        samples = [
+            _exam("2", 6.0, 25.0, k=0.30, ca=6.0, mg=2.0),
+            _exam("2", 6.2, 27.0, k=0.50, ca=7.0, mg=None),  # mg 결측 1건
+        ]
+        result = summarize(samples, "2")
+        self.assertEqual(result["k"], Decimal("0.4"))
+        self.assertEqual(result["ca"], Decimal("6.5"))
+        self.assertEqual(result["mg"], Decimal("2.0"))  # 결측 제외 평균
 
     def test_is_deterministic(self):
         self.assertEqual(summarize(SAMPLES, "4"), summarize(SAMPLES, "4"))

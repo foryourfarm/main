@@ -78,6 +78,9 @@ def _init_soil_state(db: Session, farm_id: int, bjd_code: str, crop: Crop) -> No
             ec=soil.ec,
             p2o5=soil.p2o5,
             organic_matter=soil.organic_matter,
+            k=soil.k,
+            ca=soil.ca,
+            mg=soil.mg,
             base_source=soil.source,  # 조회 단위·표본수 포함 — 재현성(§12)
             # 읍면동 표본 평균이라 실측이지만 이 밭의 실측은 아니다. 행위 반영 전이므로
             # is_estimated=false로 두어 "기준값" 단계임을 표시한다(§3.9).

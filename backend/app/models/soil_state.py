@@ -21,6 +21,12 @@ class SoilState(Base):
     ec: Mapped[Decimal | None] = mapped_column(Numeric)
     p2o5: Mapped[Decimal | None] = mapped_column(Numeric)
     organic_matter: Mapped[Decimal | None] = mapped_column(Numeric)
+    k: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 칼륨 cmol+/kg (0023). 현재는 상추 지침만 이 지표를 채점한다."""
+    ca: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 칼슘 cmol+/kg (0023)."""
+    mg: Mapped[Decimal | None] = mapped_column(Numeric)
+    """치환성 마그네슘 cmol+/kg (0023)."""
     base_source: Mapped[str] = mapped_column()
     is_estimated: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

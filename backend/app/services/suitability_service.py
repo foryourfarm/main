@@ -61,6 +61,10 @@ INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
     "ec": "ec",
     "p2o5": "p2o5",
     "organic": "organic_matter",
+    # 치환성 양이온(cmol+/kg, 0023). 지침이 있는 작물만 채점된다 — 현재는 상추뿐.
+    "k": "k",
+    "ca": "ca",
+    "mg": "mg",
 }
 
 
@@ -139,7 +143,7 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
 def _is_valid(indicator: str, value: float) -> bool:
     if indicator == "ph":
         return 0 <= value <= 14
-    if indicator in {"rainfall_monthly", "rainfall_daily", "p2o5", "organic"}:
+    if indicator in {"rainfall_monthly", "rainfall_daily", "p2o5", "organic", "k", "ca", "mg"}:
         return value >= 0
     return True
 
