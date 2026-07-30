@@ -1,0 +1,454 @@
+{
+  "holdout_regions": 116,
+  "scored_fields": [
+    "temp_avg_normal",
+    "rainfall_normal",
+    "solar_radiation_normal"
+  ],
+  "skipped_fields": {
+    "temp_night_min_normal": "DB 전 행 NULL — 대체 대상이지만 검증할 실측이 없다",
+    "sunlight_normal": "DB 전 행 NULL — 대체 대상이지만 검증할 실측이 없다"
+  },
+  "field_sd": {
+    "temp_avg_normal": 9.6641,
+    "rainfall_normal": 92.1881,
+    "solar_radiation_normal": 4.5491
+  },
+  "methods": {
+    "sido_mean": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1260,
+          "mae": 0.9292,
+          "rmse": 1.2445,
+          "normalized_mae": 0.0961,
+          "unpredicted": 48
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1320,
+          "mae": 19.6278,
+          "rmse": 32.106,
+          "normalized_mae": 0.2129,
+          "unpredicted": 48
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1315,
+          "mae": 1.2784,
+          "rmse": 2.155,
+          "normalized_mae": 0.281,
+          "unpredicted": 48
+        }
+      },
+      "normalized_mae_mean": 0.1967
+    },
+    "nearest_1": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1200,
+          "mae": 0.961,
+          "rmse": 1.4193,
+          "normalized_mae": 0.0994,
+          "unpredicted": 108
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1308,
+          "mae": 19.9933,
+          "rmse": 34.451,
+          "normalized_mae": 0.2169,
+          "unpredicted": 60
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1342,
+          "mae": 1.1551,
+          "rmse": 1.9278,
+          "normalized_mae": 0.2539,
+          "unpredicted": 21
+        }
+      },
+      "normalized_mae_mean": 0.1901
+    },
+    "knn_spatial_k1": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1200,
+          "mae": 0.961,
+          "rmse": 1.4193,
+          "normalized_mae": 0.0994,
+          "unpredicted": 108
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1308,
+          "mae": 19.9933,
+          "rmse": 34.451,
+          "normalized_mae": 0.2169,
+          "unpredicted": 60
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1342,
+          "mae": 1.1551,
+          "rmse": 1.9278,
+          "normalized_mae": 0.2539,
+          "unpredicted": 21
+        }
+      },
+      "normalized_mae_mean": 0.1901
+    },
+    "knn_spatial_k3": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.7656,
+          "rmse": 1.0755,
+          "normalized_mae": 0.0792,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 16.8329,
+          "rmse": 29.04,
+          "normalized_mae": 0.1826,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.2032,
+          "rmse": 1.8569,
+          "normalized_mae": 0.2645,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1754
+    },
+    "knn_spatial_k5": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.7355,
+          "rmse": 1.0618,
+          "normalized_mae": 0.0761,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 16.4281,
+          "rmse": 28.1756,
+          "normalized_mae": 0.1782,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1839,
+          "rmse": 1.8303,
+          "normalized_mae": 0.2603,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1715
+    },
+    "knn_spatial_k7": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.7387,
+          "rmse": 1.0526,
+          "normalized_mae": 0.0764,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 15.8437,
+          "rmse": 27.538,
+          "normalized_mae": 0.1719,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1917,
+          "rmse": 1.8375,
+          "normalized_mae": 0.262,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1701
+    },
+    "knn_spatial_k10": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.7386,
+          "rmse": 1.0405,
+          "normalized_mae": 0.0764,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 16.1415,
+          "rmse": 27.9791,
+          "normalized_mae": 0.1751,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1646,
+          "rmse": 1.8312,
+          "normalized_mae": 0.256,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1692
+    },
+    "knn_spatial_k15": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.7527,
+          "rmse": 1.0671,
+          "normalized_mae": 0.0779,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 16.4723,
+          "rmse": 28.3002,
+          "normalized_mae": 0.1787,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1511,
+          "rmse": 1.8272,
+          "normalized_mae": 0.253,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1699
+    },
+    "knn_spatial_k20": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.774,
+          "rmse": 1.0938,
+          "normalized_mae": 0.0801,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 16.7346,
+          "rmse": 28.7702,
+          "normalized_mae": 0.1815,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1696,
+          "rmse": 1.8684,
+          "normalized_mae": 0.2571,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1729
+    },
+    "knn_spatial_k30": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.8124,
+          "rmse": 1.133,
+          "normalized_mae": 0.0841,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 17.3052,
+          "rmse": 29.6466,
+          "normalized_mae": 0.1877,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1599,
+          "rmse": 1.9094,
+          "normalized_mae": 0.255,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1756
+    },
+    "knn_spatial_k50": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.8498,
+          "rmse": 1.1811,
+          "normalized_mae": 0.0879,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 18.1182,
+          "rmse": 30.8757,
+          "normalized_mae": 0.1965,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1558,
+          "rmse": 1.9331,
+          "normalized_mae": 0.2541,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1795
+    },
+    "knn_spatial_k115": {
+      "per_field": {
+        "temp_avg_normal": {
+          "n": 1308,
+          "mae": 0.9692,
+          "rmse": 1.3315,
+          "normalized_mae": 0.1003,
+          "unpredicted": 0
+        },
+        "temp_night_min_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "rainfall_normal": {
+          "n": 1368,
+          "mae": 19.5772,
+          "rmse": 32.6303,
+          "normalized_mae": 0.2124,
+          "unpredicted": 0
+        },
+        "sunlight_normal": {
+          "n": 0,
+          "note": "실측 전무 — 채점 불가",
+          "unpredicted": 0
+        },
+        "solar_radiation_normal": {
+          "n": 1363,
+          "mae": 1.1883,
+          "rmse": 1.9927,
+          "normalized_mae": 0.2612,
+          "unpredicted": 0
+        }
+      },
+      "normalized_mae_mean": 0.1913
+    }
+  },
+  "baseline_nearest_1": 0.1901,
+  "best": "knn_spatial_k10",
+  "improvement_vs_nearest_1_pct": 10.99
+}
