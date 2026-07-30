@@ -1,0 +1,8 @@
+# 개발·테스트 전용 의존성. 런타임(requirements.txt)과 분리한다 —
+# 배포 이미지에 테스트 도구가 들어가면 이미지가 커지고 공격면도 넓어진다.
+#
+# 설치: pip install -r requirements.txt -r requirements-dev.txt
+#
+# subTest는 stdlib unittest 기능이라 pytest-subtests 같은 플러그인이 필요 없다
+# (실행 결과의 "2117 subtests"는 pytest가 기본으로 집계한 것).
+pytest>=9.1
