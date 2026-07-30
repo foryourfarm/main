@@ -31,8 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        # backend/에 conftest.py·pytest.ini·pyproject.toml이 없어 pytest가 `app` 패키지를
-        # 찾으려면 여기가 작업 디렉터리여야 한다. 리포 루트에서 돌리면
+        # backend/pytest.ini가 rootdir를 여기로 고정하고 `pythonpath = .`로 `app` import를
+        # 성립시킨다. 작업 디렉터리를 옮기면 그 ini를 못 찾아
         # "23 errors during collection / No module named 'app'"으로 죽는다(실측).
         working-directory: backend
     steps:
