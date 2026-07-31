@@ -9,8 +9,13 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
-from app.services.climatology_service import ClimatologySource, load_climatology, substitution_limitation
+from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm
+from app.services.climatology_service import (
+    ClimatologyMonth,
+    ClimatologySource,
+    load_climatology,
+    substitution_limitation,
+)
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
@@ -222,7 +227,7 @@ def calculate_suitability(
 
 def gather_indicator_values(
     soil: SoilState | None,
-    clim: WeatherClimatology | None,
+    clim: ClimatologyMonth | None,
     clim_source: ClimatologySource | None = None,
     month: int | None = None,
 ) -> dict[str, float | Decimal | None]:
@@ -391,7 +396,7 @@ def dominant_stage(
 def build_monthly_rows(
     stage_rows: Sequence[CropGrowthStage],
     all_guides: Sequence[CropGrowthGuide],
-    clim_by_month: Mapping[int, WeatherClimatology],
+    clim_by_month: Mapping[int, ClimatologyMonth],
     soil: SoilState | None,
     planting_date: date,
     year: int,

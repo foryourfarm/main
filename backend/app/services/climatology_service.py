@@ -1,11 +1,13 @@
 """평년치 조회 + 인접 지역 대체 (DB.md §3.11, §8.5 결측 대체).
 
-왜 대체가 필요한가: 평년치가 256개 시/군 중 102개만 적재돼 있다(관측 5년 근사 CSV의 커버
-범위 한계). 나머지 154개 지역은 장기 탭이 12개월 전부 "데이터 부족"으로 나와 화면이
-아무 정보도 주지 못한다(예: 부천시 원미구, 고창군).
+왜 대체가 필요한가: 평년치가 256개 시/군 중 116개만 적재돼 있다(농업기상 관측지점이 있는
+지역만 실측이 있다). 나머지 140개 지역은 장기 탭이 12개월 전부 "데이터 부족"으로 나와
+화면이 아무 정보도 주지 못한다(예: 부천시 원미구, 고창군).
 
-대체 방식: `region_grid`의 기상청 격자좌표(5km 격자) 거리로 가장 가까운 평년치 보유
-지역의 값을 쓴다. 시/도 평균보다 지리적으로 정확하고, 격자 단위라 거리에 실제 의미가 있다.
+대체 방식: `region_grid`의 기상청 격자좌표(5km 격자) 거리로 가까운 평년치 보유 지역
+KNN_K곳을 골라 **거리역수 가중평균**한다. 시/도 평균보다 지리적으로 정확하고(실측: 시/도
+평균은 최근접 1개보다도 3.47% 나쁘다), 격자 단위라 거리에 실제 의미가 있다.
+최근접 1개 복사에서 가중평균으로 바꾼 근거는 KNN_K 상수 주석 참고.
 
 **대체는 반드시 표기한다** — 어느 지역 값을 빌렸는지, 몇 km 떨어졌는지 UI에 병기한다.
 근사를 확정값처럼 보이게 하지 않는다(§18-4). 대체 없이 "데이터 없음"으로 두는 것보다
@@ -27,6 +29,27 @@ GRID_KM = 5.0  # 기상청 단기예보 격자 간격
 # 통과한다(실측 0.95, 일사량 환산 0.90 / 기온 추정 0.50은 탈락) — §18-4.
 SUNLIGHT_MIN_CONFIDENCE = 0.90
 
+# 대체 시 섞을 도너 수. 임의값이 아니라 측정으로 고른 값이다 —
+# 116개 보유 지역 leave-one-out에서 정규화 MAE가 k=1(현행) 0.1901 → k=10 0.1692로
+# 10.99% 개선됐고, k=7~15가 평탄한 고원이며 k=115(전체)는 오히려 나빠진다(-0.63%).
+# 즉 전국 평균으로 회귀하는 게 아니라 실재하는 공간 신호다.
+# 근거 전체: docs/ml/climatology_knn_validation.json, 재현: scripts/validate_climatology_knn.py
+KNN_K = 10
+
+# 거리역수 가중의 0 나눗셈 방지. 같은 격자칸(거리 0) 도너가 있으면 사실상 그 도너가 전부를
+# 가져간다 — 같은 칸이면 그게 맞는 동작이다.
+MIN_DISTANCE_KM = 0.001
+
+# 대체 대상 수치 필드. temp_night_min_normal·sunlight_normal은 2026-07-30 현재 DB 전 행이
+# NULL이지만(적재 소스에 없음) 나중에 채워질 수 있어 코드는 5개를 모두 다룬다.
+NORMAL_FIELDS = (
+    "temp_avg_normal",
+    "temp_night_min_normal",
+    "rainfall_normal",
+    "sunlight_normal",
+    "solar_radiation_normal",
+)
+
 
 def _as_float(value: Decimal | None) -> float | None:
     """Numeric 컬럼 → float. 0.0을 결측으로 잘못 보지 않도록 `is None`으로만 판정한다.
@@ -38,16 +61,45 @@ def _as_float(value: Decimal | None) -> float | None:
 
 
 @dataclass(frozen=True)
+class MonthlyNormals:
+    """도너 여러 곳을 가중평균해 합성한 월별 평년치.
+
+    `WeatherClimatology`(ORM)와 **같은 속성 이름**을 갖는 비영속 값 객체다. 합성값을 ORM
+    인스턴스로 조립해 세션에 붙이면 안 되므로(존재하지 않는 행이 DB에 새는 것을 막는다)
+    같은 모양의 별도 타입을 쓴다.
+
+    타입이 `Decimal | None`인 것은 호출부(`suitability_service.gather_indicator_values`)가
+    ORM 값을 그대로 통과시키기 때문이다 — float로 바꾸면 하류 산술·직렬화 거동이 달라진다.
+    """
+
+    temp_avg_normal: Decimal | None = None
+    temp_night_min_normal: Decimal | None = None
+    rainfall_normal: Decimal | None = None
+    sunlight_normal: Decimal | None = None
+    solar_radiation_normal: Decimal | None = None
+
+
+# 자기 지역 평년치는 ORM 행 그대로, 대체는 합성 값 객체다. 읽는 쪽은 둘을 구분하지 않고
+# 같은 5개 속성만 본다(소비처 전수: climatology_service 일조 환산, suitability_service
+# :313·:462 → gather_indicator_values).
+ClimatologyMonth = WeatherClimatology | MonthlyNormals
+
+
+@dataclass(frozen=True)
 class ClimatologySource:
     """평년치와 그 출처. substituted_from이 있으면 다른 지역 값을 빌린 것이다."""
 
-    by_month: dict[int, WeatherClimatology]
+    by_month: dict[int, ClimatologyMonth]
     # 일조시간(실측/계산). 없으면 None이 아니라 **빈 dict**다 — None을 허용하면 호출부가
     # `month in clim_source.sunlight_by_month`처럼 순회할 때 TypeError로 죽는다(§18-5).
     # 비어 있음을 한 곳에서 dict로 통일해 호출부마다 None 가드를 두지 않는다.
     sunlight_by_month: dict[int, SunlightResult] = field(default_factory=dict)
+    # 하위호환으로 유지한다 — 1순위(가장 가까운) 도너의 이름·거리.
     substituted_from: str | None = None
     distance_km: float | None = None
+    # 실제로 섞인 도너 전체 (지역명, 거리km). 거리 오름차순.
+    # frozen dataclass라 새 필드에는 기본값이 필요하다.
+    donors: tuple[tuple[str, float], ...] = ()
 
     @property
     def is_substituted(self) -> bool:
@@ -59,8 +111,52 @@ def _grid_distance_km(a: RegionGrid, b: RegionGrid) -> float:
     return (((a.nx - b.nx) ** 2 + (a.ny - b.ny) ** 2) ** 0.5) * GRID_KM
 
 
+def _rank_donors(
+    my_grid: RegionGrid, candidates: list[tuple[RegionGrid, str]], k: int = KNN_K
+) -> list[tuple[RegionGrid, str]]:
+    """거리 오름차순 상위 k개 도너.
+
+    동거리면 `region_id` 작은 쪽 — 같은 입력이 항상 같은 도너 집합을 내야 한다(§2 결정론).
+    격자가 5km 단위라 동거리 동점은 실제로 흔하다.
+    """
+    return sorted(
+        candidates, key=lambda c: (_grid_distance_km(my_grid, c[0]), c[0].region_id)
+    )[:k]
+
+
+def _weighted_normals(
+    rows_with_weight: list[tuple[WeatherClimatology, float]],
+) -> MonthlyNormals:
+    """도너 행들을 거리 가중평균해 한 달치 평년치를 만든다.
+
+    **필드별로 독립 처리한다.** 어떤 도너가 특정 필드만 결측이면 그 필드에서만 제외하고
+    남은 도너의 가중치를 재정규화한다 — 도너 행 전체를 버리면 그 도너가 가진 다른 필드의
+    정보까지 잃는다.
+
+    모든 도너가 결측인 필드는 `None`이다. 값을 지어내지 않는다(§18-4).
+    """
+    values: dict[str, Decimal | None] = {}
+    for field_name in NORMAL_FIELDS:
+        # `is None`으로만 판정한다 — 0.0을 결측으로 떨어뜨리면 강원 산간 1월 평년기온
+        # 0.0℃가 사라진다(_as_float 주석의 기존 버그).
+        pairs = [
+            (float(getattr(row, field_name)), weight)
+            for row, weight in rows_with_weight
+            if getattr(row, field_name) is not None
+        ]
+        total_weight = sum(w for _, w in pairs)
+        if not pairs or total_weight <= 0:
+            values[field_name] = None
+            continue
+        mean = sum(v * w for v, w in pairs) / total_weight
+        # Decimal로 되돌린다(호출부가 ORM Numeric과 같은 타입을 기대). 4자리면 기온 0.0001℃
+        # 해상도라 충분하고, float 이진오차가 그대로 노출되는 것을 막는다.
+        values[field_name] = Decimal(str(round(mean, 4)))
+    return MonthlyNormals(**values)
+
+
 def load_climatology(db: Session, region_id: int) -> ClimatologySource:
-    """지역 평년치. 없으면 격자상 최근접 보유 지역으로 대체한다.
+    """지역 평년치. 없으면 격자상 가까운 지역들의 거리 가중평균으로 대체한다.
 
     대체 후보도 없거나 격자 매핑이 없으면 빈 결과(결측) — 조용히 값을 만들어내지 않는다.
     """
@@ -76,7 +172,7 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     if my_grid is None:
         return ClimatologySource(by_month={})
 
-    # 평년치 보유 지역 + 격자를 한 번에 가져와 메모리에서 최근접을 찾는다(지역당 재조회 방지).
+    # 평년치 보유 지역 + 격자를 한 번에 가져와 메모리에서 이웃을 찾는다(지역당 재조회 방지).
     candidates = (
         db.query(RegionGrid, Region.name)
         .join(Region, Region.id == RegionGrid.region_id)
@@ -90,26 +186,50 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     if not candidates:
         return ClimatologySource(by_month={})
 
-    # 동거리 후보가 있으면 region_id 작은 쪽 — 결정론 보장(같은 입력 → 같은 출력).
-    best_grid, best_name = min(
-        candidates, key=lambda c: (_grid_distance_km(my_grid, c[0]), c[0].region_id)
-    )
+    ranked = _rank_donors(my_grid, candidates)
+
     rows = list(
         db.query(WeatherClimatology).filter(
-            WeatherClimatology.region_id == best_grid.region_id
+            WeatherClimatology.region_id.in_([grid.region_id for grid, _ in ranked])
         )
     )
     if not rows:
         return ClimatologySource(by_month={})
 
+    # 실제로 행이 있는 도너만 남긴다 — 이름 목록과 섞인 값이 어긋나면 한계 문구가 거짓이 된다.
+    present = {row.region_id for row in rows}
+    donors = [
+        (grid, name, _grid_distance_km(my_grid, grid))
+        for grid, name in ranked
+        if grid.region_id in present
+    ]
+    weight_by_region = {
+        grid.region_id: 1.0 / max(distance, MIN_DISTANCE_KM)
+        for grid, _, distance in donors
+    }
+
+    rows_by_month: dict[int, list[tuple[WeatherClimatology, float]]] = {}
+    for row in rows:
+        weight = weight_by_region.get(row.region_id)
+        if weight is None:
+            continue
+        rows_by_month.setdefault(row.month, []).append((row, weight))
+
+    by_month: dict[int, ClimatologyMonth] = {
+        month: _weighted_normals(entries) for month, entries in rows_by_month.items()
+    }
+
     clim_source = ClimatologySource(
-        by_month={c.month: c for c in rows},
-        substituted_from=best_name,
-        distance_km=round(_grid_distance_km(my_grid, best_grid), 1),
+        by_month=by_month,
+        substituted_from=donors[0][1],
+        distance_km=round(donors[0][2], 1),
+        donors=tuple((name, round(distance, 1)) for _, name, distance in donors),
     )
 
-    # 일조시간 계산 추가
-    clim_source = _add_sunlight_to_climatology(db, clim_source, best_grid.region_id)
+    # 일조 환산은 **대체받는 지역 자신의** 위도로 한다. 가조시간은 값이 아니라 위치의 함수라
+    # 도너 위도를 쓰면 틀린다. (도너가 1개였을 땐 도너 위도를 썼는데, k개를 섞는 지금은
+    # 애초에 "그 도너"가 없다.)
+    clim_source = _add_sunlight_to_climatology(db, clim_source, region_id)
 
     return clim_source
 
@@ -181,14 +301,42 @@ def _add_sunlight_to_climatology(
         sunlight_by_month=sunlight_by_month,
         substituted_from=clim_source.substituted_from,
         distance_km=clim_source.distance_km,
+        donors=clim_source.donors,
     )
 
 
+# 한계 문구에 이름을 적을 도너 수. 10곳을 다 나열하면 200자가 넘어 화면에서 읽히지 않는다
+# (실측: "고양시덕양구·양주시·시흥시·김포시·파주시·광주시·옹진군·포천시·용인시처인구·양평군").
+# 가중치가 거리역수라 가까운 몇 곳이 가장 크게 기여하므로 그쪽을 이름으로 밝히고,
+# 나머지는 **개수와 거리 범위**로 밝힌다 — 전체 목록은 `ClimatologySource.donors`에 있어
+# 프론트가 펼쳐 보여줄 수 있다. 대체 사실 자체는 숨기지 않는다(§18-4).
+LIMITATION_NAMED_DONORS = 3
+
+
 def substitution_limitation(source: ClimatologySource) -> str | None:
-    """대체 사실을 알리는 한계 문구. 대체가 아니면 None."""
+    """대체 사실을 알리는 한계 문구. 대체가 아니면 None.
+
+    한 곳에서 빌린 것처럼 적지 않는다 — 실제보다 출처가 좁아 보여서 근사의 성격을
+    오히려 감추게 된다. 섞인 곳의 수와 거리 범위를 반드시 포함한다(§18-4).
+    """
     if not source.is_substituted:
         return None
+
+    # 도너가 1곳이거나 목록이 비어 있으면(하위호환 경로) 종전 단수 문구.
+    if len(source.donors) <= 1:
+        return (
+            f"이 지역 평년치가 없어 가장 가까운 {source.substituted_from}"
+            f"(약 {source.distance_km:.0f}km) 평년치로 대체했습니다 — 실제와 차이가 있을 수 있습니다."
+        )
+
+    named = [name for name, _ in source.donors[:LIMITATION_NAMED_DONORS]]
+    listed = "·".join(named)
+    remaining = len(source.donors) - len(named)
+    if remaining > 0:
+        listed = f"{listed} 외 {remaining}곳"
+    nearest = source.donors[0][1]
+    farthest = source.donors[-1][1]
     return (
-        f"이 지역 평년치가 없어 가장 가까운 {source.substituted_from}"
-        f"(약 {source.distance_km:.0f}km) 평년치로 대체했습니다 — 실제와 차이가 있을 수 있습니다."
+        f"이 지역 평년치가 없어 가까운 {len(source.donors)}곳({listed}, 약 {nearest:.0f}~{farthest:.0f}km)의"
+        f" 평년치를 거리 가중 평균했습니다 — 실제와 차이가 있을 수 있습니다."
     )
