@@ -49,6 +49,36 @@ def legacy_bjd_code(bjd_code: str) -> str | None:
     return None if old is None else old + bjd_code[5:]
 
 
+# 흙토람은 리가 있는 읍·면의 검정 기록을 **리 코드**로만 갖고 있다. 면 코드(리 자리 `00`)로
+# 물으면 데이터가 있어도 301 "요청 데이터 없음"이 온다(실측: 부여 장암면 4476042000 → 301,
+# 점상리 4476042021 → 100건). 리가 없는 동은 읍면동 코드가 곧 최종 코드라 영향이 없다.
+# 이걸 몰라 농촌(읍·면) 전역이 토양 결측이었다 — 정작 귀농인 밭이 있는 곳이다.
+_BJD_CSV = Path(__file__).resolve().parents[3] / "docs" / "seed" / "bjd_to_region.csv"
+
+# 조회할 리 수 상한. 리 하나가 4초쯤 걸려 전부 돌면 등록이 1분을 넘는다. 리는 같은 면
+# 안이라 토양이 비슷하고 표본도 리당 수십 건씩 나와, 앞 몇 곳만으로 대표값이 선다.
+# ponytail: 상한 5. 리 간 편차가 문제되면 표본 수 기준(예: 100건까지)으로 바꾼다.
+RI_SAMPLE_LIMIT = 5
+
+
+@lru_cache(maxsize=1)
+def _ri_by_eupmyeondong() -> dict[str, list[str]]:
+    """{읍면동 앞8자리: [리 법정동코드…]}. 시드가 없으면 빈 맵(리 조회 없이 동작)."""
+    if not _BJD_CSV.exists():
+        return {}
+    out: dict[str, list[str]] = {}
+    with _BJD_CSV.open(encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row["ri"]:
+                out.setdefault(row["bjd_code"][:8], []).append(row["bjd_code"])
+    return {k: sorted(v) for k, v in out.items()}
+
+
+def ri_codes(bjd_code: str) -> list[str]:
+    """그 읍면동에 속한 리 코드들. 리가 없는 동이면 빈 리스트."""
+    return _ri_by_eupmyeondong().get(bjd_code[:8], [])
+
+
 def _avg(values: list[Decimal | None]) -> Decimal | None:
     """결측을 제외하고 평균. 남는 값이 없으면 None(§12 결측 방어)."""
     present = [v for v in values if v is not None]
@@ -90,6 +120,20 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
             continue  # 데이터 없음(301)·파라미터 오류(201)·네트워크 실패 → 다음 후보
         if exams:
             return exams, code
+
+    # 읍·면은 리 코드로만 기록돼 있다(위 _BJD_CSV 주석). 리를 앞에서부터 모은다.
+    pooled: list[SoilExam] = []
+    sampled = 0
+    for ri in ri_codes(bjd_code)[:RI_SAMPLE_LIMIT]:
+        try:
+            exams = get_soil_exam_list(ri, page_no=1, page_size=PAGE_SIZE)
+        except (PublicApiError, OSError):
+            continue
+        if exams:
+            pooled.extend(exams)
+            sampled += 1
+    if pooled:
+        return pooled, f"{bjd_code} 리 {sampled}곳"
     return [], None
 
 
@@ -104,24 +148,37 @@ def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:
         .filter(DistrictSoil.bjd_code == bjd_code, DistrictSoil.field_type == field_type)
         .first()
     )
-    if cached is not None:
+    # 표본 0건은 "조회 실패"도 포함한다. 그대로 캐시하면 일시적 장애 한 번에 그 읍면동이
+    # 영구히 토양 결측이 된다(실측: 리 코드 버그로 농촌 전역이 이 상태였다). 0건이면
+    # 캐시를 믿지 않고 다시 부른다 — get_or_fetch는 밭 등록 때만 불려 재조회 비용이 작다.
+    # ponytail: TTL 없이 항상 재시도. 호출이 잦아지면 fetched_at 기준 TTL로 바꾼다.
+    if cached is not None and cached.sample_count > 0:
         return cached
 
     exams, queried_code = _fetch_exams(bjd_code)
     if queried_code is None:
         source = f"{SOURCE_PREFIX}(조회 실패 — 표본 없음)"
+    elif queried_code.startswith(f"{bjd_code} 리 "):
+        # 읍면동 전체가 아니라 리 일부만 표집했다는 사실을 숨기지 않는다(§18-4).
+        source = f"{SOURCE_PREFIX}({queried_code}, 경지구분 {field_type})"
     elif queried_code != bjd_code:
         source = f"{SOURCE_PREFIX}(읍면동 {queried_code} 통합전코드, 경지구분 {field_type})"
     else:
         source = f"{SOURCE_PREFIX}(읍면동 {bjd_code}, 경지구분 {field_type})"
 
     summary = summarize(exams, field_type)
-    row = DistrictSoil(
-        bjd_code=bjd_code,
-        source=f"{source}, 표본 {summary['sample_count']}건",
+    values = {
         **{k: v for k, v in summary.items() if k != "field_type"},
-        field_type=field_type,
-    )
+        "source": f"{source}, 표본 {summary['sample_count']}건",
+    }
+    if cached is not None:
+        # 0건 행 재조회 — 새로 add하면 (bjd_code, field_type) 유니크에 걸린다.
+        for key, value in values.items():
+            setattr(cached, key, value)
+        db.flush()
+        return cached
+
+    row = DistrictSoil(bjd_code=bjd_code, field_type=field_type, **values)
     db.add(row)
     db.flush()
     return row
