@@ -26,6 +26,7 @@ from app.services.suitability_service import (
     SUITABILITY_LABEL,
     WEATHER_INDICATORS,
     calculate_suitability,
+    coverage_limitation,
     derive_status,
     load_guides,
 )
@@ -200,11 +201,13 @@ def compute_short_term(
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
 
     days: list[dict[str, object]] = []
+    breakdowns: list[dict[str, dict[str, object]]] = []
     for snap in rows:
         # 단계는 그 날짜 기준으로 다시 판정한다 — 3일 안에 단계가 넘어갈 수 있다.
         stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, snap.target_date)
         guides = [g for g in load_guides(db, farm.crop_id, stage or "") if _usable_daily(g)]
         result = calculate_suitability(guides, forecast_values(snap, soil))
+        breakdowns.append(result["breakdown"])
         days.append(
             {
                 "target_date": snap.target_date,
@@ -220,6 +223,9 @@ def compute_short_term(
         )
 
     limitations = [FORECAST_LIMITATION, SOIL_LIMITATION]
+    coverage = coverage_limitation(breakdowns)
+    if coverage is not None:
+        limitations.insert(0, coverage)
     if is_stale:
         limitations.insert(0, STALE_LIMITATION)
 
