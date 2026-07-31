@@ -31,6 +31,7 @@ export default function FarmForm({
   const [districts, setDistricts] = useState<District[]>([]);
 
   const [regionId, setRegionId] = useState(farm ? String(farm.region_id) : "");
+  const [regionQuery, setRegionQuery] = useState("");
   const [bjdCode, setBjdCode] = useState(farm?.bjd_code ?? "");
   const [cropId, setCropId] = useState(farm ? String(farm.crop_id) : "");
   const [plantingDate, setPlantingDate] = useState(farm?.planting_date ?? "");
@@ -61,16 +62,20 @@ export default function FarmForm({
       .catch(() => setError("읍면동을 가져오지 못했어요."));
   }, [regionId, farm?.region_id]);
 
-  // 시/도별로 묶어 보여준다 — 동명 시/군(예: 여러 곳의 '중구')을 구분하려면 시/도가 필요하다.
-  const grouped = useMemo(() => {
-    const map = new Map<string, Region[]>();
-    for (const r of regions) {
-      const list = map.get(r.sido) ?? [];
-      list.push(r);
-      map.set(r.sido, list);
-    }
-    return [...map.entries()];
-  }, [regions]);
+  // 256개 시/군을 select로 훑는 건 못 쓸 만큼 불편하다 → datalist로 입력하며 걸러낸다.
+  // 표기에 시/도를 붙여야 동명 시/군(여러 곳의 '중구')이 구분되고 항목도 고유해진다.
+  const regionLabel = (r: Region) => `${r.name} (${r.sido})`;
+  const byLabel = useMemo(
+    () => new Map(regions.map((r) => [regionLabel(r), r.id])),
+    [regions],
+  );
+
+  // 수정 모드: 지역 목록이 도착한 뒤에야 기존 밭의 표기를 채울 수 있다.
+  useEffect(() => {
+    if (farm === undefined) return;
+    const current = regions.find((r) => r.id === farm.region_id);
+    if (current) setRegionQuery(regionLabel(current));
+  }, [regions, farm?.region_id]);
 
   const ready = regionId !== "" && bjdCode !== "" && cropId !== "" && plantingDate !== "";
 
@@ -98,18 +103,27 @@ export default function FarmForm({
     <form className={styles.form} onSubmit={handleSubmit}>
       <div className={styles.field}>
         <label htmlFor={`${uid}-region`}>지역 (시/군)</label>
-        <select id={`${uid}-region`} value={regionId} onChange={(e) => setRegionId(e.target.value)} required>
-          <option value="">선택하세요</option>
-          {grouped.map(([sido, list]) => (
-            <optgroup key={sido} label={sido}>
-              {list.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </optgroup>
+        <input
+          id={`${uid}-region`}
+          list={`${uid}-region-list`}
+          value={regionQuery}
+          onChange={(e) => {
+            setRegionQuery(e.target.value);
+            setRegionId(String(byLabel.get(e.target.value) ?? ""));
+          }}
+          placeholder="시/군 이름을 입력하세요 (예: 고창)"
+          autoComplete="off"
+          required
+        />
+        <datalist id={`${uid}-region-list`}>
+          {regions.map((r) => (
+            <option key={r.id} value={regionLabel(r)} />
           ))}
-        </select>
+        </datalist>
+        {/* 목록에 없는 글자를 남겨두면 등록 버튼이 왜 안 눌리는지 알 수 없다. */}
+        {regionQuery !== "" && regionId === "" && (
+          <p className={styles.hint}>목록에서 시/군을 골라 주세요.</p>
+        )}
       </div>
 
       <div className={styles.field}>
