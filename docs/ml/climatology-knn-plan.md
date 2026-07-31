@@ -1,4 +1,4 @@
-# 평년치 KNN 대체 — 검증 결과 + 남은 작업 계획
+# 평년치 KNN 대체 — 검증 결과 + 구현 기록
 
 > 작성 2026-07-30. `docs/ml/knn-imputation-backend-order.md`(지시서, 2026-07-29)의 **후속**이다.
 > 지시서와 이 문서가 충돌하면 **이 문서가 우선**한다 — 지시서 작성 후 실측으로 정정된 항목이 있다.
@@ -10,9 +10,18 @@
 
 ## 1. 한 줄 요약
 
-평년치가 없는 140개 지역에 대해 현행은 **격자 최근접 1개 지역을 통째로 복사**한다.
-거리역수 가중 KNN(k=10)으로 바꾸면 **정규화 MAE 10.99% 개선**이 측정됐다.
-지시서의 교체 게이트를 통과했으므로 **구현할 근거는 있다.** 다만 급한 버그가 아니라 정확도 개선이다.
+평년치가 없는 140개 지역이 **격자 최근접 1개 지역을 통째로 복사**받던 것을
+**거리역수 가중 KNN(k=10)**으로 교체했다. 홀드아웃 검증에서 정규화 MAE **10.99% 개선**
+(기온 +23.1%, 강수 +19.3%, 일사량 −0.8%), 예측 불가 189건 → 0건.
+
+| | 커밋 |
+|---|---|
+| 검증 (`scripts/`, `docs/ml/`) | `b87f41a` |
+| 구현 (`climatology_service.py`, 테스트 17종) | `0e3e34f` |
+
+브랜치 `feat/climatology-knn` — **아직 푸시·PR 안 함.** PR 대상은 `dev`(CLAUDE.md §14).
+
+**남은 일은 §4-4 화면 확인 하나뿐이다.**
 
 ---
 
@@ -277,17 +286,32 @@ pip install "psycopg[binary]"                     # 로컬에 드라이버가 �
 python scripts/validate_climatology_knn.py        # → docs/ml/climatology_knn_validation.json
 ```
 
-백엔드 테스트: `cd backend && python -m pytest tests -q` (237 passed + 2117 subtests).
+백엔드 테스트: `cd backend && python -m pytest tests -q`
+→ **254 passed + 2117 subtests** (교체 전 237 + 신규 17).
 CI가 PR·머지마다 같은 명령을 돈다(`.github/workflows/ci.yml`).
+
+신규 테스트만: `python -m pytest tests/test_climatology_knn.py -q` — DB 없이 돈다.
+
+대체 결과를 눈으로 보려면(DB 필요):
+
+```python
+from app.db.session import SessionLocal
+from app.services.climatology_service import load_climatology, substitution_limitation
+db = SessionLocal()
+s = load_climatology(db, 1)           # region.id=1 종로구 — 자기 평년치 없는 지역
+print(substitution_limitation(s))     # 도너 10곳, 약 16~46km
+print(s.donors)                       # 전체 목록(이름, 거리km)
+```
 
 ---
 
-## 7. 우선순위 의견
+## 7. 다음에 할 일
 
-**지금 급한 작업은 아니다.** 동작 버그가 아니라 정확도 개선이고, 개선폭도 28.8%가 아니라 11%다.
-영향 범위는 장기 탭 적합도 점수(140/256 지역)로 크지만, 현행 값이 **틀린 게 아니라 덜 정확**하다.
+이 작업은 끝났다(화면 확인 §4-4 제외). 이어서 할 가치 순서 — `CI_report.md` §8과 일부 중복:
 
-먼저 할 가치가 더 큰 것들(`CI_report.md` §8과 일부 중복):
+0. **이 브랜치 화면 확인 후 `dev`로 PR.** 140개 지역의 장기 탭 점수가 실제로 움직이므로
+   머지 전에 한 지역이라도 화면에서 보는 게 맞다.
 1. **`dev` 브랜치 보호 규칙** — CI가 있어도 빨간불 PR을 머지할 수 있다. 저장소 admin 권한 보유 확인됨.
 2. **HTTP 엔드포인트 테스트** — TestClient 기반 테스트가 **0건**이다. 배선 회귀를 아무도 못 잡는다.
-3. 이 작업(평년치 KNN).
+3. `temp_night_min_normal`·`sunlight_normal` 적재 — 지금 DB 전 행 NULL이라(§3-2) 대체 코드가
+   다루긴 해도 실질 효과가 없다. 채워지면 KNN 이득이 그 두 필드로도 확장된다.
