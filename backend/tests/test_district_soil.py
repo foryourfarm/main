@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from app.infra.public_api.soil_exam_client import SoilExam
 from app.services.district_soil_service import (
+    effective_source,
     is_leaf_bjd,
     ri_codes,
     source_label,
@@ -165,6 +166,31 @@ class TestSourceLabel(unittest.TestCase):
             for queried in (bjd, None):
                 with self.subTest(bjd=bjd, queried=queried):
                     self.assertNotIn("리 5곳", source_label(bjd, queried, "3"))
+
+
+class TestEffectiveSource(unittest.TestCase):
+    """저장된 문구는 등록 시점에 굳는다 — 응답 시점에 다시 보는 규칙(§18-4)."""
+
+    STALE = "흙토람 토양검정(조회 실패 — 표본 없음), 표본 0건"
+
+    def test_stale_myeon_farm_gets_the_actionable_message(self):
+        """리 전환 전 등록된 면 코드 밭 — '조회 실패'는 다음 행동이 없는 막다른 문구다."""
+        out = effective_source("5279034000", self.STALE, has_values=False)
+        self.assertIn("리를 선택", out)
+        self.assertNotIn("조회 실패", out)
+
+    def test_real_values_are_never_overwritten(self):
+        """값이 있으면 그 문구가 실제 조회 근거다 — 덮으면 없는 결측을 지어내는 셈이다."""
+        real = "흙토람 토양검정(법정동 5279034023, 경지구분 3), 표본 12건"
+        self.assertEqual(effective_source("5279034000", real, has_values=True), real)
+
+    def test_leaf_farm_with_no_samples_keeps_the_honest_failure(self):
+        """리 없는 도시 동은 진짜로 표본이 없다 — 리를 고르라고 하면 거짓 안내가 된다."""
+        self.assertEqual(effective_source("1215010100", self.STALE, has_values=False), self.STALE)
+
+    def test_legacy_farm_without_bjd_code_is_left_alone(self):
+        """0014 이전 등록 밭은 bjd_code가 없어 말단 판정 자체가 불가능하다."""
+        self.assertEqual(effective_source(None, self.STALE, has_values=False), self.STALE)
 
 
 if __name__ == "__main__":

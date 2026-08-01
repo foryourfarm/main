@@ -145,6 +145,11 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
     return [], None
 
 
+# 리가 있는 읍·면으로 물었을 때의 문구. "조회 실패"로 뭉개면 유저가 무엇을 하면 되는지
+# 알 수 없다 — 리를 고르면 실제로 해결되는 경우라서 다음 행동을 알려줘야 한다.
+NO_LEAF_RECORD = f"{SOURCE_PREFIX}(읍·면 단위로는 기록 없음 — 리를 선택하면 조회됩니다)"
+
+
 def source_label(bjd_code: str, queried_code: str | None, field_type: str) -> str:
     """유저에게 그대로 노출되는 출처 문구(§18-4) — 어느 코드로 조회했는지 숨기지 않는다.
 
@@ -153,13 +158,27 @@ def source_label(bjd_code: str, queried_code: str | None, field_type: str) -> st
     """
     if queried_code is None:
         if not is_leaf_bjd(bjd_code):
-            # 리가 있는 읍·면 — 이 코드로는 흙토람에 기록이 없다. "조회 실패"로 뭉개면 유저가
-            # 무엇을 하면 되는지 알 수 없다(리 전환 전에 등록된 밭이 여기 온다).
-            return f"{SOURCE_PREFIX}(읍·면 단위로는 기록 없음 — 리를 선택하면 조회됩니다)"
+            return NO_LEAF_RECORD  # 리 전환 전에 등록된 밭이 여기 온다
         return f"{SOURCE_PREFIX}(조회 실패 — 표본 없음)"
     if queried_code != bjd_code:
         return f"{SOURCE_PREFIX}(법정동 {queried_code} 통합전코드, 경지구분 {field_type})"
     return f"{SOURCE_PREFIX}(법정동 {bjd_code}, 경지구분 {field_type})"
+
+
+def effective_source(bjd_code: str | None, stored: str, has_values: bool) -> str:
+    """저장된 출처 문구를 응답 시점 기준으로 다시 본다.
+
+    문구는 등록 시점에 `soil_state.base_source`로 굳어 스스로 고쳐지지 않는다. 리 단위 전환
+    전에 면 코드로 등록된 밭은 "조회 실패 — 표본 없음"을 들고 있는데, 그건 "그 법정동에 기록이
+    실제로 없다"(도시 동)는 뜻이라 다음 행동이 없는 막다른 문구다. 정작 이 밭들은 리를 고르면
+    해결된다 — 안내가 반대로 나간다.
+
+    **값이 있으면 건드리지 않는다.** 그 문구는 실제 조회 근거이고, 덮으면 없는 결측을
+    지어내는 셈이다(§18-4). 고쳐 쓰는 건 지표가 전부 빈 경우뿐이다.
+    """
+    if has_values or bjd_code is None or is_leaf_bjd(bjd_code):
+        return stored
+    return f"{NO_LEAF_RECORD}, 표본 0건"
 
 
 def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:

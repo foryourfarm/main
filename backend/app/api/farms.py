@@ -13,6 +13,7 @@ from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, FarmUpda
 from app.schemas.short_term import FarmShortTerm
 from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability
 from app.services import farm_service, short_term_service, suitability_service
+from app.services.district_soil_service import effective_source
 
 router = APIRouter(prefix="/api/v1", tags=["farms"])
 
@@ -55,7 +56,16 @@ def _farm_out(db: Session, farm: UserFarm) -> FarmOut:
         crop_name=db.query(Crop.name).filter(Crop.id == farm.crop_id).scalar(),
         planting_date=farm.planting_date,
         label=farm.label,
-        soil_source=soil.base_source if soil else None,
+        # 저장된 문구를 그대로 주지 않는다 — 리 전환 전 등록 밭은 안내가 반대로 나간다.
+        soil_source=(
+            effective_source(
+                farm.bjd_code,
+                soil.base_source,
+                any(v is not None for v in (soil.ph, soil.ec, soil.p2o5, soil.organic_matter)),
+            )
+            if soil
+            else None
+        ),
     )
 
 
