@@ -8,6 +8,8 @@
 |---|---|
 | `docs/main-logic-guide.md` | **메인 로직 백엔드 구현 가이드(팀원용)** — 토양변화 추론·적합도 룰·수집. 근거는 `ml/backend_ml_handoff.md`. |
 | `docs/crop-domain-knowledge.md` | 작물 생육 기준값(적정/허용 범위) 문헌 근거 — 논문 13편에서 추출. `0004_crop_growth_guide_seed.py`가 인용. |
+| `docs/temperature-scoring.md` | **기온 채점 단일 참조** — 데이터 경로(관측→구역→밭), 보정 4개(AWS 근사·고도 감률·전망), 작물별 밴드 현재값, `outcomes/`와의 구조 차이, 화면 표기. 기온이 PR #57·#68·#73에 흩어져 있어 모은 것. |
+| `docs/temperature-open-decisions.md` | **기온 관련 팀 결정 요청 3건**(평년 편차 보정·감자 축 불일치·상추 채점월). 선택지와 트레이드오프 정리 — 논의용. |
 | `docs/auth-security.md` | 인증·보안 설계(분리 토큰 JWT) FE 연동 계약. |
 | `docs/llm-integration.md` | LLM/챗봇 연동 계약(SSE, 폴백, 프롬프트 가드레일 §11). |
 | `docs/llm-benchmark-eval.md` | 로컬 LLM 벤치마크·평가 기록. |
