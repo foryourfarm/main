@@ -69,6 +69,19 @@ def latest_base(now: datetime) -> tuple[str, str]:
     return prev.strftime("%Y%m%d"), f"{max(BASE_TIMES):02d}00"
 
 
+def latest_base_at(now: datetime) -> datetime:
+    """`latest_base`와 같은 발표시각을 datetime으로. 캐시 신선도 판정에 쓴다.
+
+    벽시계 TTL로 판정하면 발표 주기(3h)와 어긋나 발표 사이 구간에서 매 요청이
+    같은 발표분을 다시 조회한다(§18-1). 발표시각으로 비교하면 외부 호출 없이 판정된다.
+    """
+    base_date, base_time = latest_base(now)
+    return datetime(
+        int(base_date[:4]), int(base_date[4:6]), int(base_date[6:8]),
+        int(base_time[:2]), tzinfo=KST,
+    )
+
+
 def parse_number(raw: str | None) -> Decimal | None:
     """예보값 → Decimal. "강수없음" 같은 표기는 0, 그 외 비수치는 None(결측)."""
     if raw is None:
@@ -162,8 +175,4 @@ def fetch_forecast(
     if not isinstance(items, list) or not items:
         raise ForecastError("예보 항목이 비어 있음")
 
-    base_at = datetime(
-        int(base_date[:4]), int(base_date[4:6]), int(base_date[6:8]),
-        int(base_time[:2]), tzinfo=KST,
-    )
-    return fold_daily(items), base_at
+    return fold_daily(items), latest_base_at(moment)

@@ -6,7 +6,7 @@ import unittest
 from decimal import Decimal
 
 from app.infra.public_api.soil_exam_client import SoilExam
-from app.services.district_soil_service import summarize
+from app.services.district_soil_service import ri_codes, summarize
 
 
 def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | None = None,
@@ -79,6 +79,25 @@ class TestSummarize(unittest.TestCase):
 
     def test_is_deterministic(self):
         self.assertEqual(summarize(SAMPLES, "4"), summarize(SAMPLES, "4"))
+
+
+class TestRiCodes(unittest.TestCase):
+    """읍·면 검정 기록은 리 코드로만 조회된다 — 시드에서 리를 찾아오는지(네트워크 불필요)."""
+
+    def test_myeon_resolves_to_its_ri_codes(self):
+        # 실측: 부여 장암면 4476042000은 301, 점상리 4476042021은 100건.
+        codes = ri_codes("4476042000")
+        self.assertIn("4476042021", codes)
+        self.assertTrue(all(c.startswith("44760420") for c in codes))
+
+    def test_dong_without_ri_returns_empty(self):
+        # 순천 삼거동은 리가 없어 읍면동 코드가 곧 최종 코드다 — 리 조회 경로를 타면 안 된다.
+        self.assertEqual(ri_codes("4615010100"), [])
+
+    def test_is_sorted_for_determinism(self):
+        """상한(RI_SAMPLE_LIMIT)으로 앞에서 자르므로 순서가 결과를 바꾼다(CLAUDE.md §2)."""
+        codes = ri_codes("4476042000")
+        self.assertEqual(codes, sorted(codes))
 
 
 if __name__ == "__main__":

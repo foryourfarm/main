@@ -2,10 +2,12 @@
 import unittest
 from decimal import Decimal
 
-from app.models import SoilState, WeatherClimatology
+from app.models import CropGrowthGuide, SoilState, WeatherClimatology
 from app.services.suitability_service import (
+    coverage_limitation,
     derive_status,
     gather_indicator_values,
+    usable_seasonal,
 )
 
 
@@ -65,6 +67,46 @@ class TestDeriveStatus(unittest.TestCase):
             "organic": {"score": 100.0, "status": "optimal"},
         }
         self.assertEqual(derive_status(True, 100.0, breakdown), "dormant")
+
+
+class TestCoverageLimitation(unittest.TestCase):
+    """채점된 지표가 지침 일부뿐일 때 그 사실이 한계 문구로 나가는지(§18-4)."""
+
+    def test_names_missing_indicators_and_counts(self):
+        """실측 사례: 오이 생육기 3개 지표 중 기온만 값이 있어 100점 S가 나왔다."""
+        breakdown = {
+            "temp_day": {"score": 100.0, "status": "optimal"},
+            "ph": {"score": None, "status": "missing"},
+            "rainfall_daily": {"score": None, "status": "missing"},
+        }
+        text = coverage_limitation([breakdown])
+        assert text is not None
+        self.assertIn("3개 중 1개로만 채점", text)
+        self.assertIn("토양 산도(pH)", text)
+        self.assertIn("일 강수량", text)
+
+    def test_full_coverage_says_nothing(self):
+        breakdown = {"temp_day": {"score": 100.0}, "ph": {"score": 80.0}}
+        self.assertIsNone(coverage_limitation([breakdown]))
+
+    def test_scored_in_any_month_is_not_missing(self):
+        """12개월 집계: 어느 달에든 채점됐으면 결측 지표가 아니다(휴면기에 빠질 뿐)."""
+        january = {"temp_day": {"score": None}, "ph": {"score": 80.0}}
+        july = {"temp_day": {"score": 90.0}, "ph": {"score": 80.0}}
+        self.assertIsNone(coverage_limitation([january, july]))
+
+    def test_no_breakdowns_says_nothing(self):
+        self.assertIsNone(coverage_limitation([]))
+
+
+class TestUsableSeasonal(unittest.TestCase):
+    def test_daily_rainfall_is_excluded_from_seasonal_scoring(self):
+        """평년치는 월 단위라 일 강수량이 채워질 길이 없다 — 지침에서 빼야 영구 결측이 안 뜬다."""
+        self.assertFalse(usable_seasonal(CropGrowthGuide(indicator="rainfall_daily")))
+
+    def test_monthly_and_soil_indicators_stay(self):
+        for indicator in ("temp_day", "rainfall_monthly", "ph", "sunlight"):
+            self.assertTrue(usable_seasonal(CropGrowthGuide(indicator=indicator)), indicator)
 
 
 if __name__ == "__main__":

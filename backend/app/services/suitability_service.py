@@ -1,7 +1,7 @@
 """DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
 from calendar import monthrange
 from math import log1p
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from decimal import Decimal
 
@@ -9,8 +9,13 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm, WeatherClimatology
-from app.services.climatology_service import ClimatologySource, load_climatology, substitution_limitation
+from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm
+from app.services.climatology_service import (
+    ClimatologyMonth,
+    ClimatologySource,
+    load_climatology,
+    substitution_limitation,
+)
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
@@ -48,6 +53,46 @@ OUTLOOK_MISSING_LIMITATION = (
     "기상청 3개월전망이 적재되지 않아 보정 없이 평년치만 사용했습니다."
 )
 
+# 지표 한글명. `risk_flags`의 `<지표>:missing`을 사람 말로 옮길 때 쓴다.
+# 프론트 `types/farm.ts:INDICATOR_NAMES`와 같은 표기를 유지한다.
+INDICATOR_NAMES: dict[str, str] = {
+    "temp_day": "낮 기온",
+    "temp_night_min": "야간 최저기온",
+    "rainfall_monthly": "월 강수량",
+    "rainfall_daily": "일 강수량",
+    "sunlight": "일조",
+    "ph": "토양 산도(pH)",
+    "ec": "토양 염류(EC)",
+    "p2o5": "유효인산",
+    "organic": "유기물",
+}
+
+
+def coverage_limitation(breakdowns: Iterable[Mapping[str, Mapping[str, object]]]) -> str | None:
+    """채점되지 않은 지표가 있으면 그 사실을 알린다(§18-4).
+
+    점수는 채점된 지표만으로 가중평균한다. 지침 3개 중 1개만 값이 있으면 그 1개가 곧
+    총점이 되어 "100점 S"가 나오는데, 화면에는 등급만 크게 보이고 나머지 2개가 빠졌다는
+    사실은 어디에도 없었다 — 근사를 확정값처럼 보이게 하는 금지사항이다.
+    `risk_flags`에 `<지표>:missing`이 이미 있지만 프론트는 `:outside_allowed`만 렌더한다.
+    `limitations`는 모든 탭이 그대로 노출하므로 여기에 실어 한 곳에서 끝낸다.
+    """
+    missing: set[str] = set()
+    scored: set[str] = set()
+    for breakdown in breakdowns:
+        for indicator, entry in breakdown.items():
+            (scored if entry.get("score") is not None else missing).add(indicator)
+    missing -= scored  # 어느 달에든 채점됐으면 결측이 아니다
+    if not missing:
+        return None
+    names = "·".join(INDICATOR_NAMES.get(i, i) for i in sorted(missing))
+    total = len(missing) + len(scored)
+    # 지표명을 조사 앞에 두면 받침에 따라 은/는이 갈린다 — 목록을 문장 끝에 둬서 피한다.
+    return (
+        f"지침 지표 {total}개 중 {len(scored)}개로만 채점한 점수입니다. "
+        f"데이터가 없어 반영되지 않은 지표: {names}."
+    )
+
 # DB.md §3.5 C3. temp_day는 현재 캐시에 대응 컬럼이 없어 호출자가 별도 공급해야 한다.
 INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
     "temp_day": None,
@@ -74,6 +119,17 @@ def load_guides(db: Session, crop_id: int, growth_stage: str) -> list[CropGrowth
         ),
     )
     return list(db.scalars(stmt))
+
+
+# 장기 탭에 데이터원이 없는 지표. 평년치는 월 단위라 일 강수량이 채워질 길이 없는데
+# 지침에는 전기간 공통으로 들어 있어, 전 작물이 `rainfall_daily:missing`을 영구히 달고
+# 다녔다. 단기 탭은 반대 방향(`DAILY_UNAVAILABLE_INDICATORS`)을 이미 걸러내고 있다.
+SEASONAL_UNAVAILABLE_INDICATORS = frozenset({"rainfall_daily"})
+
+
+def usable_seasonal(guide: CropGrowthGuide) -> bool:
+    """장기(평년치) 채점에 쓸 수 있는 지침인지. `_usable_daily`의 대칭."""
+    return guide.indicator not in SEASONAL_UNAVAILABLE_INDICATORS
 
 
 def _log_falloff(x: float) -> float:
@@ -222,7 +278,7 @@ def calculate_suitability(
 
 def gather_indicator_values(
     soil: SoilState | None,
-    clim: WeatherClimatology | None,
+    clim: ClimatologyMonth | None,
     clim_source: ClimatologySource | None = None,
     month: int | None = None,
 ) -> dict[str, float | Decimal | None]:
@@ -306,7 +362,7 @@ def compute_farm_suitability(
         raise AppError(404, "FARM_NOT_FOUND", "밭을 찾을 수 없습니다.")
 
     stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, on_date)
-    guides = load_guides(db, farm.crop_id, stage or "")
+    guides = [g for g in load_guides(db, farm.crop_id, stage or "") if usable_seasonal(g)]
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
     # 평년치가 없는 지역은 격자상 최근접 지역 값으로 대체하고 그 사실을 표기한다(§8.5).
     clim_source = load_climatology(db, farm.region_id)
@@ -333,6 +389,9 @@ def compute_farm_suitability(
                 result["breakdown"]["sunlight"]["confidence"] = sunlight_result.confidence
 
     limitations = [TEMP_DAY_LIMITATION]
+    coverage = coverage_limitation([result["breakdown"]])
+    if coverage is not None:
+        limitations.insert(0, coverage)
     substitution = substitution_limitation(clim_source)
     if substitution is not None:
         limitations.insert(0, substitution)
@@ -364,7 +423,11 @@ def _guides_for_stage(
     all_guides: Sequence[CropGrowthGuide], stage: str | None
 ) -> list[CropGrowthGuide]:
     """단계 지침 + 전 기간 공통(NULL) 지침. load_guides의 SQL 필터를 메모리에서 재현한다."""
-    return [g for g in all_guides if g.growth_stage == stage or g.growth_stage is None]
+    return [
+        g
+        for g in all_guides
+        if (g.growth_stage == stage or g.growth_stage is None) and usable_seasonal(g)
+    ]
 
 
 def dominant_stage(
@@ -391,7 +454,7 @@ def dominant_stage(
 def build_monthly_rows(
     stage_rows: Sequence[CropGrowthStage],
     all_guides: Sequence[CropGrowthGuide],
-    clim_by_month: Mapping[int, WeatherClimatology],
+    clim_by_month: Mapping[int, ClimatologyMonth],
     soil: SoilState | None,
     planting_date: date,
     year: int,
@@ -430,6 +493,9 @@ def build_monthly_rows(
                 "grade": None if is_dormant else result["grade"],
                 "risk_flags": result["risk_flags"],
                 "outlook_applied": bool(applied),
+                # 내부용 — 12개월 커버리지 집계(`coverage_limitation`)에만 쓴다.
+                # 응답 스키마(`MonthlyOutlookEntry`)에 없으므로 직렬화에서 빠진다.
+                "breakdown": result["breakdown"],
             }
         )
     return rows
@@ -480,6 +546,9 @@ def compute_monthly_outlook(
         MONTHLY_STAGE_LIMITATION,
         MONTHLY_SOIL_LIMITATION,
     ]
+    coverage = coverage_limitation(m["breakdown"] for m in months)
+    if coverage is not None:
+        limitations.insert(0, coverage)
     substitution = substitution_limitation(clim_source)
     if substitution is not None:
         limitations.insert(0, substitution)

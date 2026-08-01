@@ -8,7 +8,7 @@ A씨 사례(봄철 야간저온으로 활착 실패)가 이 탭의 존재 이유
 날짜별로 판정하고 **연속 지속**을 따로 표시한다(§7-4 시계열 요구).
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
@@ -18,6 +18,7 @@ from app.infra.public_api.forecast_client import (
     DailyForecast,
     ForecastError,
     fetch_forecast,
+    latest_base_at,
 )
 from app.models import CropGrowthGuide, RegionGrid, SoilState, UserFarm, WeatherSnapshot
 from app.services.growth_stage_service import resolve_growth_stage
@@ -25,15 +26,12 @@ from app.services.suitability_service import (
     SUITABILITY_LABEL,
     WEATHER_INDICATORS,
     calculate_suitability,
+    coverage_limitation,
     derive_status,
     load_guides,
 )
 
 KIND_FORECAST = "FORECAST"
-
-# 예보 재조회 주기. 발표는 3시간 간격이지만 같은 발표분을 반복 요청하지 않도록 캐시를
-# 우선 보고, 이 시간 안에 받아둔 게 있으면 외부 호출을 건너뛴다(§12 호출량 방어).
-CACHE_TTL = timedelta(hours=3)
 
 FORECAST_LIMITATION = (
     "기상청 단기예보 기반입니다(발표시각 기준 약 3일치, 달력상 4~5일에 걸칠 수 있음). "
@@ -97,8 +95,11 @@ def get_forecast_rows(
     조회 실패 시 마지막 캐시를 쓰고 is_stale=True로 알린다 — 외부 장애가 화면을 죽이지
     않게 한다(§12). 캐시도 없으면 빈 리스트.
     """
+    # 신선도는 벽시계 TTL이 아니라 "최신 발표분을 갖고 있나"로 판정한다. 발표 주기가
+    # 3시간이라 3시간 TTL은 발표 사이 구간에서 항상 만료돼, 같은 발표분을 매 요청마다
+    # 다시 조회했다(§18-1 무분별 호출). 발표시각 비교는 외부 호출 없이 끝난다.
     cached = _cached_rows(db, region_id, today)
-    if cached and now - cached[0].base_at < CACHE_TTL:
+    if cached and cached[0].base_at >= latest_base_at(now):
         return cached, False
 
     grid = db.query(RegionGrid).filter(RegionGrid.region_id == region_id).first()
@@ -200,11 +201,13 @@ def compute_short_term(
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
 
     days: list[dict[str, object]] = []
+    breakdowns: list[dict[str, dict[str, object]]] = []
     for snap in rows:
         # 단계는 그 날짜 기준으로 다시 판정한다 — 3일 안에 단계가 넘어갈 수 있다.
         stage = resolve_growth_stage(db, farm.crop_id, farm.planting_date, snap.target_date)
         guides = [g for g in load_guides(db, farm.crop_id, stage or "") if _usable_daily(g)]
         result = calculate_suitability(guides, forecast_values(snap, soil))
+        breakdowns.append(result["breakdown"])
         days.append(
             {
                 "target_date": snap.target_date,
@@ -220,6 +223,9 @@ def compute_short_term(
         )
 
     limitations = [FORECAST_LIMITATION, SOIL_LIMITATION]
+    coverage = coverage_limitation(breakdowns)
+    if coverage is not None:
+        limitations.insert(0, coverage)
     if is_stale:
         limitations.insert(0, STALE_LIMITATION)
 

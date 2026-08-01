@@ -10,6 +10,7 @@ from app.infra.public_api.forecast_client import (
     KST,
     fold_daily,
     latest_base,
+    latest_base_at,
     parse_number,
 )
 
@@ -56,6 +57,31 @@ class TestLatestBase(unittest.TestCase):
     def test_is_deterministic(self):
         moment = datetime(2026, 7, 25, 9, 0, tzinfo=KST)
         self.assertEqual(latest_base(moment), latest_base(moment))
+
+
+class TestLatestBaseAt(unittest.TestCase):
+    """캐시 신선도 판정용. `latest_base`와 같은 슬롯을 datetime으로 돌려줘야 한다."""
+
+    def test_matches_latest_base(self):
+        moment = datetime(2026, 7, 25, 14, 30, tzinfo=KST)
+        self.assertEqual(latest_base_at(moment), datetime(2026, 7, 25, 11, 0, tzinfo=KST))
+
+    def test_after_midnight_falls_back_to_previous_day(self):
+        moment = datetime(2026, 7, 25, 0, 30, tzinfo=KST)
+        self.assertEqual(latest_base_at(moment), datetime(2026, 7, 24, 23, 0, tzinfo=KST))
+
+    def test_cached_stays_fresh_across_whole_publish_gap(self):
+        """회귀: 벽시계 3시간 TTL이면 발표 후 3시간부터 매 요청이 같은 발표분을 재조회했다.
+
+        11시 발표를 받아둔 캐시는 다음 발표(14시)가 올라오기 전까지 계속 신선해야 한다.
+        """
+        cached_base_at = datetime(2026, 7, 25, 11, 0, tzinfo=KST)
+        for hour, minute in ((11, 50), (13, 0), (14, 30), (14, 44)):
+            moment = datetime(2026, 7, 25, hour, minute, tzinfo=KST)
+            self.assertGreaterEqual(cached_base_at, latest_base_at(moment), f"{hour}:{minute}")
+        # 14시 발표가 올라오면(14:45 이후) 비로소 만료된다.
+        stale_at = datetime(2026, 7, 25, 14, 45, tzinfo=KST)
+        self.assertLess(cached_base_at, latest_base_at(stale_at))
 
 
 class TestFoldDaily(unittest.TestCase):
