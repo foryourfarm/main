@@ -22,6 +22,7 @@
 출력: docs/ml/climatology_knn_validation.json + stdout 비교표
 """
 
+import csv
 import json
 import statistics
 import sys
@@ -35,7 +36,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 from app.db.session import SessionLocal  # noqa: E402
 from app.models import Region, RegionGrid, WeatherClimatology  # noqa: E402
-from app.services.climatology_service import _grid_distance_km  # noqa: E402
+from app.services.climatology_service import KNN_K, _grid_distance_km  # noqa: E402
 
 OUT_JSON = ROOT / "docs" / "ml" / "climatology_knn_validation.json"
 
@@ -54,6 +55,18 @@ K_VALUES = (1, 3, 5, 7, 10, 15, 20, 30, 50, 115)
 # 0으로 나누기 방지. 같은 격자칸(거리 0) 이웃이 있으면 그 이웃이 사실상 전부를 가져간다.
 MIN_DISTANCE_KM = 0.001
 MONTHS = range(1, 13)
+
+REGION_ALTITUDE = ROOT / "docs" / "seed" / "region_altitude_seed.csv"
+
+# 고도를 수평거리로 환산하는 계수(m/km). 지점쌍 실측에서 수평 10km ≈ MAE 1.13℃,
+# 수직 100m ≈ MAE 1.0℃였으니 100m ≈ 10km, 즉 10 m/km가 물리 근거에서 나온 값이다.
+# 그 주변을 함께 재서 실제로 최선인지 확인한다(계수를 눈대중으로 고정하지 않는다).
+ALTITUDE_PENALTY_M_PER_KM = (5.0, 10.0, 20.0, 40.0)
+# 고도차가 이보다 크면 도너에서 뺀다. 남는 도너가 이 수 밑으로 떨어지면 필터를 포기한다 —
+# 없는 정보로 도너를 다 버리면 그 구역이 통째로 예측 불가가 된다.
+ALTITUDE_FILTER_M = (100.0, 200.0, 400.0)
+ALTITUDE_FILTER_K = (3, 5, 7, 10)
+MIN_DONORS_AFTER_FILTER = 3
 
 
 def _f(value: object) -> float | None:
@@ -90,14 +103,59 @@ def weighted_mean(pairs: list[tuple[float, float]]) -> float | None:
     return sum(v * w for v, w in pairs) / total
 
 
+def rank_donors(
+    target: int,
+    donors: list[int],
+    grids: dict,
+    k: int,
+    altitudes: dict[int, float] | None = None,
+    penalty_m_per_km: float | None = None,
+    filter_m: float | None = None,
+) -> list[tuple[float, int]]:
+    """(가중용 거리, region_id) 상위 k개. 동거리는 region_id 작은 쪽 — 결정론(§2).
+
+    고도 옵션이 없으면 종전과 완전히 같다(수평거리만). 옵션은 둘 중 하나다:
+      - penalty_m_per_km: 고도차를 수평거리로 환산해 유클리드로 합친다(연속적).
+      - filter_m: 고도차가 그 밖인 도너를 뺀다(이산적, AWS 적재 경로와 같은 방식).
+    """
+    my_alt = (altitudes or {}).get(target)
+    pairs: list[tuple[float, int]] = []
+    for d in donors:
+        if d not in grids:
+            continue
+        dist = _grid_distance_km(grids[target], grids[d])
+        d_alt = (altitudes or {}).get(d)
+        # 고도를 모르는 쪽이 있으면 그 도너는 종전대로 수평거리만 본다 — 없는 정보로
+        # 도너를 버리면 그 구역이 통째로 비어버린다.
+        if my_alt is not None and d_alt is not None:
+            gap = abs(my_alt - d_alt)
+            if filter_m is not None and gap > filter_m:
+                continue
+            if penalty_m_per_km is not None:
+                dist = (dist**2 + (gap / penalty_m_per_km) ** 2) ** 0.5
+        pairs.append((dist, d))
+
+    ranked = sorted(pairs, key=lambda t: (t[0], t[1]))[:k]
+    if filter_m is not None and len(ranked) < MIN_DONORS_AFTER_FILTER:
+        # 필터가 너무 많이 걷어냈다 — 근사가 없는 것보다는 낫다. 필터를 포기한다.
+        return rank_donors(target, donors, grids, k)
+    return ranked
+
+
 def predict_knn(
-    target: int, donors: list[int], grids: dict, clim: dict, k: int
+    target: int,
+    donors: list[int],
+    grids: dict,
+    clim: dict,
+    k: int,
+    altitudes: dict[int, float] | None = None,
+    penalty_m_per_km: float | None = None,
+    filter_m: float | None = None,
 ) -> dict[int, dict[str, float | None]]:
-    """거리역수 가중 KNN. 동거리는 region_id 작은 쪽 — 결정론(CLAUDE.md §2)."""
-    ranked = sorted(
-        ((_grid_distance_km(grids[target], grids[d]), d) for d in donors if d in grids),
-        key=lambda t: (t[0], t[1]),
-    )[:k]
+    """거리역수 가중 KNN. 고도 옵션은 도너 선택·가중에만 관여한다."""
+    ranked = rank_donors(
+        target, donors, grids, k, altitudes, penalty_m_per_km, filter_m
+    )
     out = {}
     for month in MONTHS:
         out[month] = {}
@@ -129,7 +187,17 @@ def predict_sido_mean(
     return out
 
 
-def evaluate(grids: dict, sido: dict, clim: dict) -> dict:
+def load_region_altitudes() -> dict[int, float]:
+    """구역 대표 고도(m). 없으면 빈 dict — 고도 방식만 조용히 빠지고 나머지는 그대로 돈다."""
+    if not REGION_ALTITUDE.exists():
+        return {}
+    return {
+        int(r["region_id"]): float(r["altitude_m"])
+        for r in csv.DictReader(REGION_ALTITUDE.open(encoding="utf-8"))
+    }
+
+
+def evaluate(grids: dict, sido: dict, clim: dict, altitudes: dict[int, float]) -> dict:
     """12개월 완비 지역을 leave-one-out으로 돌려 방식별 오차를 낸다."""
     full = sorted(r for r, months in clim.items() if len(months) == 12 and r in grids)
 
@@ -148,11 +216,27 @@ def evaluate(grids: dict, sido: dict, clim: dict) -> dict:
     }
     scored_fields = [f for f in FIELDS if observed[f] and field_sd[f]]
 
-    methods = {"sido_mean": None, "nearest_1": 1}
-    methods.update({f"knn_spatial_k{k}": k for k in K_VALUES})
+    # (k, 고도옵션) — 고도옵션은 predict_knn kwargs. 현행 k와 비교 가능하도록 KNN_K에 맞춘다.
+    methods: dict[str, tuple[int | None, dict]] = {"sido_mean": (None, {})}
+    methods["nearest_1"] = (1, {})
+    methods.update({f"knn_spatial_k{k}": (k, {}) for k in K_VALUES})
+    if altitudes:
+        for w in ALTITUDE_PENALTY_M_PER_KM:
+            methods[f"knn_alt_penalty{w:g}"] = (
+                KNN_K,
+                {"altitudes": altitudes, "penalty_m_per_km": w},
+            )
+        # k와 고도 필터는 독립이 아니다 — 필터가 도너를 걷어내면 남는 수가 줄어 최적 k가
+        # 달라진다. 둘을 따로 최적화하면 조합을 놓치므로 격자로 함께 훑는다.
+        for k in ALTITUDE_FILTER_K:
+            for t in ALTITUDE_FILTER_M:
+                methods[f"knn_k{k}_alt{t:g}m"] = (
+                    k,
+                    {"altitudes": altitudes, "filter_m": t},
+                )
 
     results: dict[str, dict] = {}
-    for name, k in methods.items():
+    for name, (k, options) in methods.items():
         # 필드별 오차 누적
         errors: dict[str, list[float]] = {f: [] for f in FIELDS}
         unpredicted: dict[str, int] = {f: 0 for f in FIELDS}
@@ -162,7 +246,7 @@ def evaluate(grids: dict, sido: dict, clim: dict) -> dict:
             if name == "sido_mean":
                 pred = predict_sido_mean(target, donors, sido, clim)
             else:
-                pred = predict_knn(target, donors, grids, clim, k)
+                pred = predict_knn(target, donors, grids, clim, k, **options)
 
             for month in MONTHS:
                 for field in FIELDS:
@@ -225,7 +309,11 @@ def main() -> None:
     finally:
         db.close()
 
-    report = evaluate(grids, sido, clim)
+    altitudes = load_region_altitudes()
+    if not altitudes:
+        print(f"[주의] {REGION_ALTITUDE.name}이 없어 고도 방식은 건너뛴다\n")
+    report = evaluate(grids, sido, clim, altitudes)
+    report["region_altitudes"] = len(altitudes)
 
     baseline = report["methods"]["nearest_1"]["normalized_mae_mean"]
     ranked = sorted(

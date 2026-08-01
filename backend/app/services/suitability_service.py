@@ -13,6 +13,7 @@ from app.models import CropGrowthGuide, CropGrowthStage, SoilState, UserFarm
 from app.services.climatology_service import (
     ClimatologyMonth,
     ClimatologySource,
+    lapse_limitation,
     load_climatology,
     substitution_limitation,
 )
@@ -365,7 +366,9 @@ def compute_farm_suitability(
     guides = [g for g in load_guides(db, farm.crop_id, stage or "") if usable_seasonal(g)]
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
     # 평년치가 없는 지역은 격자상 최근접 지역 값으로 대체하고 그 사실을 표기한다(§8.5).
-    clim_source = load_climatology(db, farm.region_id)
+    # 밭의 읍면동을 넘겨 기온을 고도 감률 보정한다 — 평년치는 시군구 단위인데 밭 위치는
+    # 읍면동까지 안다(토양 때문에 이미 그 해상도로 받고 있다).
+    clim_source = load_climatology(db, farm.region_id, farm.bjd_code)
     clim = clim_source.by_month.get(on_date.month)
 
     # 장기예보 보정은 read-time에만 얹는다(캐시 금지 — §3.13 B1).
@@ -395,6 +398,9 @@ def compute_farm_suitability(
     substitution = substitution_limitation(clim_source)
     if substitution is not None:
         limitations.insert(0, substitution)
+    lapse = lapse_limitation(clim_source)
+    if lapse is not None:
+        limitations.insert(0, lapse)
     limitations.append(OUTLOOK_APPLIED_LIMITATION if applied else OUTLOOK_MISSING_LIMITATION)
     if stage in ("coloring", "maturity"):
         limitations.append(APPLE_STAGE_LIMITATION)
@@ -524,7 +530,9 @@ def compute_monthly_outlook(
         db.scalars(select(CropGrowthGuide).where(CropGrowthGuide.crop_id == farm.crop_id))
     )
     soil = db.query(SoilState).filter(SoilState.user_farm_id == farm.id).first()
-    clim_source = load_climatology(db, farm.region_id)
+    # 밭의 읍면동을 넘겨 기온을 고도 감률 보정한다 — 평년치는 시군구 단위인데 밭 위치는
+    # 읍면동까지 안다(토양 때문에 이미 그 해상도로 받고 있다).
+    clim_source = load_climatology(db, farm.region_id, farm.bjd_code)
     clim_by_month = clim_source.by_month
 
     # 12개월 보정치를 1회 조회(월별 재조회 금지). read-time 적용이라 캐시하지 않는다.
@@ -552,6 +560,9 @@ def compute_monthly_outlook(
     substitution = substitution_limitation(clim_source)
     if substitution is not None:
         limitations.insert(0, substitution)
+    lapse = lapse_limitation(clim_source)
+    if lapse is not None:
+        limitations.insert(0, lapse)
     limitations.append(
         OUTLOOK_APPLIED_LIMITATION
         if any(m["outlook_applied"] for m in months)

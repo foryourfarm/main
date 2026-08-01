@@ -20,7 +20,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.infra.public_api.kma_grid import grid_to_latlon
-from app.models import Region, RegionGrid, WeatherClimatology
+from app.models import District, Region, RegionGrid, WeatherClimatology
 from app.services.sunlight_calculation import SunlightCalculation, SunlightResult
 
 GRID_KM = 5.0  # 기상청 단기예보 격자 간격
@@ -34,11 +34,47 @@ AWS_SOURCE_PREFIX = "aws_mean_"
 SUNLIGHT_MIN_CONFIDENCE = 0.90
 
 # 대체 시 섞을 도너 수. 임의값이 아니라 측정으로 고른 값이다 —
-# 116개 보유 지역 leave-one-out에서 정규화 MAE가 k=1(현행) 0.1901 → k=10 0.1692로
-# 10.99% 개선됐고, k=7~15가 평탄한 고원이며 k=115(전체)는 오히려 나빠진다(-0.63%).
-# 즉 전국 평균으로 회귀하는 게 아니라 실재하는 공간 신호다.
+# AWS 평년치 적재로 보유 지역이 116→255개가 되면서 도너가 촘촘해졌고, 그래서 최적 k가
+# 10에서 3으로 내려왔다. leave-one-out 정규화 MAE(255구역, 아래 고도 필터 포함):
+#     k=10 0.0901  /  k=5 0.0862  /  k=3 0.0846
 # 근거 전체: docs/ml/climatology_knn_validation.json, 재현: scripts/validate_climatology_knn.py
-KNN_K = 10
+KNN_K = 3
+
+# 고도가 이보다 벌어진 도너는 뺀다. 기온은 고도에 직접 지배되기 때문이다(환경감률
+# 약 0.65℃/100m) — 수평거리만 보면 한라산 지점과 해안 지점이 같은 후보에 든다.
+# 100m 근거는 두 갈래다: (1) 지점쌍 실측에서 0~100m 구간 MAE(0.98~1.07℃)가 지점 고유
+# 잡음과 구분되지 않는다. (2) leave-one-out에서 k=3 기준 무필터 대비 temp_avg MAE가
+# 0.4924 → 0.4667로 5.2% 좋아진다. `load_aws_climatology.ALTITUDE_TOLERANCE_M`과 같은 값이다.
+#
+# **트레이드오프(숨기지 않는다)**: 필터는 기온을 좋게 하지만 일사량은 약간 나쁘게 한다
+# (solar_radiation MAE 0.6734 → 0.6822, 1.3%). 고도가 일사량을 기온만큼 직접 지배하지
+# 않기 때문이다. 4개 필드 총합으로도 무필터(0.0842)와 0.5% 차이라 사실상 동률인데,
+# **고도가 물리적으로 지배하는 지표를 기준으로 정했다** — 이 프로젝트가 좁히려는 괴리가
+# 기온이고(문제정의서 A씨 실패 원인이 야간 저온), 총합은 필드 간 오차 여유에 휘둘린다.
+# 지표별로 다른 설정을 두는 건 이 차이가 측정으로 문제가 될 때 하면 된다.
+#
+# 고도를 수평거리로 환산해 가중에 섞는 "페널티" 방식도 재봤고 총합이 0.5~1% 나았지만,
+# 그 정도 차이는 데이터를 다시 적재할 때마다 뒤집혔다(재실행 간 순위가 바뀐다).
+# 재실행에 걸쳐 안정적인 신호는 "100m 필터가 temp_avg를 개선한다" 하나뿐이라 거기서
+# 멈췄고, 필터를 택한 건 `load_aws_climatology`가 이미 쓰는 방식이어서다 — 같은 개념을
+# 두 가지로 두지 않는다.
+KNN_ALTITUDE_TOLERANCE_M = 100.0
+
+# 필터 후 도너가 이 수 밑으로 떨어지면 필터를 포기한다. 근사가 없는 것보다는 낫다 —
+# 고립된 고지대 구역이 통째로 "데이터 없음"이 되는 걸 막는다.
+MIN_DONORS_AFTER_ALTITUDE_FILTER = 3
+
+# 환경감률(℃/100m). 표준대기 기온감률로 널리 쓰이는 값이며, 우리 지점쌍 실측과도 맞는다
+# (고도차 200~500m 구간 MAE 2.29℃ ≈ 350m × 0.65).
+LAPSE_RATE_C_PER_100M = 0.65
+
+# 감률 보정을 적용할 필드. 기온만이다 — 강수·일사는 고도와 이렇게 단순한 관계가 아니라
+# 같은 식으로 보정하면 근거 없는 값을 만들어내게 된다(§18-4).
+LAPSE_FIELDS = ("temp_avg_normal", "temp_night_min_normal")
+
+# 이보다 작은 고도차는 보정하지 않는다. SRTM 표고의 검증 오차가 MAE 8.8m라 그 언저리를
+# 보정하면 잡음을 증폭할 뿐이고, 20m는 0.13℃로 표기할 의미도 없다.
+MIN_LAPSE_DELTA_M = 20.0
 
 # 거리역수 가중의 0 나눗셈 방지. 같은 격자칸(거리 0) 도너가 있으면 사실상 그 도너가 전부를
 # 가져간다 — 같은 칸이면 그게 맞는 동작이다.
@@ -53,6 +89,11 @@ NORMAL_FIELDS = (
     "sunlight_normal",
     "solar_radiation_normal",
 )
+
+# 대체 시 함께 섞어야 하는 부가 필드. 채점 지표가 아니라 감률 보정의 기준선이라
+# NORMAL_FIELDS(결측 보충·한계 표기 대상)와 분리한다. 섞을 때는 값과 같은 가중을 써야
+# 기준선이 그 합성값을 실제로 대표한다.
+BLENDED_FIELDS = (*NORMAL_FIELDS, "reference_altitude_m")
 
 
 def _as_float(value: Decimal | None) -> float | None:
@@ -81,6 +122,8 @@ class MonthlyNormals:
     rainfall_normal: Decimal | None = None
     sunlight_normal: Decimal | None = None
     solar_radiation_normal: Decimal | None = None
+    reference_altitude_m: int | None = None
+    """이 값이 대표하는 고도(m) — 감률 보정 기준선. ORM과 같은 이름·의미다."""
 
 
 # 자기 지역 평년치는 ORM 행 그대로, 대체는 합성 값 객체다. 읽는 쪽은 둘을 구분하지 않고
@@ -110,6 +153,14 @@ class ClimatologySource:
     # 자기 행에 없어서 다른 지역에서 보충한 필드 이름들(예: solar_radiation_normal).
     # 한 지역 안에서도 지표마다 출처가 다를 수 있다 — AWS엔 일사량이 없기 때문이다.
     interpolated_fields: tuple[str, ...] = ()
+    # 감률 보정에 쓴 고도차(밭 - 평년치 기준선, m). None이면 보정하지 않았다.
+    lapse_delta_m: float | None = None
+    # 밭 고도를 어느 점에서 땄는지(`district.altitude_source`). 근사 정도가 다르다.
+    farm_altitude_source: str | None = None
+
+    @property
+    def is_lapse_corrected(self) -> bool:
+        return self.lapse_delta_m is not None
 
     @property
     def is_substituted(self) -> bool:
@@ -131,15 +182,31 @@ def _grid_distance_km(a: RegionGrid, b: RegionGrid) -> float:
 
 
 def _rank_donors(
-    my_grid: RegionGrid, candidates: list[tuple[RegionGrid, str]], k: int = KNN_K
-) -> list[tuple[RegionGrid, str]]:
-    """거리 오름차순 상위 k개 도너.
+    my_grid: RegionGrid,
+    candidates: list[tuple[RegionGrid, str, int | None]],
+    my_altitude: int | None = None,
+    k: int = KNN_K,
+) -> list[tuple[RegionGrid, str, int | None]]:
+    """거리 오름차순 상위 k개 도너. 고도가 동떨어진 후보는 먼저 걷어낸다.
 
     동거리면 `region_id` 작은 쪽 — 같은 입력이 항상 같은 도너 집합을 내야 한다(§2 결정론).
     격자가 5km 단위라 동거리 동점은 실제로 흔하다.
+
+    고도를 모르는 쪽이 있으면 그 후보는 거리만으로 판정한다 — 없는 정보로 도너를 버리면
+    그 구역이 통째로 비어버린다. 필터가 너무 많이 걷어내도 마찬가지라 포기한다.
     """
+    pool = candidates
+    if my_altitude is not None:
+        near_altitude = [
+            c
+            for c in candidates
+            if c[2] is None or abs(c[2] - my_altitude) <= KNN_ALTITUDE_TOLERANCE_M
+        ]
+        if len(near_altitude) >= MIN_DONORS_AFTER_ALTITUDE_FILTER:
+            pool = near_altitude
+
     return sorted(
-        candidates, key=lambda c: (_grid_distance_km(my_grid, c[0]), c[0].region_id)
+        pool, key=lambda c: (_grid_distance_km(my_grid, c[0]), c[0].region_id)
     )[:k]
 
 
@@ -154,8 +221,8 @@ def _weighted_normals(
 
     모든 도너가 결측인 필드는 `None`이다. 값을 지어내지 않는다(§18-4).
     """
-    values: dict[str, Decimal | None] = {}
-    for field_name in NORMAL_FIELDS:
+    values: dict[str, Decimal | int | None] = {}
+    for field_name in BLENDED_FIELDS:
         # `is None`으로만 판정한다 — 0.0을 결측으로 떨어뜨리면 강원 산간 1월 평년기온
         # 0.0℃가 사라진다(_as_float 주석의 기존 버그).
         pairs = [
@@ -168,6 +235,9 @@ def _weighted_normals(
             values[field_name] = None
             continue
         mean = sum(v * w for v, w in pairs) / total_weight
+        if field_name == "reference_altitude_m":
+            values[field_name] = round(mean)  # ORM과 같은 int
+            continue
         # Decimal로 되돌린다(호출부가 ORM Numeric과 같은 타입을 기대). 4자리면 기온 0.0001℃
         # 해상도라 충분하고, float 이진오차가 그대로 노출되는 것을 막는다.
         values[field_name] = Decimal(str(round(mean, 4)))
@@ -192,6 +262,7 @@ def _fill_missing_fields(
     my_grid: RegionGrid | None,
     by_month: dict[int, ClimatologyMonth],
     fields: list[str],
+    my_altitude: int | None = None,
 ) -> tuple[dict[int, MonthlyNormals], list[str]]:
     """자기 행에 없는 필드를 **그 필드를 가진 지역들**에서만 KNN으로 보충한다.
 
@@ -204,7 +275,7 @@ def _fill_missing_fields(
     """
     merged = {
         month: MonthlyNormals(
-            **{name: getattr(row, name, None) for name in NORMAL_FIELDS}
+            **{name: getattr(row, name, None) for name in BLENDED_FIELDS}
         )
         for month, row in by_month.items()
     }
@@ -225,7 +296,7 @@ def _fill_missing_fields(
             continue
 
         candidates = (
-            db.query(RegionGrid, Region.name)
+            db.query(RegionGrid, Region.name, Region.altitude_m)
             .join(Region, Region.id == RegionGrid.region_id)
             .filter(RegionGrid.region_id.in_(holder_ids))
             .all()
@@ -233,10 +304,10 @@ def _fill_missing_fields(
         if not candidates:
             continue
 
-        ranked = _rank_donors(my_grid, candidates)
+        ranked = _rank_donors(my_grid, candidates, my_altitude)
         weight_by_region = {
             grid.region_id: 1.0 / max(_grid_distance_km(my_grid, grid), MIN_DISTANCE_KM)
-            for grid, _ in ranked
+            for grid, _, _ in ranked
         }
         donor_rows = db.query(WeatherClimatology).filter(
             WeatherClimatology.region_id.in_(weight_by_region),
@@ -270,11 +341,71 @@ def _fill_missing_fields(
     return merged, filled
 
 
-def load_climatology(db: Session, region_id: int) -> ClimatologySource:
+def _apply_lapse_rate(
+    by_month: dict[int, ClimatologyMonth], farm_altitude: int
+) -> tuple[dict[int, ClimatologyMonth], float | None]:
+    """밭 고도와 평년치 기준 고도의 차이만큼 기온을 감률 보정한다. (보정된 값, 고도차 m).
+
+    평년치는 시군구 단위인데 밭 위치는 읍면동까지 안다 — 토양 때문에 이미 그 해상도로
+    받고 있어서다. 서귀포 평년치를 해안 기준으로 잘 만들어도 밭이 중산간 400m면 2.6℃
+    틀리는데, 그 격차를 여기서 좁힌다.
+
+    기준선은 `reference_altitude_m`(그 값이 실제로 대표하는 고도)이지 구역 대표 고도가
+    아니다 — 관측지점은 대표점보다 높은 경향이 있어 최대 370m(남원시) 벌어지고, 그걸
+    기준으로 잡으면 보정이 2.4℃ 틀어진다.
+
+    기준선을 모르는 달은 건드리지 않는다. 보정할 수 없는 값을 보정한 척하지 않는다(§18-4).
+    """
+    adjusted: dict[int, ClimatologyMonth] = {}
+    deltas: list[float] = []
+    for month, row in by_month.items():
+        reference = getattr(row, "reference_altitude_m", None)
+        delta = None if reference is None else farm_altitude - float(reference)
+        if delta is None or abs(delta) < MIN_LAPSE_DELTA_M:
+            adjusted[month] = row
+            continue
+
+        shift = Decimal(str(round(-LAPSE_RATE_C_PER_100M * delta / 100, 4)))
+        values = {name: getattr(row, name, None) for name in BLENDED_FIELDS}
+        for name in LAPSE_FIELDS:
+            if values[name] is not None:
+                values[name] = Decimal(str(values[name])) + shift
+        adjusted[month] = MonthlyNormals(**values)
+        deltas.append(delta)
+
+    # 달마다 기준선이 같으므로 대표값 하나면 충분하다(다르면 평균이 정직한 요약이다).
+    return adjusted, (sum(deltas) / len(deltas) if deltas else None)
+
+
+def _lapse_for_farm(
+    db: Session, by_month: dict[int, ClimatologyMonth], bjd_code: str | None
+) -> tuple[dict[int, ClimatologyMonth], float | None, str | None]:
+    """밭 읍면동 고도를 찾아 감률 보정을 적용한다. (보정된 값, 고도차, 고도 출처).
+
+    밭이 없거나(구역 단위 조회) 그 읍면동 고도를 모르면 아무것도 하지 않는다.
+    """
+    if bjd_code is None:
+        return by_month, None, None
+    district = db.query(District).filter(District.bjd_code == bjd_code).first()
+    if district is None or district.altitude_m is None:
+        return by_month, None, None
+    adjusted, delta = _apply_lapse_rate(by_month, district.altitude_m)
+    return adjusted, delta, district.altitude_source
+
+
+def load_climatology(
+    db: Session, region_id: int, bjd_code: str | None = None
+) -> ClimatologySource:
     """지역 평년치. 없으면 격자상 가까운 지역들의 거리 가중평균으로 대체한다.
+
+    `bjd_code`(밭의 읍면동)를 주면 그 고도로 기온을 감률 보정한다. 안 주면 종전과 같다 —
+    구역 단위로 평년치를 보는 호출부(지역 개요 등)는 밭이 없어서 보정할 기준이 없다.
 
     대체 후보도 없거나 격자 매핑이 없으면 빈 결과(결측) — 조용히 값을 만들어내지 않는다.
     """
+    my_altitude = (
+        db.query(Region.altitude_m).filter(Region.id == region_id).scalar()
+    )
     own = list(
         db.query(WeatherClimatology).filter(WeatherClimatology.region_id == region_id)
     )
@@ -285,18 +416,25 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
         missing = _missing_fields(by_month)
         if missing:
             my_grid = db.query(RegionGrid).filter(RegionGrid.region_id == region_id).first()
-            filled_by_month, filled = _fill_missing_fields(db, my_grid, by_month, missing)
+            filled_by_month, filled = _fill_missing_fields(
+                db, my_grid, by_month, missing, my_altitude
+            )
             if filled:
                 by_month = dict(filled_by_month)
         else:
             filled = []
 
+        by_month, lapse_delta_m, farm_altitude_source = _lapse_for_farm(
+            db, by_month, bjd_code
+        )
         clim_source = ClimatologySource(
             by_month=by_month,
             # 행이 자기 구역에 있다고 다 실측은 아니다 — AWS 적재분은 주변 지점을 섞은 값이라
             # 화면에 그 사실을 알려야 한다(§18-4). 소스는 행마다 같으므로 하나만 본다.
             source=own[0].source,
             interpolated_fields=tuple(filled),
+            lapse_delta_m=lapse_delta_m,
+            farm_altitude_source=farm_altitude_source,
         )
         clim_source = _add_sunlight_to_climatology(db, clim_source, region_id)
         return clim_source
@@ -307,7 +445,7 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
 
     # 평년치 보유 지역 + 격자를 한 번에 가져와 메모리에서 이웃을 찾는다(지역당 재조회 방지).
     candidates = (
-        db.query(RegionGrid, Region.name)
+        db.query(RegionGrid, Region.name, Region.altitude_m)
         .join(Region, Region.id == RegionGrid.region_id)
         .filter(
             RegionGrid.region_id.in_(
@@ -319,11 +457,11 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     if not candidates:
         return ClimatologySource(by_month={})
 
-    ranked = _rank_donors(my_grid, candidates)
+    ranked = _rank_donors(my_grid, candidates, my_altitude)
 
     rows = list(
         db.query(WeatherClimatology).filter(
-            WeatherClimatology.region_id.in_([grid.region_id for grid, _ in ranked])
+            WeatherClimatology.region_id.in_([grid.region_id for grid, _, _ in ranked])
         )
     )
     if not rows:
@@ -333,7 +471,7 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     present = {row.region_id for row in rows}
     donors = [
         (grid, name, _grid_distance_km(my_grid, grid))
-        for grid, name in ranked
+        for grid, name, _ in ranked
         if grid.region_id in present
     ]
     weight_by_region = {
@@ -352,11 +490,16 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
         month: _weighted_normals(entries) for month, entries in rows_by_month.items()
     }
 
+    by_month, lapse_delta_m, farm_altitude_source = _lapse_for_farm(
+        db, by_month, bjd_code
+    )
     clim_source = ClimatologySource(
         by_month=by_month,
         substituted_from=donors[0][1],
         distance_km=round(donors[0][2], 1),
         donors=tuple((name, round(distance, 1)) for _, name, distance in donors),
+        lapse_delta_m=lapse_delta_m,
+        farm_altitude_source=farm_altitude_source,
     )
 
     # 일조 환산은 **대체받는 지역 자신의** 위도로 한다. 가조시간은 값이 아니라 위치의 함수라
@@ -437,6 +580,8 @@ def _add_sunlight_to_climatology(
         donors=clim_source.donors,
         source=clim_source.source,  # 빠뜨리면 한계 문구 판정이 조용히 실측으로 되돌아간다
         interpolated_fields=clim_source.interpolated_fields,
+        lapse_delta_m=clim_source.lapse_delta_m,
+        farm_altitude_source=clim_source.farm_altitude_source,
     )
 
 
@@ -446,6 +591,30 @@ def _add_sunlight_to_climatology(
 # 나머지는 **개수와 거리 범위**로 밝힌다 — 전체 목록은 `ClimatologySource.donors`에 있어
 # 프론트가 펼쳐 보여줄 수 있다. 대체 사실 자체는 숨기지 않는다(§18-4).
 LIMITATION_NAMED_DONORS = 3
+
+
+def lapse_limitation(source: ClimatologySource) -> str | None:
+    """감률 보정 사실을 알리는 한계 문구. 보정하지 않았으면 None.
+
+    보정 자체가 근사다(환경감률 0.65℃/100m는 지형·계절·주야를 구분하지 않는다). 게다가
+    밭 고도도 밭의 실측이 아니라 읍·면·동 대표점이다 — 숨기면 안 된다(§18-4).
+    """
+    if source.lapse_delta_m is None:
+        return None
+
+    delta = source.lapse_delta_m
+    shift = -LAPSE_RATE_C_PER_100M * delta / 100
+    direction = "높아" if delta > 0 else "낮아"
+    basis = (
+        "소속 읍·면·동 대표 지점"
+        if source.farm_altitude_source == "emd_point"
+        else "시·군 대표 지점"
+    )
+    return (
+        f"밭 위치가 평년치 관측 기준보다 약 {abs(delta):.0f}m {direction} "
+        f"기온을 {shift:+.1f}℃ 보정했습니다(감률 0.65℃/100m). "
+        f"밭의 실측 고도가 아니라 {basis}의 고도라 실제와 차이가 있을 수 있습니다."
+    )
 
 
 def substitution_limitation(source: ClimatologySource) -> str | None:
