@@ -168,8 +168,13 @@ docker ps   # foryourfarm-db 가 보이면 정상
 
 **frontend/.env.local**
 ```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
+NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
+
+- 변수명은 `NEXT_PUBLIC_API_BASE`다(`frontend/lib/auth.ts`). `_URL`을 붙이면 코드가 못 읽고
+  기본값으로 조용히 넘어간다 — 화면엔 에러가 안 뜨고 요청만 안 간다.
+- **`/api/v1`을 붙이지 않는다.** 경로는 `authFetch`가 붙인다. 넣으면 `/api/v1/api/v1/...`이 된다.
+- 포트는 **8000**이다. 백엔드를 8080으로 띄우면 프론트가 못 찾는다(아래 [실행](#실행)과 맞출 것).
 
 **`.env`** — 리포 **루트**에 둔다 (`.env.example` 복사해서 사용)
 ```
@@ -191,10 +196,13 @@ SOIL_API_KEY=      # 흙토람 — 발급 전까지 비움
 # 0. DB가 안 떠 있다면 먼저 (PostgreSQL 로컬 구축 참고)
 docker compose up -d
 
-# backend (localhost:8080)
+# backend (localhost:8000 — 프론트 기본값과 맞춰야 한다)
 cd backend
 .venv/Scripts/alembic upgrade head        # 최초/스키마 변경 시
-.venv/Scripts/uvicorn app.main:app --reload --port 8080
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+
+# 법정동 마스터(읍면동 + 리 20,275행) — 밭 등록 선택지·토양 조회 키
+.venv/Scripts/python ../scripts/load_districts.py
 
 # frontend (localhost:3000)
 cd frontend
@@ -230,26 +238,65 @@ backend/.venv/Scripts/python.exe scripts/embed_corpus.py   # 5작물 청크 임�
 
 ## Build / Deploy
 
-GCP Cloud Run 기준. 백엔드는 컨테이너(Dockerfile)로 빌드해 배포한다.
+GCP Cloud Run 기준. 백엔드·프론트 모두 컨테이너로 빌드해 배포한다.
+
+**순서가 중요하다.** 아래 ①②를 건너뛰고 배포하면 밭 등록이 FK 위반으로 깨지고,
+④를 건너뛰면 프론트가 백엔드를 못 찾는다. 이유는 각 단계에 적어뒀다.
+
+### ① DB 스키마 최신화
 
 ```bash
-# backend
-cd backend
-gcloud builds submit --tag gcr.io/<PROJECT_ID>/foryourfarm-backend
+cloud-sql-proxy <PROJECT_ID>:<REGION>:<INSTANCE> --port 5432 &
+cd backend && .venv/Scripts/alembic upgrade head
+```
+
+### ② 법정동 마스터 적재 — **백엔드 배포보다 먼저**
+
+```bash
+.venv/Scripts/python ../scripts/load_districts.py   # 20,275행(읍면동 5,066 + 리 15,209)
+```
+
+`user_farm.bjd_code`가 `district`를 FK로 건다. 리 행이 없는 상태로 백엔드가 뜨면
+유저가 리를 고르는 순간 등록이 실패한다. 멱등(upsert)이라 여러 번 돌려도 안전하다.
+
+### ③ 백엔드 빌드·배포
+
+```bash
+# 리포 루트에서. cd backend 하면 안 된다 — 컨텍스트가 루트여야 docs/seed/가 이미지에 들어간다
+gcloud builds submit --config cloudbuild.yaml .
 gcloud run deploy foryourfarm-backend \
   --image gcr.io/<PROJECT_ID>/foryourfarm-backend \
   --add-cloudsql-instances <PROJECT_ID>:<REGION>:<INSTANCE> \
-  --set-env-vars DATABASE_URL=...,LLM_BASE_URL=...
-
-# frontend
-cd frontend
-gcloud builds submit --tag gcr.io/<PROJECT_ID>/foryourfarm-frontend
-gcloud run deploy foryourfarm-frontend \
-  --set-env-vars NEXT_PUBLIC_API_BASE_URL=...
+  --set-env-vars DATABASE_URL=...,LLM_BASE_URL=...,WEATHER_API_KEY=...,SOIL_API_KEY=...
 ```
 
+`--tag` 방식은 쓸 수 없다. 그건 컨텍스트 루트의 `Dockerfile`만 찾는데 우리 것은
+`backend/Dockerfile`이고 컨텍스트는 리포 루트여야 한다(`backend/Dockerfile` 주석 참고).
+그 조합을 만들려고 `cloudbuild.yaml`을 둔다.
+
+배포된 백엔드 URL을 받아둔다 — 다음 단계에서 쓴다.
+
+```bash
+gcloud run services describe foryourfarm-backend --format='value(status.url)'
+```
+
+### ④ 프론트 빌드·배포 — 백엔드 URL을 **빌드 시점에** 넣는다
+
+```bash
+gcloud builds submit --config cloudbuild.frontend.yaml \
+  --substitutions=_API_BASE=https://foryourfarm-backend-xxxx.run.app frontend
+gcloud run deploy foryourfarm-frontend \
+  --image gcr.io/<PROJECT_ID>/foryourfarm-frontend
+```
+
+`NEXT_PUBLIC_*`은 `next build` 때 클라이언트 번들에 굳는다. **`gcloud run deploy
+--set-env-vars`로는 못 바꾼다** — 런타임에 주입해도 이미 빌드된 번들은 기본값
+(`http://localhost:8000`)을 들고 있어서, 배포는 성공하는데 브라우저가 localhost를 부른다.
+백엔드 URL이 바뀌면 프론트를 **다시 빌드**해야 한다.
+
 - 배포는 `main` 브랜치 기준으로만 진행한다(아래 [브랜치 전략](#브랜치-전략)).
-- 백엔드 `Dockerfile`은 아직 미작성(배포 착수 시 추가).
+- 로컬에서 이미지를 확인하려면:
+  `docker build -f backend/Dockerfile .` / `docker build -f frontend/Dockerfile frontend`
 
 ---
 
