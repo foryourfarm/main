@@ -283,16 +283,34 @@ echo "$DATABASE_URL" | sed -E 's#://[^:]+:[^@]+@#://***:***@#'   # 비번 가린
 떠 있는 서비스에서 값을 그대로 읽어온다 — 오타가 없고, **엉뚱한 DB에 마이그레이션이 갈
 위험이 사라진다.** 마지막 줄이 `?host=/cloudsql/...` 소켓 형식인지 확인한다(②와 맞물린다).
 
-### ④ 스키마 + 법정동 마스터 — **백엔드 배포보다 먼저**
+### ④ 스키마 + 시드 — **백엔드 배포보다 먼저**
 
 ```bash
 (cd backend && .venv/bin/python -m alembic upgrade head)
 backend/.venv/bin/python scripts/load_districts.py   # 20,275행(읍면동 5,066 + 리 15,209)
+backend/.venv/bin/python scripts/audit_seeds.py      # 나머지 시드가 비었는지 먼저 센다
 ```
 
 `user_farm.bjd_code`가 `district`를 FK로 건다. 리 행이 없는 상태로 백엔드가 뜨면
 유저가 리를 고르는 순간 등록이 실패한다. 멱등(upsert)이라 여러 번 돌려도 안전하다.
 **20,275행이 아니라 5,066행이 나오면 리 시드가 빠진 것이므로 멈춘다.**
+
+**법정동만 넣으면 안 된다.** 나머지 시드는 없어도 예외가 나지 않고 "데이터 부족"·"보정 없음"으로
+조용히 degrade하도록 설계돼 있어서(§12, §18-5) **증상이 화면에 뜰 때까지 모른다.** 실제로
+2026-08-01 배포에서 3개월전망이 비어 있는 걸 장기 탭 한계 문구를 읽고서야 알았다.
+`audit_seeds.py`가 비었다고 표시한 것만 골라 돌린다:
+
+| 스크립트 | 주기 | 비었을 때 증상 |
+|---|---|---|
+| `load_weather_outlook.py` | **매월**(23일 전후 발표) | 장기 탭에 "3개월전망이 적재되지 않아 보정 없이 평년치만 사용" |
+| `load_region_grid.py` | 1회(256행 고정) | 단기 탭 전멸 + 평년치 KNN 거리계산 불가 |
+| `load_weather_climatology.py` | 소스 CSV 바뀔 때 | 장기 탭 12칸 "데이터 부족" |
+| `load_observation_points.py` | 1회(752행) | 관측지점 폴백 경로 없음 |
+| `load_solar_radiation_normal.py` | 1회 | 일조 지표가 계속 빈다 |
+| `embed_corpus.py` | 코퍼스 바뀔 때 | 챗봇 근거 0건 → 전부 "확실치 않음" 폴백. **Ollama가 떠 있어야 한다** |
+
+`load_weather_outlook.py`만 주기적이다 — 매월 발표를 안 받으면 **에러 없이 조용히** 낡은
+예보로 남는다(자동 스케줄러 없음).
 
 ### ⑤ 백엔드 빌드·배포 — **env 플래그를 붙이지 않는다**
 
@@ -333,9 +351,15 @@ gcloud run deploy foryourfarm-frontend \
 
 서비스명을 그대로 두면 URL이 안 바뀌므로 `CORS_ORIGINS`를 손댈 필요가 없다.
 
-### ⑦ 배포 확인 — 조용히 깨지는 3가지를 짚는다
+### ⑦ 배포 확인 — 조용히 깨지는 것들을 짚는다
 
-브라우저에서 프론트를 열고 콘솔에서:
+먼저 시드를 센다(프록시 탭이 아직 떠 있어야 한다):
+
+```bash
+backend/.venv/bin/python scripts/audit_seeds.py
+```
+
+비어 있거나 부분 적재면 exit 1로 알려준다. 통과하면 브라우저에서 프론트를 열고 콘솔에서:
 
 ```js
 // (1) 번들에 백엔드 URL이 박혔는가 — localhost가 나오면 ⑥ 실패
