@@ -1,16 +1,28 @@
-variable,ideal_value,ideal_min,ideal_max,unit,source,scope
-ph,6.5,6.0,7.0,-,"FarmML baselines.py OPT_BAND. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(1.0)의 ±50%(0.5) 확장. [확인 필요] 흙토람 공식 완충구간(진단기준표)이 로컬에 없어 실제 부족/과잉 경계가 아님, 향후 문헌 확보 시 교체.",soil
-organic_matter,25.0,20.0,30.0,g/kg,"흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(10.0)의 ±50%(5.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상.",soil
-available_p,425.0,300.0,550.0,mg/kg,"흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(250.0)의 ±50%(125.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상.",soil
-temperature_09001_04-10,16.5,14.5,18.5,C,"memory/crop_rules/09001 (사과 문헌 시드, 2026-07-25-v2)",crop:09001:사과:months=04-10
-temperature_04009_04-09,26.5,25.0,28.0,C,"memory/crop_rules/04009 (오이 문헌 시드, 2026-07-25-v2)",crop:04009:오이:months=04-09
-soil_ph_04009,6.15,5.5,6.8,-,"memory/crop_rules/04009 (오이 작물전용 override, 2026-07-25-v2)",crop:04009:오이:soil_override
-temperature_07001_01-12,23.0,22.0,24.0,C,"memory/crop_rules/07001 (상추 문헌 시드, 2026-07-25-v2)",crop:07001:상추:months=01-12
-soil_ph_07001,6.75,6.5,7.0,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
-soil_available_p_07001,325.0,250.0,400.0,mg/kg,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
-soil_k_07001,0.5,0.4,0.6,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
-soil_ca_07001,6.5,6.0,7.0,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
-soil_mg_07001,2.25,2.0,2.5,-,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
-temperature_09011_04-10,20.0,18.5,21.5,C,"memory/crop_rules/09011 (배 문헌 시드, 2026-07-25-v2)",crop:09011:배:months=04-10
-temperature_03001_03-06,16.65,14.0,19.3,C,"memory/crop_rules/03001 (감자 문헌 시드, 2026-07-25-v2)",crop:03001:감자:months=03-06
-soil_organic_matter_03001,38.5,30.0,47.0,g/kg,"memory/crop_rules/03001 (감자 작물전용 override, 2026-07-25-v2)",crop:03001:감자:soil_override
+variable,ideal_value,ideal_min,ideal_max,unit,method,source,scope
+ph,6.5,6.0,7.0,-,unknown [확인 필요] — 원 출처(baselines.py OPT_BAND)가 추출비(1:5 물 / 1:5 KCl 등)를 명시하지 않는다. data/01_soil_chemistry_modified.csv의 pH 컬럼 측정법도 미확인.,"FarmML baselines.py OPT_BAND. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(1.0)의 ±50%(0.5) 확장. [확인 필요] 흙토람 공식 완충구간(진단기준표)이 로컬에 없어 실제 부족/과잉 경계가 아님, 향후 문헌 확보 시 교체.",soil
+organic_matter,25.0,20.0,30.0,g/kg,unknown [확인 필요] — Tyurin/Walkley-Black 등 정량법 미명시. 단위 g/kg는 확인됨.,"흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(10.0)의 ±50%(5.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상.",soil
+available_p,425.0,300.0,550.0,mg/kg,"unknown [확인 필요] — 🔴 이 지표가 프로토콜 차이의 최대 위험군이다. RDA 비료사용처방은 Bray-1로 30~50 mg/kg, RDA 교본 개량목표는 200~300 mg/kg으로 약 6배 갈린다(Lancaster 계열 추정, 교본에 측정법 명시 없음). 라이브 밴드 300~550이 어느 프로토콜인지 모르는 상태이며, 흙토람 실측값의 추출법도 미확인이라 '문헌 대비 편차'가 같은 척도 위에서 계산되는지 자체가 보장되지 않는다.","[확인 필요] 출처 미확인 — 이 밴드의 실제 계보는 scripts/ml/baselines.py OPT_BAND(delta_available_p 300~550)이며 그 코드에는 출처 주석이 없다. 종전 '흙토람 과수원 토양 구성요소' 표기는 2026-08-01 감사(docs/ml/memory_consistency_audit.md B-1)에서 근거 없는 승격으로 판정돼 철회했다(값은 미변경, 사용자 확인). 교차 반증: RDA 비료사용처방 Bray-1 30~50 mg/kg(memory/registry.md §1 사과 p2o5, filled), RDA 교본 개량목표 200~300 mg/kg(SangUk_Research-Report1.md §2-4) — 둘 다 이 밴드보다 낮고 라이브 밴드만 그 위에 통째로 있다. 실측 중앙값 419.7 mg/kg(memory/indicator_dispersion.json)이 밴드 한가운데라 데이터 역산 가능성도 배제 못 함. 측정 프로토콜(추출법) 미기록이 6배 차이의 원인일 수 있다. 흙토람 공식 진단기준표 확보 시 교체 대상. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(250.0)의 ±50%(125.0) 확장.",soil
+temperature_09001_04-10,16.5,14.5,18.5,C,지역 월평균 대기기온의 4~10월 산술평균(data/03_weather_monthly_modified.csv). [확인 필요] 원 출처(arccas 재배적지 표)가 '생육기기온'을 어떤 기준기간·관측고도·공간해상도로 산출했는지 미확인 — 우리 산출 방식과 동일하다는 보장이 없다.,"memory/crop_rules/09001 (사과 문헌 시드, 2026-07-25-v2)",crop:09001:사과:months=04-10
+soil_available_p_09001,250.0,200.0,300.0,mg/kg,unknown [확인 필요] — 교본이 추출법을 명시하지 않는다. RDA 비료사용처방 Bray-1(30~50)과 약 6배 갈리는 원인일 가능성이 높다.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+soil_organic_matter_09001,30.0,25.0,35.0,g/kg,unknown [확인 필요] — 정량법 미명시. 단위 g/kg 확인.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+soil_ph_09001,6.25,6.0,6.5,-,unknown [확인 필요] — 교본이 pH 추출비를 명시하지 않는다.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+soil_k_09001,0.75,0.6,0.9,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+soil_ca_09001,5.5,5.0,6.0,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+soil_mg_09001,1.75,1.5,2.0,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09001 (사과 작물전용 override, 2026-07-25-v2)",crop:09001:사과:soil_override
+temperature_04009_04-09,26.5,25.0,28.0,C,"지역 월평균 대기기온의 4~9월 산술평균. 원 문헌은 '생육적온(주간) 대기 기온'이라 대상 물리량은 일치하나 문헌은 주간, 우리는 월평균(주야 혼합)이라 [확인 필요]. 근권 지온이 아님은 확인됨(2026-07-25 P14 교체 경위).","memory/crop_rules/04009 (오이 문헌 시드, 2026-07-25-v2)",crop:04009:오이:months=04-09
+soil_ph_04009,6.15,5.5,6.8,-,unknown [확인 필요] — 제주농기원 재배기술서가 추출비를 명시하지 않는다.,"memory/crop_rules/04009 (오이 작물전용 override, 2026-07-25-v2)",crop:04009:오이:soil_override
+temperature_07001_04.05.09.10,23.0,22.0,24.0,C,지역 월평균 대기기온의 봄·가을 작기월(4·5·9·10월) 산술평균. 원 문헌은 항온챔버 일평균기온(ADT)이라 대상 물리량은 일치하나 노지 일교차가 반영되지 않는다 [확인 필요].,"memory/crop_rules/07001 (상추 문헌 시드, 2026-07-25-v2)",crop:07001:상추:months=04.05.09.10
+soil_ph_07001,6.75,6.5,7.0,-,unknown [확인 필요] — RDA 2022 노지 상추 진단기준표가 pH 추출비를 명시하지 않는다.,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_available_p_07001,325.0,250.0,400.0,mg/kg,unknown [확인 필요] — 🔴 RDA 진단기준표가 추출법(Lancaster/Bray-1 등)을 명시하지 않는다. 공유 available_p와 같은 프로토콜 이슈(최대 6배)에 노출.,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_k_07001,0.5,0.4,0.6,-,unknown [확인 필요] — 치환성 양이온 침출액(1N NH4OAc 등) 미명시. 단위 cmol/kg만 확인.,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_ca_07001,6.5,6.0,7.0,-,unknown [확인 필요] — k와 동일.,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+soil_mg_07001,2.25,2.0,2.5,-,unknown [확인 필요] — k와 동일.,"memory/crop_rules/07001 (상추 작물전용 override, 2026-07-25-v2)",crop:07001:상추:soil_override
+temperature_09011_04-10,20.0,18.5,21.5,C,지역 월평균 대기기온의 4~10월 산술평균(data/03_weather_monthly_modified.csv). [확인 필요] 사과와 동일 — 원 출처의 기준기간·관측고도·공간해상도 미확인.,"memory/crop_rules/09011 (배 문헌 시드, 2026-07-25-v2)",crop:09011:배:months=04-10
+soil_available_p_09011,250.0,200.0,300.0,mg/kg,unknown [확인 필요] — 교본이 추출법을 명시하지 않는다. RDA 비료사용처방 Bray-1(30~50)과 약 6배 갈리는 원인일 가능성이 높다.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+soil_organic_matter_09011,30.0,25.0,35.0,g/kg,unknown [확인 필요] — 정량법 미명시. 단위 g/kg 확인.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+soil_ph_09011,6.25,6.0,6.5,-,unknown [확인 필요] — 교본이 pH 추출비를 명시하지 않는다.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+soil_k_09011,0.45,0.3,0.6,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+soil_ca_09011,5.5,5.0,6.0,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+soil_mg_09011,1.75,1.5,2.0,-,unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.,"memory/crop_rules/09011 (배 작물전용 override, 2026-07-25-v2)",crop:09011:배:soil_override
+temperature_03001_03-06,16.65,14.0,19.3,C,지역 월평균 대기기온의 3~6월 산술평균. 원 논문은 온도구배하우스 재배기간 일평균 기온이라 대상 물리량은 일치하나 시설/노지 차이가 있다 [확인 필요].,"memory/crop_rules/03001 (감자 문헌 시드, 2026-07-25-v2)",crop:03001:감자:months=03-06
+soil_organic_matter_03001,38.5,30.0,47.0,g/kg,unknown [확인 필요] — P10(정진철 외 2003)이 유기물 정량법을 명시하지 않는다. 단위 g/kg만 확인됨.,"memory/crop_rules/03001 (감자 작물전용 override, 2026-07-25-v2)",crop:03001:감자:soil_override

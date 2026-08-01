@@ -34,7 +34,7 @@ from sklearn.preprocessing import StandardScaler
 ROOT = Path(__file__).resolve().parents[2]
 # 원본 산출물 이관 시 `outcomes/data/`는 함께 오지 않았다(git 미추적). 동일 파일명 데이터가
 # 레포 루트 `/data`에 있어 거기를 가리킨다 — outcomes/ 안에 데이터를 중복 복사하지 않는다.
-DATA = ROOT.parent / "data"
+DATA = ROOT / "data"
 OUT = DATA / "ml" / "crop_literature_anchor_experiment.csv"
 MANIFEST = DATA / "ml" / "crop_literature_anchor_manifest.json"
 SCORE_YEAR = 2025
@@ -86,6 +86,16 @@ def climate_features(regions, w):
         annual_precip=("precipitation", "sum"),
         weather_months=("month", "nunique"),
     ).reset_index()
+    # 관측월이 12개 미만인 지역의 연간 집계는 연평균이 아니다 — 2026-08-01에 문경 흥덕동이
+    # 1월(-3.0℃) 한 달만 유효한데 annual_mean_temp=-3.0으로 실려 KNN 예측인자·군집 피처를
+    # 왜곡하고 있었다. 부분 관측은 결측으로 돌린다(가짜 연평균을 만들지 않는다).
+    #
+    # `weather_months`(=month.nunique())로는 못 잡는다: 그 지역은 12개월 행이 다 있고
+    # avg_temp만 11개월이 NaN이라 nunique는 12다. 값이 실제로 있는 월을 따로 센다.
+    valid = w.dropna(subset=["avg_temp"]).groupby("region_code")["month"].nunique()
+    agg["valid_temp_months"] = agg["region_code"].map(valid).fillna(0).astype(int)
+    partial = agg["valid_temp_months"] < 12
+    agg.loc[partial, ["annual_mean_temp", "temp_seasonality", "annual_precip"]] = float("nan")
     grow_agg = grow.groupby("region_code").agg(growing_temp=("avg_temp", "mean")).reset_index()
     return regions.merge(agg, on="region_code", how="left").merge(grow_agg, on="region_code", how="left")
 
