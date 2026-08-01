@@ -16,8 +16,7 @@
 - [설치](#설치)
 - [환경 변수](#환경-변수)
 - [실행](#실행)
-- [Build](#build)
-- [Deploy](#deploy)
+- [Build / Deploy](#build--deploy)
 - [Cloud SQL 연결](#cloud-sql-연결)
 - [개발 규칙](#개발-규칙)
 - [브랜치 전략](#브랜치-전략)
@@ -238,55 +237,93 @@ backend/.venv/Scripts/python.exe scripts/embed_corpus.py   # 5작물 청크 임�
 
 ## Build / Deploy
 
-GCP Cloud Run 기준. 백엔드·프론트 모두 컨테이너로 빌드해 배포한다.
+GCP Cloud Run 기준. **Cloud Shell에서 손으로 진행한다** — 아래 순서를 그대로 따른다.
 
-**순서가 중요하다.** 아래 ①②를 건너뛰고 배포하면 밭 등록이 FK 위반으로 깨지고,
-④를 건너뛰면 프론트가 백엔드를 못 찾는다. 이유는 각 단계에 적어뒀다.
+이 절차는 2026-08-01 실제 배포로 검증했다. 스크립트로 감싸지 않는 이유는 §맨 아래 참고.
 
-### ① DB 스키마 최신화
+**순서가 중요하다.** ④를 건너뛰면 밭 등록이 FK 위반으로 깨지고, ⑥을 건너뛰면 프론트가
+백엔드를 못 찾는다. 둘 다 **배포 시점엔 성공한 것처럼 보인다.**
+
+### ① 리포 준비
 
 ```bash
-cloud-sql-proxy <PROJECT_ID>:<REGION>:<INSTANCE> --port 5432 &
-cd backend && .venv/Scripts/alembic upgrade head
+gh auth login && gh repo clone foryourfarm/main foryourfarm -- -b dev --depth 1 && cd foryourfarm
+python3 -m venv backend/.venv && backend/.venv/bin/pip install -q -r backend/requirements.txt
 ```
 
-### ② 법정동 마스터 적재 — **백엔드 배포보다 먼저**
+### ② Cloud SQL 프록시 — **unix 소켓으로** (별도 탭, 켜둔 채로)
 
 ```bash
-.venv/Scripts/python ../scripts/load_districts.py   # 20,275행(읍면동 5,066 + 리 15,209)
+export CONN=$(gcloud sql instances list --format='value(connectionName)' | head -1)
+curl -LO https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.3/cloud-sql-proxy.linux.amd64
+mv cloud-sql-proxy.linux.amd64 ~/cloud-sql-proxy && chmod +x ~/cloud-sql-proxy
+sudo mkdir -p /cloudsql && sudo chown $USER /cloudsql
+~/cloud-sql-proxy --unix-socket /cloudsql "$CONN"
+```
+
+TCP(`--port 5432`)가 아니라 **소켓**이어야 한다. Cloud Run이 쓰는 `DATABASE_URL`이
+`?host=/cloudsql/<CONN>` 형식이라, 프록시를 같은 경로에 띄우면 **하나의 값이 로컬 DB 단계와
+Cloud Run 양쪽에 그대로 맞는다.** TCP로 띄우면 URL을 두 벌 관리해야 한다.
+
+`Listening on /cloudsql/...` + `ready for new connections!`가 뜨면 그 탭은 그대로 둔다.
+
+> 다운로드가 33MB다. `curl -s`로 받으면 진행률이 안 보여서 멈춘 것처럼 착각한다.
+> 중간에 끊겼으면 `curl -L -C -`로 이어받는다(파일 크기가 33MB 미만이면 잘린 것).
+
+### ③ 접속 정보 — 비밀번호를 타이핑하지 않는다
+
+```bash
+export CONN=foryourfarm-hackathon:asia-northeast3:foryourfarm-db
+export DATABASE_URL=$(gcloud run services describe foryourfarm-backend \
+  --region asia-northeast3 --format=json \
+  | python3 -c "import json,sys; print(next(e['value'] for e in json.load(sys.stdin)['spec']['template']['spec']['containers'][0]['env'] if e['name']=='DATABASE_URL'))")
+echo "$DATABASE_URL" | sed -E 's#://[^:]+:[^@]+@#://***:***@#'   # 비번 가린 확인
+```
+
+떠 있는 서비스에서 값을 그대로 읽어온다 — 오타가 없고, **엉뚱한 DB에 마이그레이션이 갈
+위험이 사라진다.** 마지막 줄이 `?host=/cloudsql/...` 소켓 형식인지 확인한다(②와 맞물린다).
+
+### ④ 스키마 + 법정동 마스터 — **백엔드 배포보다 먼저**
+
+```bash
+(cd backend && .venv/bin/python -m alembic upgrade head)
+backend/.venv/bin/python scripts/load_districts.py   # 20,275행(읍면동 5,066 + 리 15,209)
 ```
 
 `user_farm.bjd_code`가 `district`를 FK로 건다. 리 행이 없는 상태로 백엔드가 뜨면
 유저가 리를 고르는 순간 등록이 실패한다. 멱등(upsert)이라 여러 번 돌려도 안전하다.
+**20,275행이 아니라 5,066행이 나오면 리 시드가 빠진 것이므로 멈춘다.**
 
-### ③ 백엔드 빌드·배포
+### ⑤ 백엔드 빌드·배포 — **env 플래그를 붙이지 않는다**
 
 ```bash
-# 리포 루트에서. cd backend 하면 안 된다 — 컨텍스트가 루트여야 docs/seed/가 이미지에 들어간다
-gcloud builds submit --config cloudbuild.yaml .
+gcloud builds submit --config cloudbuild.yaml --project <PROJECT_ID> .
 gcloud run deploy foryourfarm-backend \
   --image gcr.io/<PROJECT_ID>/foryourfarm-backend \
-  --add-cloudsql-instances <PROJECT_ID>:<REGION>:<INSTANCE> \
-  --set-env-vars DATABASE_URL=...,LLM_BASE_URL=...,WEATHER_API_KEY=...,SOIL_API_KEY=...
+  --project <PROJECT_ID> --region asia-northeast3
 ```
+
+`--set-env-vars`를 쓰면 **기존 환경변수 전체가 교체된다.** 서비스에 이미 들어 있는
+`JWT_SECRET`·`CORS_ORIGINS`·`LLM_BASE_URL`·공공 API 키 7종이 전부 삭제되고, 그러면
+CORS가 `localhost:3000`으로 돌아가 **프론트의 모든 요청이 차단**되고 토양 API는 401이 된다.
+갱신 배포에서는 env 플래그를 **아무것도 붙이지 않는 것이 정답**이다 — 이미지만 바꾸면
+나머지 설정은 그대로 유지된다. `--add-cloudsql-instances`도 이미 붙어 있어 다시 줄 필요 없다.
+
+일부만 바꿔야 하면 `--set-env-vars`가 아니라 `--update-env-vars`를 쓴다(지정한 것만 덮어씀).
 
 `--tag` 방식은 쓸 수 없다. 그건 컨텍스트 루트의 `Dockerfile`만 찾는데 우리 것은
 `backend/Dockerfile`이고 컨텍스트는 리포 루트여야 한다(`backend/Dockerfile` 주석 참고).
 그 조합을 만들려고 `cloudbuild.yaml`을 둔다.
 
-배포된 백엔드 URL을 받아둔다 — 다음 단계에서 쓴다.
+### ⑥ 프론트 빌드·배포 — 백엔드 URL을 **빌드 시점에** 넣는다
 
 ```bash
-gcloud run services describe foryourfarm-backend --format='value(status.url)'
-```
-
-### ④ 프론트 빌드·배포 — 백엔드 URL을 **빌드 시점에** 넣는다
-
-```bash
-gcloud builds submit --config cloudbuild.frontend.yaml \
-  --substitutions=_API_BASE=https://foryourfarm-backend-xxxx.run.app frontend
+gcloud builds submit --config cloudbuild.frontend.yaml --project <PROJECT_ID> \
+  --substitutions=_API_BASE=$(gcloud run services describe foryourfarm-backend \
+    --region asia-northeast3 --format='value(status.url)') frontend
 gcloud run deploy foryourfarm-frontend \
-  --image gcr.io/<PROJECT_ID>/foryourfarm-frontend
+  --image gcr.io/<PROJECT_ID>/foryourfarm-frontend \
+  --project <PROJECT_ID> --region asia-northeast3
 ```
 
 `NEXT_PUBLIC_*`은 `next build` 때 클라이언트 번들에 굳는다. **`gcloud run deploy
@@ -294,9 +331,36 @@ gcloud run deploy foryourfarm-frontend \
 (`http://localhost:8000`)을 들고 있어서, 배포는 성공하는데 브라우저가 localhost를 부른다.
 백엔드 URL이 바뀌면 프론트를 **다시 빌드**해야 한다.
 
-- 배포는 `main` 브랜치 기준으로만 진행한다(아래 [브랜치 전략](#브랜치-전략)).
+서비스명을 그대로 두면 URL이 안 바뀌므로 `CORS_ORIGINS`를 손댈 필요가 없다.
+
+### ⑦ 배포 확인 — 조용히 깨지는 3가지를 짚는다
+
+브라우저에서 프론트를 열고 콘솔에서:
+
+```js
+// (1) 번들에 백엔드 URL이 박혔는가 — localhost가 나오면 ⑥ 실패
+[...document.querySelectorAll('script[src]')].map(s=>s.src)
+// (2) CORS + 리 단위 데이터가 살아있는가 — 고창군(255)은 189개 전부 리여야 한다
+fetch('<백엔드URL>/api/v1/regions/255/districts',{credentials:'include'})
+  .then(r=>r.json()).then(d=>console.log(d.data.length, d.data[0].name))
+```
+
+화면으로는 **밭 등록에서 리 선택**(예: `고수면 남산리`)과 **장기 탭 12개월**이 뜨는지 본다.
+전자는 ④, 후자는 평년치 적재를 검증한다.
+
 - 로컬에서 이미지를 확인하려면:
   `docker build -f backend/Dockerfile .` / `docker build -f frontend/Dockerfile frontend`
+
+### 왜 스크립트로 감싸지 않는가
+
+`scripts/deploy.sh`가 있었지만 지웠다. 첫 배포용으로 짜여 있어 **갱신 배포에서 위험했다** —
+`--set-env-vars`로 프로덕션 env를 전부 지우는 경로가 스크립트 안에 박혀 있었고, 그건
+성공으로 끝나고 나서야 브라우저에서 발견된다. 손으로 하면 ⑤에서 env 플래그를 아예 안 쓰게 되어
+그 위험이 구조적으로 사라진다. 단계 수가 적고(6개) 자주 하지도 않아 자동화 이득이 작다.
+
+> `[확인 필요]` 브랜치 전략(§아래)은 배포를 `main` 기준으로 하라고 되어 있으나, 현재 `main`은
+> 초기 커밋 하나뿐이고 실제 배포는 `dev`에서 나갔다. `dev → main` 승격을 먼저 할지, 배포
+> 기준을 `dev`로 명문화할지 팀에서 정해야 한다.
 
 ---
 
