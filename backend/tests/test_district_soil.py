@@ -6,6 +6,8 @@ import unittest
 from decimal import Decimal
 
 from app.infra.public_api.soil_exam_client import SoilExam
+from app.models import DistrictSoil
+from app.services import district_soil_service
 from app.services.district_soil_service import (
     effective_source,
     is_leaf_bjd,
@@ -129,6 +131,85 @@ class TestSummarizeCations(unittest.TestCase):
         self.assertAlmostEqual(float(result["k"]), 0.886, delta=0.01)
         self.assertAlmostEqual(float(result["ca"]), 8.37, delta=0.01)
         self.assertAlmostEqual(float(result["mg"]), (1.44 + 2.85) / 2, delta=0.01)
+
+
+class TestGetOrFetchRefresh(unittest.TestCase):
+    """`refresh=True`가 캐시를 무시하는지(0024 후속).
+
+    **왜 필요한가**: `get_or_fetch`는 `sample_count > 0`이면 캐시를 그대로 준다. 0024로
+    양이온 컬럼이 생겼지만 그 전에 캐시된 행은 그 값이 NULL이고, 평소 경로로는 영구히
+    갱신되지 않는다 — **그 읍면동에 새로 등록하는 밭도 양이온이 빈 채로 시작한다.**
+    `scripts/repair_empty_soil_state.py`가 이 인자로 캐시를 훑는다.
+
+    상시 경로가 바뀌지 않는 것(기본값 False)도 같이 고정한다 — 무분별 재조회는 §18-1 위반이다.
+    """
+
+    def setUp(self):
+        self.cached = DistrictSoil(
+            bjd_code="4615012300",
+            field_type="4",
+            ph=Decimal("6.0"),
+            ec=Decimal("0.3"),
+            p2o5=Decimal("400"),
+            organic_matter=Decimal("30"),
+            sample_count=5,  # > 0 이므로 평소엔 캐시가 그대로 반환된다
+            source="옛 캐시",
+        )
+        self.fetch_calls = 0
+        self._real_fetch = district_soil_service._fetch_exams
+
+        def _fake_fetch(bjd_code: str):
+            self.fetch_calls += 1
+            return [_exam("4", 6.1, 14.7, p=182.4, ec=1.35, k=0.9, ca=6.0, mg=2.0)], bjd_code
+
+        district_soil_service._fetch_exams = _fake_fetch
+
+    def tearDown(self):
+        district_soil_service._fetch_exams = self._real_fetch
+
+    def _db(self):
+        cached = self.cached
+
+        class _Query:
+            def filter(self, *a, **k):
+                return self
+
+            def first(self):
+                return cached
+
+        class _Db:
+            def query(self, *a, **k):
+                return _Query()
+
+            def add(self, _obj):
+                raise AssertionError("캐시가 있으면 새 행을 넣으면 안 된다(유니크 충돌)")
+
+            def flush(self):
+                pass
+
+        return _Db()
+
+    def test_default_uses_cache_and_does_not_call_api(self):
+        got = district_soil_service.get_or_fetch(self._db(), "4615012300", "4")
+        self.assertEqual(self.fetch_calls, 0)
+        self.assertIsNone(got.k)  # 옛 캐시 그대로 — 양이온 없음
+
+    def test_refresh_refetches_and_fills_cations(self):
+        got = district_soil_service.get_or_fetch(
+            self._db(), "4615012300", "4", refresh=True
+        )
+        self.assertEqual(self.fetch_calls, 1)
+        self.assertAlmostEqual(float(got.k), 0.9, delta=0.01)
+        self.assertAlmostEqual(float(got.ca), 6.0, delta=0.01)
+        self.assertAlmostEqual(float(got.mg), 2.0, delta=0.01)
+
+    def test_refresh_updates_the_same_row_not_a_new_one(self):
+        """같은 행을 갱신해야 한다 — 새 행을 add하면 (bjd_code, field_type) 유니크에 걸린다.
+        위 _Db.add가 실패를 던지므로 새 행을 만들면 이 테스트가 깨진다."""
+        got = district_soil_service.get_or_fetch(
+            self._db(), "4615012300", "4", refresh=True
+        )
+        self.assertIs(got, self.cached)
 
 
 class TestRiCodes(unittest.TestCase):

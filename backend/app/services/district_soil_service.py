@@ -185,11 +185,20 @@ def effective_source(bjd_code: str | None, stored: str, has_values: bool) -> str
     return f"{NO_LEAF_RECORD}, 표본 0건"
 
 
-def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:
+def get_or_fetch(
+    db: Session, bjd_code: str, field_type: str, *, refresh: bool = False
+) -> DistrictSoil:
     """캐시 우선. 미스면 흙토람 조회 후 저장한다.
 
     외부 API 실패 시에도 등록을 막지 않는다 — 표본 0건으로 기록하고 진행한다(§12).
     토양 지표는 결측이 되어 적합도가 기상만으로 산출된다.
+
+    Args:
+        refresh: 캐시가 있어도 다시 조회한다. **지표 컬럼이 늘어났을 때 필요하다** — 0024로
+            치환성 양이온(k·ca·mg)이 생겼지만 그 전에 캐시된 행은 그 값이 NULL이고,
+            `sample_count > 0`이라 평소 경로로는 영구히 갱신되지 않는다(그 읍면동에 새로
+            등록하는 밭도 양이온이 빈다). 상시 경로에서는 쓰지 않는다 — 무분별 재조회는
+            §18-1 위반이다. 지금 호출부는 `scripts/repair_empty_soil_state.py` 하나다.
     """
     cached = (
         db.query(DistrictSoil)
@@ -200,7 +209,7 @@ def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:
     # 영구히 토양 결측이 된다(실측: 리 코드 버그로 농촌 전역이 이 상태였다). 0건이면
     # 캐시를 믿지 않고 다시 부른다 — get_or_fetch는 밭 등록 때만 불려 재조회 비용이 작다.
     # ponytail: TTL 없이 항상 재시도. 호출이 잦아지면 fetched_at 기준 TTL로 바꾼다.
-    if cached is not None and cached.sample_count > 0:
+    if cached is not None and cached.sample_count > 0 and not refresh:
         return cached
 
     exams, queried_code = _fetch_exams(bjd_code)
