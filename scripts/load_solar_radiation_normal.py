@@ -13,14 +13,14 @@
         └─ 품질 필터 (Rs/Ra 물리범위)     센서 이상 제거 — 이게 정확도의 전제다
             └─ 지점×월 평균              여러 해를 함께 평균 = 평년 근사
                 └─ 지점 → 구역 (시드)     observation_point_seed.csv, 좌표 기반
-                    └─ 구역 → 최근접 지점  확정 규칙: 최근접 1개, 1차(농업기상) 우선
+                    └─ 구역 → 지점 k=10   거리역수 가중평균 (측정 근거는 DONOR_K 주석)
                         └─ UPDATE weather_climatology
 
 **한계(반드시 인지)**: 기상청 공식 30년 평년값이 아니라 **관측 3년 평균 근사**다.
 `source` 컬럼에 기록하지 않는 이유는 기존 행의 source(온도·강수 출처)를 덮어쓰면 안 되기
 때문이다 — 대신 이 파일과 `solar_radiation_normal` 컬럼 주석에 근거를 남긴다(§1-4).
-구역에 관측소가 없어 최근접 지점 값을 빌린 경우가 있고, 그 거리는 런타임에
-`station_service.resolve_station()`이 다시 계산해 UI에 표기한다.
+구역 안에 지점이 없어 밖에서 빌려오는 경우가 있다 — 최근접 도너까지의 거리를 실행 로그에
+남긴다. 값 자체는 여러 지점을 섞은 것이라 "어느 한 관측소의 값"이 아니다.
 
 **호출량**: 12개월 × 연수. 월 1콜로 전국이 오므로 지점별 반복 호출은 하지 않는다(§18-1).
 API 쿼터가 있어(`429 API token quota exceeded` 실측) `--years`로 조절한다.
@@ -46,7 +46,11 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app.db.session import SessionLocal  # noqa: E402
 from app.infra.public_api.weather_client import get_monthly_daily_weather  # noqa: E402
-from app.services.station_service import AGRI, resolve_station  # noqa: E402
+from app.services.station_service import (  # noqa: E402
+    AGRI,
+    MIN_DISTANCE_KM,
+    resolve_station_donors,
+)
 from app.services.sunlight_calculation import (  # noqa: E402
     calibration,
     extraterrestrial_radiation,
@@ -54,6 +58,13 @@ from app.services.sunlight_calculation import (  # noqa: E402
 
 DEFAULT_YEARS = ("2022", "2023", "2024")
 MIN_DAYS_PER_MONTH = 10  # 월평균으로 인정할 최소 관측일수
+
+# 구역당 섞을 일사량 지점 수. 임의값이 아니라 leave-one-out으로 고른 값이다
+# (`scripts/validate_solar_donors.py`, 165지점 × 12개월, MAE MJ/m²/day):
+#     k=1  1.2647    k=5  0.9758    k=10  0.9404    k=15  0.9299    k=30+  0.9260(평탄)
+# k=10이 도달 가능한 개선폭의 95.7%를 잡고 그 뒤는 회당 1% 미만이다. 거리역수 가중이라
+# k를 더 키워도 먼 도너 기여가 급감해 k=30 이후는 k=전체와 값이 같다 — 큰 k가 스스로 제한된다.
+DONOR_K = 10
 CACHE = ROOT / "docs" / "seed" / "solar_radiation_station_monthly.json"
 """지점×월 일사량 평균 캐시. API 쿼터가 유한하므로(엔드포인트별 429 실측) 수집 결과를
 커밋해 두고 재실행 시 재사용한다. 갱신은 `--refresh`."""
@@ -190,26 +201,43 @@ def main() -> None:
         updates: list[dict] = []
         no_station = 0
         borrowed: list[tuple[int, float]] = []
+        donor_counts: list[int] = []
         for region_id in regions:
-            match = resolve_station(db, region_id, prefer=AGRI, allowed_codes=codes_with_data)
-            if match is None or match.network != AGRI:
-                # 일사량은 1차(농업기상)에만 있다. AWS로 내려간 구역은 값이 없다.
+            donors = resolve_station_donors(
+                db, region_id, DONOR_K, network=AGRI, allowed_codes=codes_with_data
+            )
+            if not donors:
+                # 일사량은 1차(농업기상)에만 있다. 40km 안에 일사량 지점이 없으면 값이 없다.
                 no_station += 1
                 continue
-            if not match.is_inside_region:
-                borrowed.append((region_id, match.distance_km))
+            donor_counts.append(len(donors))
+            if donors[0][1] > 0:
+                borrowed.append((region_id, donors[0][1]))
             for month in range(1, 13):
-                value = monthly.get((match.point_code, month))
-                if value is not None:
-                    updates.append(
-                        {"region_id": region_id, "month": month, "value": Decimal(f"{value:.2f}")}
-                    )
+                # 그 달 값을 가진 도너만 섞고 가중치를 재정규화한다 — 도너를 통째로 버리면
+                # 그 도너가 가진 다른 달 정보까지 잃는다(climatology_service와 같은 규칙).
+                pairs = [
+                    (monthly[(code, month)], 1.0 / max(dist, MIN_DISTANCE_KM))
+                    for code, dist in donors
+                    if (code, month) in monthly
+                ]
+                if not pairs:
+                    continue
+                value = sum(v * w for v, w in pairs) / sum(w for _, w in pairs)
+                updates.append(
+                    {"region_id": region_id, "month": month, "value": Decimal(f"{value:.2f}")}
+                )
 
         print(f"  배정 완료 {len(updates)}행 (구역×월)")
+        if donor_counts:
+            print(
+                f"  구역당 도너 수: 중앙값 {statistics.median(donor_counts):.0f} "
+                f"(최소 {min(donor_counts)} / 최대 {max(donor_counts)}, 상한 k={DONOR_K})"
+            )
         print(f"  일사량 관측소 없음: {no_station}개 구역 — 일조 지표는 계속 비어 있다")
         if borrowed:
             worst = max(d for _, d in borrowed)
-            print(f"  인접 관측소 차용: {len(borrowed)}개 구역 (최대 {worst:.1f}km) — UI 표기 필요")
+            print(f"  구역 밖 지점 포함: {len(borrowed)}개 구역 (최근접 최대 {worst:.1f}km)")
 
         if args.dry_run:
             print("\n(--dry-run — DB를 바꾸지 않았다)")

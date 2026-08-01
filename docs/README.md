@@ -11,7 +11,7 @@
 | `docs/auth-security.md` | 인증·보안 설계(분리 토큰 JWT) FE 연동 계약. |
 | `docs/llm-integration.md` | LLM/챗봇 연동 계약(SSE, 폴백, 프롬프트 가드레일 §11). |
 | `docs/llm-benchmark-eval.md` | 로컬 LLM 벤치마크·평가 기록. |
-| `docs/ml/` | 머신러닝 산출물·결정 기록(`backend_ml_handoff.md` = 백엔드 인계 최종). |
+| `docs/ml/` | 머신러닝 산출물·결정 기록(`backend_ml_handoff.md` = 백엔드 인계 최종). `aws-solar-climatology-explainer.md` = PR #68·#69(AWS 평년치·일사량 도너) 팀원용 설명 — 선택 근거·실험 과정·재현 스크립트. |
 | `docs/seed/` | 생육 지침 시드 데이터(작물별). |
 | `docs/design/` | UI/UX 가이드라인·시안(Correction 초안, UI-UX-Guideline 01~03, Anti-UI-UX, 서비스 특강). |
 | `docs/data/` | 데이터 가이드·전처리·리포트, 흙토람 API/데이터셋/법정동코드 정리. |

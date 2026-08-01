@@ -3,7 +3,9 @@
 두 가지를 본다:
 1. **커밋된 시드 CSV**가 실제로 쓸 만한 상태인지 — 커버리지·중복·좌표 범위.
    시드는 API 조회로 만들지만 결과를 커밋하므로, 테스트는 네트워크 없이 산출물을 검증한다.
-2. **구역 → 지점 조회 서비스**가 확정된 규칙(최근접 1개, 1차 우선, 거리 표기)을 지키는지.
+2. **구역 → 지점 조회 서비스**가 확정된 규칙을 지키는지. 규칙이 둘이다 —
+   `resolve_station`(최근접 1개, 관측망 폴백 있음)과 `resolve_station_donors`(k개 거리순,
+   폴백 없음). 지표에 따라 무엇이 나은지는 측정으로 갈렸다(`scripts/validate_solar_donors.py`).
 
 이 테스트가 지키는 약속: 행정구역 개편이나 시드 재생성으로 매핑이 깨지면 여기서 드러난다.
 """
@@ -19,6 +21,7 @@ from app.services.station_service import (
     MAX_DISTANCE_KM,
     StationMatch,
     resolve_station,
+    resolve_station_donors,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -227,6 +230,70 @@ class TestLimitationNote(unittest.TestCase):
         """2차 관측망은 일조 자료가 없다 — 그 사실을 숨기면 안 된다."""
         m = StationMatch("108", "서울", KMA_AWS, 0.0)
         self.assertIn("일조", m.limitation_note())
+
+
+class TestResolveStationDonors(unittest.TestCase):
+    """k개 도너 조회 — 일사량 ETL이 쓴다.
+
+    최근접 1개(`resolve_station`)와 규칙이 다른 지점이 두 개 있고 그게 이 클래스의 핵심이다.
+    ① 다른 관측망으로 **폴백하지 않는다**(일사량은 AWS에 없어 내려가면 값이 없다).
+    ② 여러 개를 거리 오름차순으로 준다(호출부가 거리역수 가중평균한다).
+    근거 수치는 `scripts/validate_solar_donors.py`.
+    """
+
+    GRID = _Grid(region_id=1, nx=60, ny=127)
+
+    def _db(self, stations, grid=GRID):
+        return _FakeDb(grid, stations)
+
+    def _agri(self, n: int):
+        """거리 5km씩 벌어지는 농업기상 지점 n개."""
+        return [_Station(f"A{i}", f"농업기상{i}", AGRI, 60 + i, 127) for i in range(1, n + 1)]
+
+    def test_returns_k_nearest_in_distance_order(self):
+        donors = resolve_station_donors(self._db(self._agri(5)), region_id=1, k=3)
+        self.assertEqual([code for code, _ in donors], ["A1", "A2", "A3"])
+        self.assertEqual([round(d) for _, d in donors], [5, 10, 15])
+
+    def test_returns_fewer_than_k_when_pool_is_small(self):
+        """도너가 k보다 적어도 있는 만큼 준다 — 빈손으로 돌려주면 그 구역이 비어버린다."""
+        donors = resolve_station_donors(self._db(self._agri(2)), region_id=1, k=10)
+        self.assertEqual(len(donors), 2)
+
+    def test_does_not_fall_back_to_other_network(self):
+        """`resolve_station`과 달라야 하는 지점 — AWS엔 일사량이 없어 내려가면 값이 없다."""
+        stations = [_Station("108", "서울", KMA_AWS, 60, 127)]  # 거리 0이지만 AWS
+        self.assertEqual(resolve_station_donors(self._db(stations), region_id=1, k=5), [])
+
+    def test_honours_distance_cap(self):
+        far = int(MAX_DISTANCE_KM / GRID_KM) + 2  # 상한을 확실히 넘는 격자 거리
+        stations = [
+            _Station("A1", "가까운", AGRI, 61, 127),
+            _Station("A2", "먼", AGRI, 60 + far, 127),
+        ]
+        donors = resolve_station_donors(self._db(stations), region_id=1, k=5)
+        self.assertEqual([code for code, _ in donors], ["A1"])
+
+    def test_honours_allowed_codes(self):
+        """관측값이 없는 지점을 도너로 뽑으면 그 구역이 조용히 빈다 — ETL이 이 인자로 막는다."""
+        donors = resolve_station_donors(
+            self._db(self._agri(4)), region_id=1, k=3, allowed_codes={"A3", "A4"}
+        )
+        self.assertEqual([code for code, _ in donors], ["A3", "A4"])
+
+    def test_ties_broken_by_point_code_for_determinism(self):
+        """격자가 5km 단위라 동거리가 흔하다 — 같은 입력이 같은 도너를 내야 한다(§2)."""
+        stations = [
+            _Station("A9", "구", AGRI, 61, 127),
+            _Station("A1", "가", AGRI, 61, 127),  # 같은 격자 = 동거리
+        ]
+        donors = resolve_station_donors(self._db(stations), region_id=1, k=2)
+        self.assertEqual([code for code, _ in donors], ["A1", "A9"])
+
+    def test_no_grid_mapping_returns_empty(self):
+        """격자가 없으면 거리를 잴 수 없다 — 아무 지점이나 주지 않는다."""
+        donors = resolve_station_donors(self._db(self._agri(3), grid=None), region_id=1, k=3)
+        self.assertEqual(donors, [])
 
 
 if __name__ == "__main__":
