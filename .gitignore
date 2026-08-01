@@ -97,3 +97,7 @@ Thumbs.db
 *.ppt
 frame.pdf
 PPT.md
+
+# AWS 일통계 API 응답 캐시(scripts/load_aws_climatology.py). 5년치 383MB이고 재실행하면
+# 다시 받으므로 레포에 넣지 않는다 — 캐시가 없으면 스크립트가 알아서 API를 부른다.
+/data/aws_daily_cache/

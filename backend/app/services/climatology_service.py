@@ -14,7 +14,7 @@ KNN_K곳을 골라 **거리역수 가중평균**한다. 시/도 평균보다 지
 정보 가치가 크지만, 빌린 값임을 숨기면 오히려 더 나쁘다.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
@@ -24,6 +24,10 @@ from app.models import Region, RegionGrid, WeatherClimatology
 from app.services.sunlight_calculation import SunlightCalculation, SunlightResult
 
 GRID_KM = 5.0  # 기상청 단기예보 격자 간격
+
+# AWS 관측망으로 만든 평년치의 source 접두어(`scripts/load_aws_climatology.py`).
+# 이 행들은 구역 자기 행이지만 주변 지점(≤10km, 최대 5곳)을 섞은 값이라 실측이 아니다.
+AWS_SOURCE_PREFIX = "aws_mean_"
 
 # 일조시간을 적합도 채점에 쓰기 위한 최소 신뢰도. 실측 검증치가 이 기준을 넘는 경로만
 # 통과한다(실측 0.95, 일사량 환산 0.90 / 기온 추정 0.50은 탈락) — §18-4.
@@ -100,10 +104,25 @@ class ClimatologySource:
     # 실제로 섞인 도너 전체 (지역명, 거리km). 거리 오름차순.
     # frozen dataclass라 새 필드에는 기본값이 필요하다.
     donors: tuple[tuple[str, float], ...] = ()
+    # 이 구역 행이 어느 관측망에서 왔는지(weather_climatology.source). 구역 자기 행이라도
+    # AWS 적재분은 **그 구역에서 잰 값이 아니라 주변 지점을 섞은 값**이라 표기가 필요하다.
+    source: str | None = None
+    # 자기 행에 없어서 다른 지역에서 보충한 필드 이름들(예: solar_radiation_normal).
+    # 한 지역 안에서도 지표마다 출처가 다를 수 있다 — AWS엔 일사량이 없기 때문이다.
+    interpolated_fields: tuple[str, ...] = ()
 
     @property
     def is_substituted(self) -> bool:
         return self.substituted_from is not None
+
+    @property
+    def is_station_interpolated(self) -> bool:
+        """구역 자기 행이지만 주변 관측지점을 섞어 만든 값인가.
+
+        `is_substituted`(다른 구역에서 빌림)와 다르다 — 이쪽은 행이 자기 구역에 있어서
+        종전 로직이 '실측'으로 취급했고, 그래서 한계 문구가 아예 뜨지 않았다(§18-4 위반).
+        """
+        return (self.source or "").startswith(AWS_SOURCE_PREFIX)
 
 
 def _grid_distance_km(a: RegionGrid, b: RegionGrid) -> float:
@@ -155,6 +174,102 @@ def _weighted_normals(
     return MonthlyNormals(**values)
 
 
+def _missing_fields(by_month: dict[int, ClimatologyMonth]) -> list[str]:
+    """자기 행이 한 달도 채우지 못한 필드. 이것만 도너로 보충한다.
+
+    한 달이라도 값이 있으면 보충하지 않는다 — 같은 지역 안에서 어떤 달은 실측, 어떤 달은
+    남의 값이 섞이면 월별 비교(장기 탭 히트맵)가 뒤틀린다.
+    """
+    return [
+        name
+        for name in NORMAL_FIELDS
+        if all(getattr(row, name, None) is None for row in by_month.values())
+    ]
+
+
+def _fill_missing_fields(
+    db: Session,
+    my_grid: RegionGrid | None,
+    by_month: dict[int, ClimatologyMonth],
+    fields: list[str],
+) -> tuple[dict[int, MonthlyNormals], list[str]]:
+    """자기 행에 없는 필드를 **그 필드를 가진 지역들**에서만 KNN으로 보충한다.
+
+    도너 풀을 필드별로 잡는 것이 핵심이다. 종전엔 "행이 있는 모든 지역"을 후보로 삼았는데,
+    AWS 적재로 행은 있지만 일사량이 없는 지역이 139개 생기면서 그 방식이 깨졌다 — 가까운
+    10곳이 전부 일사량 NULL이면 보충이 통째로 실패한다.
+
+    Returns:
+        (필드가 채워진 월별 평년치, 실제로 보충된 필드 이름들)
+    """
+    merged = {
+        month: MonthlyNormals(
+            **{name: getattr(row, name, None) for name in NORMAL_FIELDS}
+        )
+        for month, row in by_month.items()
+    }
+    if my_grid is None or not fields:
+        return merged, []
+
+    filled: list[str] = []
+    for name in fields:
+        column = getattr(WeatherClimatology, name)
+        holder_ids = {
+            row[0]
+            for row in db.query(WeatherClimatology.region_id)
+            .filter(column.isnot(None))
+            .distinct()
+        }
+        holder_ids.discard(my_grid.region_id)
+        if not holder_ids:
+            continue
+
+        candidates = (
+            db.query(RegionGrid, Region.name)
+            .join(Region, Region.id == RegionGrid.region_id)
+            .filter(RegionGrid.region_id.in_(holder_ids))
+            .all()
+        )
+        if not candidates:
+            continue
+
+        ranked = _rank_donors(my_grid, candidates)
+        weight_by_region = {
+            grid.region_id: 1.0 / max(_grid_distance_km(my_grid, grid), MIN_DISTANCE_KM)
+            for grid, _ in ranked
+        }
+        donor_rows = db.query(WeatherClimatology).filter(
+            WeatherClimatology.region_id.in_(weight_by_region),
+            column.isnot(None),
+        )
+
+        by_month_pairs: dict[int, list[tuple[float, float]]] = {}
+        for row in donor_rows:
+            weight = weight_by_region.get(row.region_id)
+            if weight is None:
+                continue
+            by_month_pairs.setdefault(row.month, []).append(
+                (float(getattr(row, name)), weight)
+            )
+
+        wrote = False
+        for month, pairs in by_month_pairs.items():
+            if month not in merged:
+                continue
+            total = sum(w for _, w in pairs)
+            if total <= 0:
+                continue
+            mean = sum(v * w for v, w in pairs) / total
+            merged[month] = replace(
+                merged[month], **{name: Decimal(str(round(mean, 4)))}
+            )
+            wrote = True
+        if wrote:
+            filled.append(name)
+
+    return merged, filled
+
+
 def load_climatology(db: Session, region_id: int) -> ClimatologySource:
     """지역 평년치. 없으면 격자상 가까운 지역들의 거리 가중평균으로 대체한다.
 
@@ -164,7 +279,25 @@ def load_climatology(db: Session, region_id: int) -> ClimatologySource:
         db.query(WeatherClimatology).filter(WeatherClimatology.region_id == region_id)
     )
     if own:
-        clim_source = ClimatologySource(by_month={c.month: c for c in own})
+        by_month: dict[int, ClimatologyMonth] = {c.month: c for c in own}
+        # 관측망마다 가진 지표가 다르다 — AWS엔 일사량·일조가 없다. 그래서 "자기 행이 있으면
+        # 통째로 실측"이라는 종전 전제가 깨졌다. 행 단위가 아니라 **필드 단위로** 본다.
+        missing = _missing_fields(by_month)
+        if missing:
+            my_grid = db.query(RegionGrid).filter(RegionGrid.region_id == region_id).first()
+            filled_by_month, filled = _fill_missing_fields(db, my_grid, by_month, missing)
+            if filled:
+                by_month = dict(filled_by_month)
+        else:
+            filled = []
+
+        clim_source = ClimatologySource(
+            by_month=by_month,
+            # 행이 자기 구역에 있다고 다 실측은 아니다 — AWS 적재분은 주변 지점을 섞은 값이라
+            # 화면에 그 사실을 알려야 한다(§18-4). 소스는 행마다 같으므로 하나만 본다.
+            source=own[0].source,
+            interpolated_fields=tuple(filled),
+        )
         clim_source = _add_sunlight_to_climatology(db, clim_source, region_id)
         return clim_source
 
@@ -302,6 +435,8 @@ def _add_sunlight_to_climatology(
         substituted_from=clim_source.substituted_from,
         distance_km=clim_source.distance_km,
         donors=clim_source.donors,
+        source=clim_source.source,  # 빠뜨리면 한계 문구 판정이 조용히 실측으로 되돌아간다
+        interpolated_fields=clim_source.interpolated_fields,
     )
 
 
@@ -319,6 +454,14 @@ def substitution_limitation(source: ClimatologySource) -> str | None:
     한 곳에서 빌린 것처럼 적지 않는다 — 실제보다 출처가 좁아 보여서 근사의 성격을
     오히려 감추게 된다. 섞인 곳의 수와 거리 범위를 반드시 포함한다(§18-4).
     """
+    if source.is_station_interpolated:
+        # 다른 구역에서 빌린 게 아니라 **이 구역 주변 관측지점**을 섞은 값이다. 종전엔
+        # 자기 구역 행이라는 이유로 아무 문구도 뜨지 않아 실측처럼 보였다(§18-4).
+        return (
+            "이 지역에 기상 관측지점이 없어 주변 관측지점(10km 이내 최대 5곳)의 값을 "
+            "거리 가중으로 섞었습니다 — 실측이 아니라 추정치입니다."
+        )
+
     if not source.is_substituted:
         return None
 
