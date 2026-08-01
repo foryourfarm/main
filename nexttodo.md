@@ -48,8 +48,29 @@
   **커버리지** 문제였다 — 40km부터 정확도는 평탄(하한 대비 0.9%)한데 10km로 좁히면 165지점
   중 108개가 예측 불가다. AWS ETL의 10km 상한을 그대로 복사하면 일사량이 대부분 비어버린다.
 
-- ⬜ `station_service` 서술 정정은 **함께 처리했다** — docstring이 "최근접 1개"를 유일 규칙으로
-  적고 있었고 런타임 폴백 계층처럼 읽혔다. ETL 전용임과 규칙이 지표별로 갈린다는 것을 명시했다.
+  **train/test 분할로 재검증함(2026-08-01).** 팀원이 "그 0.94/0.99는 train/test split을
+  했냐"고 물었다 — 정확한 답은 "leave-one-out이라 데이터 누설은 없고, 학습 파라미터 자체가
+  없다(거리역수 가중평균은 fit이 아니다)"이지만, k와 필터를 165지점 전체 결과로 골랐다는
+  지적은 맞았다. 165지점을 83/82로 나눠 train에서만 k를 고르고 test에서만 성능을 보고했다:
+
+      k=10  전체 LOOCV(보고값) 0.9404  vs  test-only 0.9424  (차이 +0.2%, 무시할 수준)
+
+  train만으로 골랐으면 k=20이 나왔는데 test에서 k=20(0.9324)이 우리 k=10(0.9424)보다
+  살짝 나았다 — 과적합이 아니라 오히려 보수적으로 골랐다는 뜻. 고도 필터가 나쁘다는 결론도
+  train/test 양쪽에서 유지됐다. 검증은 `validate_solar_donors.py` [4]번 섹션으로 커밋해
+  재현 가능하다.
+
+- ✅ `station_service` 서술 정정 — **완료.** docstring이 "최근접 1개"를 유일 규칙으로 적고
+  있었고 런타임 폴백 계층처럼 읽혔다. ETL 전용임과 규칙이 지표별로 갈린다는 것을 명시했다.
+
+- ✅ **팀원용 설명 문서 — 완료.** `docs/ml/aws-solar-climatology-explainer.md`. PR #68·#69를
+  두고 "평균기온을 머신러닝으로 계산했다", "API 호출할 때마다 ETL이 돈다" 같은 오해가
+  실제로 오갔다 — 코드를 안 열어봐도 무엇을 왜 그렇게 했는지 따라올 수 있게 배경→실험 근거→
+  결과 요약→지표별 설정 비교표→재현 스크립트 순으로 정리했다. MAE(평균절대오차, MJ/m²/day)를
+  정확도(0~1)로 오해하지 않도록 단위도 명시했다. 부수적으로 `docs/seed/aws_temp_calibration.json`이
+  재생성 스크립트로 지목하는 `scripts/validate_aws_temp_approximation.py`가 리포에 실제로는
+  없다는 것도 확인해 문서에 정직하게 남겼다(별도 결함, 이번 범위 밖) — 그 상수는 지금
+  재현 불가하고 커밋된 값을 신뢰하는 수밖에 없다.
 
 ### 🔑 apihub 자격증명 하나가 두 작업을 함께 여닫는다 — **열렸다** (2026-08-01 실측)
 
@@ -392,6 +413,11 @@ farm 6, 8, 9            bjd_code=None (구버전 등록) — 조회 자체가 �
 6. **3개월전망 자동 갱신 스케줄러 부재** — `scripts/load_weather_outlook.py`는 멱등하게
    짜여 있는데 정작 스케줄러가 없다(cron·APScheduler·Actions 전부 부재). 매월 23일 전후
    발표 때마다 사람이 수동 실행해야 하고, 안 돌리면 **에러 없이 조용히** 낡은 예보로 남는다.
+7. **AWS 기온 보정 상수의 재현 스크립트가 없다** (2026-08-01 발견) — `docs/seed/aws_temp_calibration.json`이
+   "재생성: `scripts/validate_aws_temp_approximation.py`"라고 적어뒀는데 그 파일이 **리포에도
+   git 이력에도 없다.** `(max+min)/2 − 0.348℃` 보정값(R²=0.9959, 13지점·1,592일 실측)을
+   지금은 처음부터 다시 낼 방법이 없고 커밋된 값을 신뢰하는 수밖에 없다. 상세:
+   `docs/ml/aws-solar-climatology-explainer.md` §2.
 
 ---
 
@@ -562,6 +588,7 @@ scripts/load_aws_climatology.py        # 농업기상 없는 구역만 + referen
 - **FE 인계**: `docs/auth-security.md`, `docs/farm-settings-api.md`, `docs/long-term-tab-api.md`,
   `docs/llm-integration.md`, `docs/main-logic-guide.md`
 - **설계 기준**: `docs/design/Correction_Re_Draft.md`, `docs/design/ri-level-district.md`(리 단위 전환)
-- **ML**: `docs/ml/climatology-knn-plan.md`, `docs/ml/backend_ml_handoff.md`
+- **ML**: `docs/ml/climatology-knn-plan.md`, `docs/ml/backend_ml_handoff.md`,
+  `docs/ml/aws-solar-climatology-explainer.md`(PR #68·#69 팀원용 설명 — 이거부터 읽을 것)
 - **메모리**: `region-vs-district-data-units`(이번 리 발견으로 갱신 필요),
   `weather-climatology-coverage-status`, `user-verifies-backend`, `frontend-stack-nextjs`
