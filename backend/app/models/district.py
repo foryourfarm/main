@@ -25,9 +25,14 @@ class District(Base):
     altitude_m: Mapped[int | None] = mapped_column()
     """밭 위치 대표 고도(m). 기온 감률 보정 기준(0.65℃/100m)."""
     altitude_source: Mapped[str | None] = mapped_column()
-    """고도를 어느 점에서 땄는지. `emd_point`=읍·면·동 대표점(리는 소속 읍·면),
-    `region_point`=시군구 대표점 폴백(도시 법정동). 근사 정도가 다르므로 한계 문구에 쓴다(§18-4).
-    적재: scripts/load_altitudes.py
+    """고도를 어느 점에서 땄는지. 근사 정도가 달라 한계 문구가 이걸 보고 갈린다(§18-4).
+
+    `ri_polygon`=리 경계 중심점 / `emd_point`=읍·면·동 대표점(취락) /
+    `emd_polygon`=동 경계 중심점 / `region_point`=시군구 대표점(최종 폴백).
+
+    층마다 우선순위가 다르다 — 리는 폴리곤이 1순위지만 읍면동은 취락 점이 1순위다.
+    읍면동은 영역이 넓어 기하 중심이 사람 없는 고지대로 올라가기 때문이다(실측 편향 +53m).
+    근거·규칙: scripts/gen_altitude_seed.py. 적재: scripts/load_altitudes.py
     """
 
 

@@ -17,33 +17,54 @@
     감률 환산 **0.06℃**다. 잡으려는 오차가 2.29~5.07℃라 DEM 5m급으로 올려 얻는
     이득(0.06→0.01℃)이 의미가 없다. 100m 넘게 튄 10개는 급경사지 지점 좌표 반올림으로 보인다.
 
-**좌표 출처: 기상청 격자 엑셀** — 이미 리포 밖에 갖고 있는 파일이고 추가 의존성이 0이다.
-  - 시군구(2단계) 행: 행정구역코드가 region_seed.bjd_code와 256/256 직매칭된다.
-  - 읍면동(3단계) 행은 **행정동 코드**라 법정동 코드 직매칭이 1,408건뿐이다. 그래서
-    (시도, 시군구, 읍면동) **이름**으로 붙인다 — 20,275건 중 17,123건(84.5%)이 붙고
-    못 붙는 3,152건은 전부 도시 법정동(예: 종로구 청운동)이다. 읍·면·리는 다 붙는다.
-  - 못 붙은 행은 시군구 대표점으로 폴백하고 `altitude_source`에 그 사실을 남긴다(§18-4).
+**좌표 출처는 두 개이고, 층마다 우선순위가 다르다.**
 
-**왜 격자중심이 아니라 엑셀 대표점인가**: 격자중심(5km 격자)은 산비탈에 떨어진다.
-엑셀 대표점(관청 소재지)은 사람·농지가 있는 저지대다 — 우리가 원하는 "구역 대표 농지 고도"에
-가깝다. 실측 비교(대표점 / 격자중심): 서귀포시 76m/209m, 정선군 309m/499m, 문경시 82m/197m.
+    리      : 리 폴리곤 중심점 → 소속 읍·면 대표점 → 시군구 대표점
+    읍면동  : 읍면동 대표점(취락) → 읍면동 폴리곤 중심점 → 시군구 대표점
 
-**한계**: 리(里)는 소속 읍·면 대표점 고도를 쓴다. 산간 면은 면 내 기복이 300m를 넘어
-(≈2℃) 이 근사가 남는 오차의 주 원인이다. 근본 해결은 법정구역 SHP의 리 단위 중심점이고,
-그때 바뀌는 건 **이 스크립트뿐**이다 — 소비처는 좌표를 보지 않고 `altitude_m`만 본다.
+  1. **기상청 격자 엑셀** — 읍면동마다 점 하나(실질적으로 주민센터·관청 자리 = 취락).
+     시군구는 행정구역코드로 256/256 직매칭. 읍면동 행은 **행정동 코드**라 법정동 직매칭이
+     1,408건뿐이어서 (시도, 시군구, 읍면동) **이름**으로 붙인다(20,275건 중 17,123건).
+     엑셀은 리 좌표를 주지 않으므로 리에 대해서는 **소속 읍·면**의 점이 된다
+     — 그래서 같은 면의 리끼리 값이 같아진다.
+  2. **국토지리정보원 공간정보공동활용 폴리곤**(`bjd_polygon.py`) — 법정구역 경계의 기하
+     중심. 이용허락 제한 없음, 로그인 없이 직접 다운로드, 좌표가 이미 WGS84, 의존성 0.
+     리 15,209건 중 92.6%가 붙는다(2023-09 기준이라 코드 지연을 3단계로 되짚는다).
 
-실행:
-    backend/.venv/Scripts/python.exe scripts/gen_altitude_seed.py "<격자_위경도.xlsx>"
+**왜 층마다 우선순위가 다른가 — 단위 크기 때문이다.** 폴리곤 중심점은 취락이 아니라 도형의
+중심이라 **영역이 넓고 산이 끼면 사람 없는 고지대로 올라간다.** 시군구에서 격자중심(서귀포
+209m)을 버리고 관청 소재지(76m)를 택한 것과 같은 실패 모드다. 실측(취락점 대비):
+
+    리(면적 작음)     편향 **0m** / MAE 61m               산간 63개 리
+    읍면동(면적 큼)   편향 **+53m** / p90 204m / max 484m
+                      예) 달성군 가창면 취락 102m vs 폴리곤 597m (면 전체가 비슬산 자락)
+
+그래서 **자기 취락 점이 있으면 그걸 쓰고, 없으면 폴리곤, 그것도 없으면 상위 단위**다.
+리는 애초에 자기 취락 점이 없어서 폴리곤이 1순위가 되고, 도시 법정동(엑셀 이름매칭 실패분)도
+같은 이유로 폴리곤이 시군구 폴백보다 앞선다.
+
+**리에 폴리곤을 쓰면 없어지는 것은 계통 편향이다.** 종전엔 산간 면 6곳 **전부**에서 면
+대표점이 리들보다 낮았고(평균 +170m ≈ 1.1℃), 그건 모든 산간 밭 기온을 일관되게 과대평가하는
+방향이었다 — 서리·저온 위험을 과소평가하는 쪽이다. 61m 랜덤 오차는 방향이 갈려 상쇄된다.
+
+**한계**: 리 대표점도 밭의 실측 고도가 아니다. 리 영역이 산으로 뻗은 곳은 여전히 어긋난다
+(63개 중 8개가 120m 초과 — 진부면 화의리 +385m, 시천면 사리 −252m).
+
+실행(폴리곤은 선택 — 안 주면 종전 엑셀 전용 동작으로 돌아간다):
+    backend/.venv/Scripts/python.exe scripts/gen_altitude_seed.py "<격자_위경도.xlsx>" \
+        --ri-polygon <LP_AA_RI.csv> --emd-polygon <LP_AA_EMD.csv>
 """
 
+import argparse
 import csv
 import json
-import sys
 import time
 import urllib.request
 from pathlib import Path
 
 import openpyxl
+
+from bjd_polygon import legacy_sgg_map, load_centroids, resolve
 
 ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = ROOT / "docs" / "seed"
@@ -58,8 +79,11 @@ API = "https://api.opentopodata.org/v1/srtm30m"
 BATCH = 100
 SLEEP_SEC = 1.2
 
-SOURCE_EMD = "emd_point"  # 읍·면·동 대표점 (리는 소속 읍·면 대표점)
-SOURCE_REGION = "region_point"  # 시군구 대표점 폴백 (도시 법정동)
+# `altitude_source` 값 — 근사 정도가 달라 한계 문구가 이걸 보고 갈린다(§18-4).
+SOURCE_RI_POLYGON = "ri_polygon"  # 리 자기 경계의 중심점
+SOURCE_EMD = "emd_point"  # 읍·면·동 대표점(취락). 리 행이면 **소속 읍·면**의 점이다
+SOURCE_EMD_POLYGON = "emd_polygon"  # 읍·면·동 자기 경계의 중심점
+SOURCE_REGION = "region_point"  # 시군구 대표점 — 마지막 폴백
 
 COL_CODE, COL_SIDO, COL_SGG, COL_EMD = 1, 2, 3, 4
 COL_LON, COL_LAT = 13, 14
@@ -102,12 +126,31 @@ def fetch_altitudes(points: list[tuple[float, float]]) -> dict[tuple[float, floa
     return out
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
-        print('사용법: python scripts/gen_altitude_seed.py "<격자_위경도.xlsx>"')
-        raise SystemExit(1)
+def polygon_point(
+    bjd_code: str, centroids: dict[str, tuple[float, float]], legacy: dict[str, str]
+) -> tuple[float, float] | None:
+    """폴리곤이 없으면(미지정 실행 포함) None — 호출부가 다음 후보로 넘어간다."""
+    if not centroids:
+        return None
+    return resolve(bjd_code, centroids, legacy)
 
-    by_code, by_name = read_excel(Path(sys.argv[1]))
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="구역·법정동 대표 고도 시드 생성")
+    ap.add_argument("excel", help="기상청 격자_위경도 xlsx")
+    ap.add_argument("--ri-polygon", type=Path, help="LP_AA_RI.csv (data.go.kr 15123130)")
+    ap.add_argument("--emd-polygon", type=Path, help="LP_AA_EMD.csv (data.go.kr 15123128)")
+    args = ap.parse_args()
+
+    legacy = legacy_sgg_map()
+    # 폴리곤은 선택이다 — 없으면 종전 엑셀 전용 동작으로 돌아간다(팀원이 292MB를 받지
+    # 않고도 시드를 재생성할 수 있어야 한다).
+    ri_poly = load_centroids(args.ri_polygon) if args.ri_polygon else {}
+    emd_poly = load_centroids(args.emd_polygon, "00") if args.emd_polygon else {}
+    if ri_poly or emd_poly:
+        print(f"폴리곤 로드: 리 {len(ri_poly)}건 / 읍면동 {len(emd_poly)}건")
+
+    by_code, by_name = read_excel(Path(args.excel))
     regions = list(csv.DictReader(REGION_SEED.open(encoding="utf-8")))
     districts = list(csv.DictReader(BJD_SEED.open(encoding="utf-8")))
 
@@ -119,18 +162,36 @@ def main() -> None:
             region_point[r["id"]] = point
     missing_regions = [r["name"] for r in regions if r["id"] not in region_point]
 
-    # 법정동 좌표 — 이름 매칭, 실패 시 시군구 폴백
+    # 법정동 좌표 — 층마다 우선순위가 다르다(모듈 docstring "왜 층마다 다른가" 참고).
     region_id_by_name = {(r["sido"], r["name"]): r["id"] for r in regions}
     district_point: dict[str, tuple[tuple[float, float], str]] = {}
     for d in districts:
-        point = by_name.get((d["sido"], d["region_name"], d["eupmyeondong"]))
-        if point is not None:
-            district_point[d["bjd_code"]] = (point, SOURCE_EMD)
-            continue
+        excel = by_name.get((d["sido"], d["region_name"], d["eupmyeondong"]))
         region_id = region_id_by_name.get((d["sido"], d["region_name"]))
-        fallback = region_point.get(region_id) if region_id else None
-        if fallback is not None:
-            district_point[d["bjd_code"]] = (fallback, SOURCE_REGION)
+        region_fallback = region_point.get(region_id) if region_id else None
+
+        if d["ri"]:
+            # 리: 자기 폴리곤 → 소속 읍·면 대표점 → 시군구. 엑셀은 리 좌표를 아예 주지
+            # 않아서 `excel`은 **소속 면**의 점이다 — 같은 면 리끼리 값이 같아진다.
+            candidates = [
+                (polygon_point(d["bjd_code"], ri_poly, legacy), SOURCE_RI_POLYGON),
+                (excel, SOURCE_EMD),
+                (region_fallback, SOURCE_REGION),
+            ]
+        else:
+            # 읍면동: 취락 점(엑셀) → 자기 폴리곤 → 시군구. 폴리곤을 뒤로 두는 건 측정
+            # 결과다 — 읍면동은 영역이 넓어 기하 중심이 산으로 올라간다(실측 편향 +53m,
+            # 달성군 가창면은 마을 102m vs 폴리곤 597m).
+            candidates = [
+                (excel, SOURCE_EMD),
+                (polygon_point(d["bjd_code"], emd_poly, legacy), SOURCE_EMD_POLYGON),
+                (region_fallback, SOURCE_REGION),
+            ]
+
+        for point, source in candidates:
+            if point is not None:
+                district_point[d["bjd_code"]] = (point, source)
+                break
 
     unique = sorted({*region_point.values(), *(p for p, _ in district_point.values())})
     print(f"구역 {len(region_point)}/{len(regions)}개, 법정동 {len(district_point)}/{len(districts)}개")
