@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.models import Crop, District, Region, SoilState, UserFarm
-from app.services.district_soil_service import get_or_fetch
+from app.services.district_soil_service import get_or_fetch, is_leaf_bjd
 
 
 def list_regions(db: Session) -> list[Region]:
@@ -19,10 +19,18 @@ def list_regions(db: Session) -> list[Region]:
 
 
 def list_districts(db: Session, region_id: int) -> list[District]:
-    """시/군에 속한 읍면동. 존재하지 않는 region이면 404(화이트리스트 검증, §17)."""
+    """시/군에 속한 법정동 **말단**. 존재하지 않는 region이면 404(화이트리스트 검증, §17).
+
+    리가 있는 읍·면(전국 1,411개)은 제외한다 — 그 코드로는 흙토람 검정 기록을 못 가져오므로
+    고르게 하면 안 된다. 대신 그 면의 리들이 목록에 있다. 행 자체는 DB에 남아 있다 — 리 전환
+    전에 면 코드로 등록된 밭이 FK를 걸고 있어서다. 설계: docs/design/ri-level-district.md
+
+    name이 `"공음면 구암리"`라 name 정렬만으로 같은 면의 리가 붙어 나온다.
+    """
     if db.query(Region.id).filter(Region.id == region_id).first() is None:
         raise AppError(404, "REGION_NOT_FOUND", "지역을 찾을 수 없습니다.")
-    return list(db.query(District).filter(District.region_id == region_id).order_by(District.name))
+    rows = db.query(District).filter(District.region_id == region_id).order_by(District.name)
+    return [d for d in rows if is_leaf_bjd(d.bjd_code)]
 
 
 def list_crops(db: Session) -> list[Crop]:
@@ -55,6 +63,9 @@ def _validate_location_and_crop(db: Session, region_id: int, bjd_code: str, crop
     if db.query(Region.id).filter(Region.id == region_id).first() is None:
         raise AppError(404, "REGION_NOT_FOUND", "지역을 찾을 수 없습니다.")
 
+    # 여기서 말단(is_leaf_bjd)까지 요구하면 안 된다 — 리 단위 전환 전에 면 코드로 등록된 밭은
+    # 라벨만 고쳐도 이 검증을 다시 타므로, 자기 주소를 못 고치게 된다. 말단 제한은 선택지를
+    # 좁히는 쪽(list_districts)에서만 한다.
     district = db.query(District).filter(District.bjd_code == bjd_code).first()
     if district is None:
         raise AppError(404, "DISTRICT_NOT_FOUND", "읍면동을 찾을 수 없습니다.")

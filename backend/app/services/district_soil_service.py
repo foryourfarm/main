@@ -1,12 +1,15 @@
-"""읍면동 토양 기준값 확보 — 흙토람 토양검정 → 경지구분 필터 → 평균 → 캐시 (DB.md §3.9).
+"""법정동 토양 기준값 확보 — 흙토람 토양검정 → 경지구분 필터 → 평균 → 캐시 (DB.md §3.9).
 
-왜 읍면동인가(PRD.md §5, 실측 근거): 흙토람 토양검정은 읍면동 법정동코드로만 조회되고
-(시/군 코드는 "데이터 없음"), 시/군 안 편차가 매우 커서 평균이 유저 밭과 무관해진다.
+왜 법정동 말단인가(PRD.md §5, 실측 근거): 흙토람 토양검정은 검정 기록이 있는 최말단
+법정동코드로만 조회된다 — 시/군 코드는 "데이터 없음"이고, 리가 있는 읍·면도 마찬가지다
+(면 코드로 물으면 301). 게다가 시/군 안 편차가 매우 커서 상위 단위 평균은 유저 밭과 무관해진다.
+말단 판정·선택지 노출은 is_leaf_bjd / farm_service.list_districts.
+설계: docs/design/ri-level-district.md
 
-왜 경지구분 필터인가: 같은 읍면동에서도 값이 크게 다르다(실측: 순천 삼거동 밭 유기물 20 vs
+왜 경지구분 필터인가: 같은 법정동에서도 값이 크게 다르다(실측: 순천 삼거동 밭 유기물 20 vs
 과수 51~62). 등록 작물의 재배 형태에 맞는 표본만 평균한다(crop.exam_field_type).
 
-캐시: (읍면동, 경지구분) 단위로 저장해 같은 동네 재등록 시 외부 API를 다시 부르지 않는다(§12).
+캐시: (법정동, 경지구분) 단위로 저장해 같은 동네 재등록 시 외부 API를 다시 부르지 않는다(§12).
 """
 
 import csv
@@ -55,11 +58,6 @@ def legacy_bjd_code(bjd_code: str) -> str | None:
 # 이걸 몰라 농촌(읍·면) 전역이 토양 결측이었다 — 정작 귀농인 밭이 있는 곳이다.
 _BJD_CSV = Path(__file__).resolve().parents[3] / "docs" / "seed" / "bjd_to_region.csv"
 
-# 조회할 리 수 상한. 리 하나가 4초쯤 걸려 전부 돌면 등록이 1분을 넘는다. 리는 같은 면
-# 안이라 토양이 비슷하고 표본도 리당 수십 건씩 나와, 앞 몇 곳만으로 대표값이 선다.
-# ponytail: 상한 5. 리 간 편차가 문제되면 표본 수 기준(예: 100건까지)으로 바꾼다.
-RI_SAMPLE_LIMIT = 5
-
 
 @lru_cache(maxsize=1)
 def _ri_by_eupmyeondong() -> dict[str, list[str]]:
@@ -75,8 +73,26 @@ def _ri_by_eupmyeondong() -> dict[str, list[str]]:
 
 
 def ri_codes(bjd_code: str) -> list[str]:
-    """그 읍면동에 속한 리 코드들. 리가 없는 동이면 빈 리스트."""
+    """같은 읍면동에 속한 리 코드들. 리가 없는 동이면 빈 리스트.
+
+    주의: 앞 8자리로 묶으므로 **리 코드를 넣으면 형제 리 전체(자기 포함)가 나온다** — 리와
+    부모 면은 앞 8자리를 공유한다(공음면 5279034000, 구암리 5279034023). 그래서 말단 판정은
+    이 함수를 직접 쓰지 않고 is_leaf_bjd를 쓴다.
+    """
     return _ri_by_eupmyeondong().get(bjd_code[:8], [])
+
+
+def is_leaf_bjd(bjd_code: str) -> bool:
+    """법정동 말단인가 — 유저가 고를 수 있는 단위이자 흙토람이 검정 기록을 갖는 단위.
+
+    법정동코드 10자리는 시도(2)+시군구(3)+읍면동(3)+리(2)다. 뒤 2자리가 `00`이면 읍면동
+    자체이고, 아니면 리다(시드 20,275행 전수 확인: 예외 0건).
+
+    리를 가진 읍·면은 말단이 아니다 — 그 코드로 흙토람에 물으면 데이터가 있어도 301이 온다.
+    """
+    if bjd_code[8:] != "00":
+        return True  # 리 코드 자체
+    return not ri_codes(bjd_code)
 
 
 def _avg(values: list[Decimal | None]) -> Decimal | None:
@@ -107,6 +123,12 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
     """(표본, 실제 조회에 쓴 코드). 신규 코드가 비면 통합 전 코드로 1회 재시도한다.
 
     전부 실패/빈 결과면 (빈 리스트, None) — 등록을 막지 않는다(§12).
+
+    이웃 리를 모아 평균하는 폴백이 있었는데 지웠다. 유저가 리를 직접 고르게 된 뒤로
+    (list_districts가 말단만 노출) 리 코드로 바로 조회되고, 표집 40곳이 전부 데이터를 줬다
+    (14개 시도 균등 표집 28곳 + 고창 공음면 12곳, 통합전 코드 재시도 포함). 즉 폴백은 탈
+    자리가 없어졌고, 남겨두면 이웃 리 평균(실측 EC 0.47~8.15, 점수 오차 최대 60점)을 "내 땅
+    값"처럼 보여준다 — §18-4·PRD 철학 1 위반. 결측은 채점 커버리지 문구로 정직하게 드러낸다.
     """
     candidates = [bjd_code]
     old = legacy_bjd_code(bjd_code)
@@ -120,21 +142,24 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
             continue  # 데이터 없음(301)·파라미터 오류(201)·네트워크 실패 → 다음 후보
         if exams:
             return exams, code
-
-    # 읍·면은 리 코드로만 기록돼 있다(위 _BJD_CSV 주석). 리를 앞에서부터 모은다.
-    pooled: list[SoilExam] = []
-    sampled = 0
-    for ri in ri_codes(bjd_code)[:RI_SAMPLE_LIMIT]:
-        try:
-            exams = get_soil_exam_list(ri, page_no=1, page_size=PAGE_SIZE)
-        except (PublicApiError, OSError):
-            continue
-        if exams:
-            pooled.extend(exams)
-            sampled += 1
-    if pooled:
-        return pooled, f"{bjd_code} 리 {sampled}곳"
     return [], None
+
+
+def source_label(bjd_code: str, queried_code: str | None, field_type: str) -> str:
+    """유저에게 그대로 노출되는 출처 문구(§18-4) — 어느 코드로 조회했는지 숨기지 않는다.
+
+    순수 함수. `soil_state.base_source` → `FarmOut.soil_source` → 화면 출처 footer로 흘러가므로
+    문구가 곧 유저와의 약속이다. 테스트로 고정한다.
+    """
+    if queried_code is None:
+        if not is_leaf_bjd(bjd_code):
+            # 리가 있는 읍·면 — 이 코드로는 흙토람에 기록이 없다. "조회 실패"로 뭉개면 유저가
+            # 무엇을 하면 되는지 알 수 없다(리 전환 전에 등록된 밭이 여기 온다).
+            return f"{SOURCE_PREFIX}(읍·면 단위로는 기록 없음 — 리를 선택하면 조회됩니다)"
+        return f"{SOURCE_PREFIX}(조회 실패 — 표본 없음)"
+    if queried_code != bjd_code:
+        return f"{SOURCE_PREFIX}(법정동 {queried_code} 통합전코드, 경지구분 {field_type})"
+    return f"{SOURCE_PREFIX}(법정동 {bjd_code}, 경지구분 {field_type})"
 
 
 def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:
@@ -156,15 +181,7 @@ def get_or_fetch(db: Session, bjd_code: str, field_type: str) -> DistrictSoil:
         return cached
 
     exams, queried_code = _fetch_exams(bjd_code)
-    if queried_code is None:
-        source = f"{SOURCE_PREFIX}(조회 실패 — 표본 없음)"
-    elif queried_code.startswith(f"{bjd_code} 리 "):
-        # 읍면동 전체가 아니라 리 일부만 표집했다는 사실을 숨기지 않는다(§18-4).
-        source = f"{SOURCE_PREFIX}({queried_code}, 경지구분 {field_type})"
-    elif queried_code != bjd_code:
-        source = f"{SOURCE_PREFIX}(읍면동 {queried_code} 통합전코드, 경지구분 {field_type})"
-    else:
-        source = f"{SOURCE_PREFIX}(읍면동 {bjd_code}, 경지구분 {field_type})"
+    source = source_label(bjd_code, queried_code, field_type)
 
     summary = summarize(exams, field_type)
     values = {

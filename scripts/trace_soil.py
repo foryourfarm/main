@@ -16,9 +16,10 @@ from app.infra.public_api.soil_exam_client import get_soil_exam_list  # noqa: E4
 from app.models import Crop, District, DistrictSoil, SoilState, UserFarm  # noqa: E402
 from app.services.district_soil_service import (  # noqa: E402
     PAGE_SIZE,
-    RI_SAMPLE_LIMIT,
+    is_leaf_bjd,
     legacy_bjd_code,
     ri_codes,
+    source_label,
     summarize,
 )
 
@@ -47,36 +48,34 @@ def main(farm_id: int) -> int:
         return 0
 
     rule("2. 흙토람에 어떤 코드로 묻는가 (district_soil_service._fetch_exams)")
-    print(f"  ① 읍면동 코드 그대로   {farm.bjd_code}")
+    leaf = is_leaf_bjd(farm.bjd_code)
+    print(f"  법정동 말단인가        {leaf}")
+    print(f"  ① 코드 그대로          {farm.bjd_code}")
     old = legacy_bjd_code(farm.bjd_code)
     print(f"  ② 통합전 코드          {old or '(해당 없음)'}")
-    ris = ri_codes(farm.bjd_code)
-    print(f"  ③ 리 코드 {len(ris)}개 중 앞 {RI_SAMPLE_LIMIT}개  {ris[:RI_SAMPLE_LIMIT] or '(리 없는 동)'}")
-    print("     ①②가 비면 ③으로 간다. 읍·면은 흙토람이 리 코드로만 갖고 있다.")
+    if not leaf:
+        ris = ri_codes(farm.bjd_code)
+        print(f"\n  ⚠ 리를 가진 읍·면이다 — 이 코드로는 흙토람이 301을 준다. 리 {len(ris)}개:")
+        print(f"    {ris[:6]}{' …' if len(ris) > 6 else ''}")
+        print("    이웃 리를 모아 평균하던 폴백은 지웠다(남의 땅 값을 내 땅처럼 보여줌).")
+        print("    유저가 리를 다시 고르면 soil_state가 재생성된다.")
 
     rule("3. 실제 API 응답 (호출 발생 — 느릴 수 있음)")
     pooled = []
-    for label, code in [("읍면동", farm.bjd_code), ("통합전", old)]:
+    used: str | None = None
+    for label, code in [("법정동", farm.bjd_code), ("통합전", old)]:
         if code is None:
             continue
         try:
             exams = get_soil_exam_list(code, page_no=1, page_size=PAGE_SIZE)
             print(f"  {label:5} {code} → {len(exams)}건")
             if exams:
-                pooled = exams
+                pooled, used = exams, code
                 break
         except Exception as e:  # noqa: BLE001 — 조사 스크립트, 모든 실패를 보여준다
             print(f"  {label:5} {code} → {e}")
-    if not pooled:
-        for ri in ris[:RI_SAMPLE_LIMIT]:
-            try:
-                exams = get_soil_exam_list(ri, page_no=1, page_size=PAGE_SIZE)
-                addr = exams[0].address.rsplit(" ", 1)[0] if exams else ""
-                print(f"  리    {ri} → {len(exams):3}건  {addr}")
-                pooled.extend(exams)
-            except Exception as e:  # noqa: BLE001
-                print(f"  리    {ri} → {e}")
     print(f"\n  합계 {len(pooled)}건")
+    print(f"  출처 문구: {source_label(farm.bjd_code, used, crop.exam_field_type)}")
     if pooled:
         by_type: dict[str, int] = {}
         for e in pooled:
@@ -118,8 +117,8 @@ def main(farm_id: int) -> int:
         print(f"                 base_source={soil.base_source}")
     print("\n  soil_state는 밭 등록 시점에 district_soil을 복사한 것이다"
           "(farm_service._init_soil_state).")
-    print("  등록 시점에 조회가 실패했으면 NULL이 복사돼 그대로 굳는다"
-          " → scripts/repair_empty_soil_state.py")
+    print("  값이 NULL이면 설정 화면에서 주소를 리까지 다시 고른다 —"
+          " bjd_code가 바뀌면 update_farm이 soil_state를 재생성한다.")
 
     rule("6. 적합도에서 이 값이 어떻게 쓰이나")
     print("  gather_indicator_values(soil, …)  suitability_service.py")
