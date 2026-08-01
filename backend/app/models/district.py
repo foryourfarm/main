@@ -8,9 +8,13 @@ from app.models.base import Base
 
 
 class District(Base):
-    """읍면동 마스터(법정동 10자리). 온보딩 드롭다운 + 흙토람 조회 키(PRD.md §5).
+    """법정동 마스터(10자리) — 읍면동 + 리. 온보딩 선택지 + 흙토람 조회 키(PRD.md §5).
 
-    시/군(region)은 기상·적합도·ML 단위, 읍면동은 토양 단위 — 층이 다르다.
+    시/군(region)은 기상·적합도·ML 단위, 법정동은 토양 단위 — 층이 다르다.
+
+    선택지로 노출되는 건 **말단**만이다(리가 있으면 리, 없으면 동·읍·면). 리를 가진 읍·면 행도
+    테이블에는 남아 있다 — 리 전환 전에 면 코드로 등록된 밭이 FK를 걸고 있어서다.
+    노출 필터는 farm_service.list_districts. 설계: docs/design/ri-level-district.md
     """
 
     __tablename__ = "district"

@@ -7,8 +7,9 @@ import { fetchCrops, fetchDistricts, fetchRegions } from "@/lib/farm";
 import type { Crop, District, Farm, FarmCreateInput, Region } from "@/types/farm";
 
 /**
- * 밭 등록/수정 공용 폼. 지역은 시/군 → 읍면동 2단계로 받는다(PRD §4.2).
- * 읍면동까지 받는 이유는 토양 기준값이 읍면동 단위로만 조회되고 시/군 안 편차가 크기 때문(§5).
+ * 밭 등록/수정 공용 폼. 지역은 시/군 → 법정동 말단(리가 있으면 리) 2단계로 받는다(PRD §4.2).
+ * 말단까지 받는 이유는 흙토람 조회 단위가 말단이고, 면 평균과 리 실측이 최대 60점 갈리기
+ * 때문이다(`docs/design/ri-level-district.md`).
  *
  * `farm`을 주면 수정 모드(초기값 채움 + 취소 버튼). 저장은 호출자가 한다 — 등록은 POST,
  * 수정은 PATCH이고 성공 후 이동/새로고침도 다르기 때문.
@@ -33,6 +34,8 @@ export default function FarmForm({
   const [regionId, setRegionId] = useState(farm ? String(farm.region_id) : "");
   const [regionQuery, setRegionQuery] = useState("");
   const [bjdCode, setBjdCode] = useState(farm?.bjd_code ?? "");
+  // 시/군과 달리 표기를 조립할 필요가 없다 — 밭 응답의 district_name이 곧 목록의 name이다.
+  const [districtQuery, setDistrictQuery] = useState(farm?.district_name ?? "");
   const [cropId, setCropId] = useState(farm ? String(farm.crop_id) : "");
   const [plantingDate, setPlantingDate] = useState(farm?.planting_date ?? "");
   const [label, setLabel] = useState(farm?.label ?? "");
@@ -56,7 +59,9 @@ export default function FarmForm({
       setDistricts([]);
       return;
     }
-    setBjdCode((prev) => (regionId === String(farm?.region_id) ? prev : ""));
+    const kept = regionId === String(farm?.region_id);
+    setBjdCode((prev) => (kept ? prev : ""));
+    setDistrictQuery((prev) => (kept ? prev : ""));
     fetchDistricts(Number(regionId))
       .then(setDistricts)
       .catch(() => setError("읍면동을 가져오지 못했어요."));
@@ -68,6 +73,12 @@ export default function FarmForm({
   const byLabel = useMemo(
     () => new Map(regions.map((r) => [regionLabel(r), r.id])),
     [regions],
+  );
+
+  // 리 단위 전환으로 시군당 선택지가 중앙값 69·최대 236개가 됐다 → 시/군과 같은 datalist 검색.
+  const byDistrictName = useMemo(
+    () => new Map(districts.map((d) => [d.name, d.bjd_code])),
+    [districts],
   );
 
   // 수정 모드: 지역 목록이 도착한 뒤에야 기존 밭의 표기를 채울 수 있다.
@@ -127,27 +138,32 @@ export default function FarmForm({
       </div>
 
       <div className={styles.field}>
-        <label htmlFor={`${uid}-district`}>읍/면/동</label>
-        <select
+        <label htmlFor={`${uid}-district`}>읍/면/동·리</label>
+        <input
           id={`${uid}-district`}
-          value={bjdCode}
-          onChange={(e) => setBjdCode(e.target.value)}
-          disabled={districts.length === 0}
+          list={`${uid}-district-list`}
+          value={districtQuery}
+          onChange={(e) => {
+            setDistrictQuery(e.target.value);
+            setBjdCode(byDistrictName.get(e.target.value) ?? "");
+          }}
+          disabled={regionId === ""}
+          placeholder={
+            regionId === "" ? "시/군을 먼저 선택" : "리 이름을 입력하세요 (예: 구암리)"
+          }
+          autoComplete="off"
           required
-        >
-          <option value="">{regionId === "" ? "시/군을 먼저 선택" : "선택하세요"}</option>
-          {/* 수정 모드에서 목록이 아직 안 왔을 때도 현재 값을 보여준다. */}
-          {districts.length === 0 && bjdCode !== "" && (
-            <option value={bjdCode}>{farm?.district_name ?? bjdCode}</option>
-          )}
+        />
+        <datalist id={`${uid}-district-list`}>
           {districts.map((d) => (
-            <option key={d.bjd_code} value={d.bjd_code}>
-              {d.name}
-            </option>
+            <option key={d.bjd_code} value={d.name} />
           ))}
-        </select>
+        </datalist>
+        {districtQuery !== "" && bjdCode === "" && (
+          <p className={styles.hint}>목록에서 읍/면/동·리를 골라 주세요.</p>
+        )}
         <p className={styles.hint}>
-          토양 데이터를 읍/면/동 단위로 가져옵니다. 시/군 평균보다 실제 밭에 가깝습니다.
+          토양 데이터를 리 단위로 가져옵니다. 읍·면 평균보다 실제 밭에 가깝습니다.
         </p>
       </div>
 
