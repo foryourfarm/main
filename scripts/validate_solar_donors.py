@@ -164,6 +164,43 @@ def main() -> None:
         _, missing = mae(usable, k=10, alt_tol=None, cap_km=cap, **ctx)
         print(f"  상한 {cap:5.0f}km  예측불가 {missing:>3}개 / {len(usable)}")
 
+    _report_split(ctx, usable)
+
+
+def _report_split(ctx: dict, usable: list[str]) -> None:
+    """k를 train에서만 고르고 test에서만 보고한다 - 하이퍼파라미터 낙관편향 확인.
+
+    **왜 필요한가**: 위 [1]~[3]은 LOOCV라 타깃 자기 값이 예측에 안 들어가므로 leakage는 없다.
+    학습되는 파라미터도 없다(이웃 거리역수 가중평균은 fit이 아니다). 그런데 **k와 고도 허용폭을
+    그 165개 지점의 LOOCV를 보고 골랐으므로** 보고값이 낙관적으로 편향될 수 있다. 그 크기를
+    직접 재서 밝힌다.
+
+    도너 풀은 양쪽 모두 "타깃 제외 전체"로 둔다 - 프로덕션에서 구역에 배정할 때 지점 전부가
+    도너이므로 그게 실제 조건이다. 분할은 정렬 후 짝/홀로 결정론적으로 나눈다(재현 가능).
+    """
+    train = [s for i, s in enumerate(usable) if i % 2 == 0]
+    test = [s for i, s in enumerate(usable) if i % 2 == 1]
+    print(f"\n[4] train/test 분할 - train {len(train)} / test {len(test)}")
+
+    best_k, best = None, float("inf")
+    for k in (1, 2, 3, 5, 7, 10, 15, 20, 30):
+        value, _ = mae(train, k=k, alt_tol=None, cap_km=60.0, **ctx)
+        if value is not None and value < best:
+            best, best_k = value, k
+    print(f"  train이 고른 k = {best_k} (train MAE {best:.4f})")
+
+    print("  k     전체 LOOCV     test만      차이")
+    for k in (1, 5, 10, 15):
+        full, _ = mae(usable, k=k, alt_tol=None, cap_km=60.0, **ctx)
+        held, _ = mae(test, k=k, alt_tol=None, cap_km=60.0, **ctx)
+        print(f"  {k:>3}     {full:.4f}       {held:.4f}     {(held - full) / full * 100:+.2f}%")
+
+    print("  고도 필터 결론이 test에서도 유지되나 (k=10)")
+    for tol, label in ((None, "무필터"), (100.0, "+-100m"), (200.0, "+-200m")):
+        tr, _ = mae(train, k=10, alt_tol=tol, cap_km=60.0, **ctx)
+        te, _ = mae(test, k=10, alt_tol=tol, cap_km=60.0, **ctx)
+        print(f"    {label:>7}  train {tr:.4f}   test {te:.4f}")
+
 
 if __name__ == "__main__":
     main()
