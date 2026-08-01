@@ -3,7 +3,9 @@
 실행: backend/.venv/Scripts/python.exe -m unittest tests.test_chat_service   (backend/ 에서)
 """
 
+import re
 import unittest
+from collections import Counter
 from collections.abc import Iterator
 from decimal import Decimal
 
@@ -12,6 +14,8 @@ from app.prompts.chatbot import (
     REFERRAL_TEXT,
     SECURITY_REDIRECT,
     FarmContext,
+    _FEWSHOT,
+    _SYSTEM,
     build_chat_prompt,
     format_context,
     format_crop,
@@ -19,6 +23,7 @@ from app.prompts.chatbot import (
     format_history,
 )
 from app.services.chat_service import LLM_ERROR_TEXT, SSE_DONE, stream_from_chunks
+from app.services.short_term_service import SOIL_LIMITATION
 
 
 class FakeLlm:
@@ -133,6 +138,55 @@ class TestStreamFallback(unittest.TestCase):
         out = self._collect(stream_from_chunks("질문", ["근거"], FakeLlm(raises=True)))
         self.assertIn(LLM_ERROR_TEXT, out)
         self.assertTrue(out.endswith(SSE_DONE))
+
+
+class TestFewshotCropBalance(unittest.TestCase):
+    """few-shot 작물 편중 회귀 방지.
+
+    프로덕션에서 사과밭 질문에 답이 "상추밭과 마찬가지로"로 시작했다. RAG는 정상이었고
+    (사과로 필터됨, 사과 조각에 상추 언급 0건) 원인은 few-shot 4개 중 3개가 `[작물] 상추`인
+    것이었다 — 모델이 시연의 작물명을 옮긴 label bleed. 예시를 늘리거나 고칠 때 한 작물이
+    다시 과반이 되는 것을 막는다.
+    """
+
+    def _labels(self) -> list[str]:
+        return re.findall(r"\[작물\] (.+)", _FEWSHOT)
+
+    def test_no_single_crop_is_majority(self):
+        labels = self._labels()
+        self.assertGreaterEqual(len(labels), 3, "few-shot 예시가 너무 적다")
+        crops = [x for x in labels if x != "(지정 안 됨)"]
+        top = Counter(crops).most_common(1)[0]
+        self.assertLessEqual(
+            top[1],
+            len(crops) // 2,
+            f"'{top[0]}' 예시가 {top[1]}/{len(crops)}로 과반이다 — label bleed가 재발한다",
+        )
+
+    def test_forbids_mentioning_other_crops(self):
+        # 규칙 문구가 사라지면 모델이 다시 다른 작물을 끌어온다.
+        self.assertIn("다른 작물을 언급하거나 비교하지 마라", _SYSTEM)
+
+
+class TestSoilLimitationHonesty(unittest.TestCase):
+    """토양 한계 문구가 없는 기능을 있다고 말하지 않는지.
+
+    §18-4는 보통 "한계를 숨기지 마라"인데, 이 문구는 거꾸로 위반했다 — "행위 영향을 반영한
+    추정치"라고 했지만 반영하는 코드가 없다(soil_delta는 shadow 전용이라 유저 경로에서
+    호출되지 않고, soil_change_rule은 읽는 코드가 0건). 초보자가 "내 작업이 반영된 내 땅
+    수치"로 믿게 되므로 과소 표기보다 나쁘다.
+    """
+
+    def test_does_not_claim_action_effects(self):
+        self.assertNotIn("행위 영향", SOIL_LIMITATION)
+
+    def test_says_not_measured_on_this_farm(self):
+        # 지역 표본 평균임을 밝혀야 한다 — "내 밭 실측"으로 읽히면 안 된다.
+        self.assertIn("직접 측정한 값이", SOIL_LIMITATION)
+
+    def test_does_not_hardcode_eupmyeondong_unit(self):
+        # 등록 단위가 법정동 말단이라 리로 등록된 밭도 있다. 단위를 하나로 못 박으면 거짓이 된다.
+        self.assertNotIn("읍면동", SOIL_LIMITATION)
 
 
 if __name__ == "__main__":
