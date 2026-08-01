@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
@@ -67,13 +68,22 @@ class Settings(BaseSettings):
     vworld_apikey: str = ""  # VWorld — 주소 → PNU 변환
 
     # 기상청 API Hub(apihub.kma.go.kr). data.go.kr과 **별개 인증 체계**라 키를 따로 받는다
-    # (data.go.kr 키를 넣으면 401). AWS 결측 보완 계층 전용 — MappingReport.md §2 참고.
-    weather_apihub_key: str = ""
+    # (data.go.kr 키를 넣으면 401). `기상청_API-Guide.md`·`Sunlight-Calculation_API-Guide.md`가
+    # 문서화한 엔드포인트 전부가 이 호스트다 — AWS 관측자료(typ02)와 평년값 sfc_norm1.php(typ01)
+    # 둘 다. MappingReport.md §2 참고.
+    #
+    # **필드가 둘로 갈려 있었다.** `weather_apihub_key`(빈 값, kma_station_client가 읽는 쪽)와
+    # `weather_data_apikey`(값은 있지만 typ01·typ02 양쪽에서 401)가 같은 자격증명을 가리켰고,
+    # 실제 키가 클라이언트가 안 읽는 쪽에 들어가 있었다. 하나로 합치고 두 env 이름을 모두
+    # 받아들여 어느 쪽에 넣어도 읽히게 한다 — 이름 불일치로 조용히 빈 값이 되는 것을 막는다(§17).
+    weather_apihub_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("weather_apihub_key", "weather_data_apikey"),
+    )
     # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
 
     fertilizer_api: str = ""  # 작물별 비료 표준사용량 처방 정보 — [확인 필요] 연동 클라이언트 미구현
     crop_code_api: str = ""  # 작물코드 목록 정보 — [확인 필요] 연동 클라이언트 미구현
-    weather_data_apikey: str = ""  # 기상청_API-Guide/Sunlight-Calculation_API-Guide 용 — [확인 필요] 연동 클라이언트 미구현
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.
     # 비어 있으면 미로드 → 모든 예측이 Δ=0 폴백(서비스는 죽지 않음, 가이드 §2.2). 실제 artifact는
