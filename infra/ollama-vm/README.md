@@ -66,7 +66,7 @@ gcloud compute ssh ollama-l4 --zone=asia-northeast3-b -- \
 Cloud Run은 기본적으로 VPC 밖이라, 내부 IP의 Ollama에 닿으려면 **Serverless VPC Access 커넥터**가 필요하다.
 
 1. 커넥터 생성 → Cloud Run 서비스에 연결(egress: private ranges).
-2. 백엔드 환경변수 `OLLAMA_BASE_URL=http://<VM_INTERNAL_IP>:11434`.
+2. 백엔드 환경변수 `LLM_BASE_URL=http://<VM_INTERNAL_IP>:11434` (코드가 읽는 실제 변수명은 `app/core/config.py`의 `llm_base_url` — `OLLAMA_BASE_URL`이 아니다).
 3. VM 내부 IP 확인:
    ```bash
    gcloud compute instances describe ollama-l4 --zone=asia-northeast3-b \
