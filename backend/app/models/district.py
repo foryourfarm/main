@@ -22,6 +22,13 @@ class District(Base):
     bjd_code: Mapped[str] = mapped_column(primary_key=True)
     region_id: Mapped[int] = mapped_column(ForeignKey("region.id"))
     name: Mapped[str] = mapped_column()
+    altitude_m: Mapped[int | None] = mapped_column()
+    """밭 위치 대표 고도(m). 기온 감률 보정 기준(0.65℃/100m)."""
+    altitude_source: Mapped[str | None] = mapped_column()
+    """고도를 어느 점에서 땄는지. `emd_point`=읍·면·동 대표점(리는 소속 읍·면),
+    `region_point`=시군구 대표점 폴백(도시 법정동). 근사 정도가 다르므로 한계 문구에 쓴다(§18-4).
+    적재: scripts/load_altitudes.py
+    """
 
 
 class DistrictSoil(Base):

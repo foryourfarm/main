@@ -10,10 +10,13 @@ import unittest
 from decimal import Decimal
 
 from app.services.climatology_service import (
+    BLENDED_FIELDS,
     ClimatologySource,
     MonthlyNormals,
+    _apply_lapse_rate,
     _rank_donors,
     _weighted_normals,
+    lapse_limitation,
     substitution_limitation,
 )
 
@@ -26,16 +29,14 @@ class FakeGrid:
 
 
 class FakeRow:
-    """WeatherClimatology 대역 — 가중평균이 읽는 5개 필드만 갖는다."""
+    """WeatherClimatology 대역 — 가중평균이 읽는 필드만 갖는다.
+
+    필드 목록을 베껴 적지 않고 `BLENDED_FIELDS`에서 가져온다. 종전엔 5개를 하드코딩해서
+    `reference_altitude_m`이 추가됐을 때 대역만 뒤처져 AttributeError로 죽었다.
+    """
 
     def __init__(self, **fields: Decimal | None):
-        for name in (
-            "temp_avg_normal",
-            "temp_night_min_normal",
-            "rainfall_normal",
-            "sunlight_normal",
-            "solar_radiation_normal",
-        ):
+        for name in BLENDED_FIELDS:
             setattr(self, name, fields.get(name))
 
 
@@ -154,25 +155,25 @@ class TestDeterminism(unittest.TestCase):
         me = FakeGrid(60, 127)
         # 상하좌우 4방향 — 전부 정확히 5km로 동거리다.
         candidates = [
-            (FakeGrid(61, 127, region_id=40), "가"),
-            (FakeGrid(59, 127, region_id=10), "나"),
-            (FakeGrid(60, 128, region_id=30), "다"),
-            (FakeGrid(60, 126, region_id=20), "라"),
+            (FakeGrid(61, 127, region_id=40), "가", None),
+            (FakeGrid(59, 127, region_id=10), "나", None),
+            (FakeGrid(60, 128, region_id=30), "다", None),
+            (FakeGrid(60, 126, region_id=20), "라", None),
         ]
-        picked = [name for _, name in _rank_donors(me, candidates, k=2)]
+        picked = [name for _, name, _ in _rank_donors(me, candidates, k=2)]
         self.assertEqual(picked, ["나", "라"])  # region_id 10, 20
 
         # 입력 순서를 뒤집어도 같은 결과여야 한다.
         picked_reversed = [
-            name for _, name in _rank_donors(me, list(reversed(candidates)), k=2)
+            name for _, name, _ in _rank_donors(me, list(reversed(candidates)), k=2)
         ]
         self.assertEqual(picked_reversed, ["나", "라"])
 
     def test_nearer_donor_ranks_first(self):
         me = FakeGrid(0, 0)
         candidates = [
-            (FakeGrid(4, 0, region_id=1), "먼곳"),
-            (FakeGrid(1, 0, region_id=2), "가까운곳"),
+            (FakeGrid(4, 0, region_id=1), "먼곳", None),
+            (FakeGrid(1, 0, region_id=2), "가까운곳", None),
         ]
         self.assertEqual(_rank_donors(me, candidates, k=1)[0][1], "가까운곳")
 
@@ -234,6 +235,100 @@ class TestSubstitutionMessage(unittest.TestCase):
 
     def test_not_substituted_returns_none(self):
         self.assertIsNone(substitution_limitation(ClimatologySource(by_month={})))
+
+
+class TestAltitudeDonorFilter(unittest.TestCase):
+    """고도가 동떨어진 도너를 걷어내는지. 수평거리만 보면 한라산 지점과 해안 지점이
+    같은 후보에 든다(적재 실측: 서귀포시 도너 고도 산포 1,524m)."""
+
+    def test_high_altitude_donor_dropped_even_when_nearest(self):
+        me = FakeGrid(60, 127)
+        candidates = [
+            (FakeGrid(60, 128, region_id=1), "산중턱", 900),  # 5km, +880m
+            (FakeGrid(62, 127, region_id=2), "저지대A", 40),  # 10km, +20m
+            (FakeGrid(63, 127, region_id=3), "저지대B", 60),  # 15km, +40m
+            (FakeGrid(64, 127, region_id=4), "저지대C", 10),  # 20km, -10m
+        ]
+        picked = [name for _, name, _ in _rank_donors(me, candidates, my_altitude=20, k=3)]
+        self.assertNotIn("산중턱", picked)
+        self.assertEqual(picked, ["저지대A", "저지대B", "저지대C"])
+
+    def test_filter_abandoned_when_it_would_empty_the_pool(self):
+        """고립된 고지대 구역이 통째로 '데이터 없음'이 되면 안 된다 — 근사가 없는 것보단 낫다."""
+        me = FakeGrid(0, 0)
+        candidates = [
+            (FakeGrid(1, 0, region_id=1), "먼고도A", 900),
+            (FakeGrid(2, 0, region_id=2), "먼고도B", 950),
+        ]
+        picked = [name for _, name, _ in _rank_donors(me, candidates, my_altitude=20, k=5)]
+        self.assertEqual(picked, ["먼고도A", "먼고도B"])
+
+    def test_unknown_altitude_donor_is_kept(self):
+        """없는 정보로 도너를 버리면 그 구역이 통째로 비어버린다."""
+        me = FakeGrid(0, 0)
+        candidates = [
+            (FakeGrid(1, 0, region_id=1), "고도미상", None),
+            (FakeGrid(2, 0, region_id=2), "같은고도", 25),
+            (FakeGrid(3, 0, region_id=3), "같은고도2", 30),
+        ]
+        picked = [name for _, name, _ in _rank_donors(me, candidates, my_altitude=20, k=3)]
+        self.assertIn("고도미상", picked)
+
+
+class TestLapseRate(unittest.TestCase):
+    """밭 고도 감률 보정(0.65℃/100m). 기준선은 평년치가 대표하는 고도다."""
+
+    def _row(self, reference: int | None, temp: str = "20.0") -> MonthlyNormals:
+        return MonthlyNormals(
+            temp_avg_normal=Decimal(temp),
+            temp_night_min_normal=Decimal("12.0"),
+            rainfall_normal=Decimal("100.0"),
+            reference_altitude_m=reference,
+        )
+
+    def test_higher_farm_gets_colder(self):
+        # 밭 400m, 기준선 100m → 300m 차이 → -1.95℃
+        adjusted, delta = _apply_lapse_rate({7: self._row(100)}, farm_altitude=400)
+        self.assertAlmostEqual(delta, 300.0)
+        self.assertAlmostEqual(float(adjusted[7].temp_avg_normal), 18.05, places=4)
+        self.assertAlmostEqual(float(adjusted[7].temp_night_min_normal), 10.05, places=4)
+
+    def test_lower_farm_gets_warmer(self):
+        adjusted, delta = _apply_lapse_rate({7: self._row(500)}, farm_altitude=100)
+        self.assertAlmostEqual(delta, -400.0)
+        self.assertAlmostEqual(float(adjusted[7].temp_avg_normal), 22.6, places=4)
+
+    def test_rainfall_untouched(self):
+        """강수는 고도와 이렇게 단순한 관계가 아니다 — 같은 식으로 보정하면 지어낸 값이 된다."""
+        adjusted, _ = _apply_lapse_rate({7: self._row(100)}, farm_altitude=400)
+        self.assertEqual(adjusted[7].rainfall_normal, Decimal("100.0"))
+
+    def test_small_delta_not_corrected(self):
+        """SRTM 표고 검증 오차가 MAE 8.8m라 그 언저리를 보정하면 잡음만 키운다."""
+        original = self._row(100)
+        adjusted, delta = _apply_lapse_rate({7: original}, farm_altitude=110)
+        self.assertIsNone(delta)
+        self.assertIs(adjusted[7], original)
+
+    def test_missing_reference_leaves_row_alone(self):
+        """기준선을 모르면 보정할 수 없다 — 보정한 척하지 않는다(§18-4)."""
+        original = self._row(None)
+        adjusted, delta = _apply_lapse_rate({7: original}, farm_altitude=400)
+        self.assertIsNone(delta)
+        self.assertIs(adjusted[7], original)
+
+    def test_limitation_states_direction_and_basis(self):
+        source = ClimatologySource(
+            by_month={}, lapse_delta_m=300.0, farm_altitude_source="emd_point"
+        )
+        msg = lapse_limitation(source)
+        self.assertIn("300m", msg)
+        self.assertIn("높아", msg)
+        self.assertIn("-1.9℃", msg)  # 300m × 0.65/100 = 1.95 → 소수 1자리 표기
+        self.assertIn("읍·면·동", msg)  # 밭 실측이 아님을 밝힌다
+
+    def test_no_limitation_when_not_corrected(self):
+        self.assertIsNone(lapse_limitation(ClimatologySource(by_month={})))
 
 
 if __name__ == "__main__":
