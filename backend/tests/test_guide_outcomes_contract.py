@@ -22,9 +22,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CROP_RULES = ROOT / "outcomes" / "memory" / "crop_rules"
 DISPERSION = ROOT / "outcomes" / "memory" / "indicator_dispersion.json"
-MIGRATION = (
-    ROOT / "backend" / "alembic" / "versions" / "0023_rda_handbook_soil_bands.py"
-)
+VERSIONS = ROOT / "backend" / "alembic" / "versions"
+MIGRATION = VERSIONS / "0023_rda_handbook_soil_bands.py"
+MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -32,34 +32,58 @@ INDICATOR_ALIAS = {
     "ph": "ph",
     "organic_matter": "organic",
     "available_p": "p2o5",
+    "k": "k",
+    "ca": "ca",
+    "mg": "mg",
 }
 
 # outcomes 작물 파일 → 백엔드 crop_id (0003 시드 기준: 1 사과 / 2 배 / 3 오이 / 4 감자 / 5 상추)
-CROP_ID = {"apple.json": 1, "pear.json": 2}
+# 상추는 `0019`(ph·p2o5)와 `0024`(k·ca·mg)가 나눠 적재한다.
+CROP_ID = {"apple.json": 1, "pear.json": 2, "lettuce.json": 5}
+
+# 마이그레이션이 나뉘어 있어(컬럼 유무로 갈렸다) 밴드 정의도 두 파일에 흩어져 있다.
+# 계약 검증은 "어느 파일에 있든 outcomes와 같은가"만 보므로 합쳐서 읽는다.
+_EXTRA_BACKEND_BANDS = {
+    # 0019가 적재한 상추 ph·p2o5 — 그 마이그레이션은 표 형태가 아니라 INSERT 문이라
+    # 상수를 import할 수 없다. 값을 여기 옮겨 적되 outcomes와 대조되므로 갈리면 실패한다.
+    (5, "ph"): (6.5, 7.0, 6.25, 7.25),
+    (5, "p2o5"): (250.0, 400.0, 175.0, 475.0),
+}
 
 BAND_KEYS = ("optimal_min", "optimal_max", "allowed_min", "allowed_max")
 
 
-def _load_migration():
-    spec = importlib.util.spec_from_file_location("m0023", MIGRATION)
+def _load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_migration():
+    return _load_module("m0023", MIGRATION)
 
 
 class TestSoilBandContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.migration = _load_migration()
-        # (crop_id, indicator) → 밴드 4개
+        cations = _load_module("m0024", MIGRATION_CATIONS)
+        # (crop_id, indicator) → 밴드 4개. 0024는 뒤에 weight·source가 더 붙어 있어 4개만 취한다.
         cls.backend = {
             (crop_id, indicator): tuple(bands)
             for crop_id, indicator, *bands in cls.migration._BANDS
         }
+        cls.backend.update(
+            {(row[0], row[1]): tuple(row[2:6]) for row in cations._BANDS}
+        )
+        cls.backend.update(_EXTRA_BACKEND_BANDS)
 
-    def test_migration_file_exists(self):
+    def test_migration_files_exist(self):
         # 파일명이 바뀌면 위 로드가 조용히 실패해 검증이 공허해진다.
-        self.assertTrue(MIGRATION.is_file(), f"{MIGRATION} 가 없다")
+        for path in (MIGRATION, MIGRATION_CATIONS):
+            with self.subTest(path=path.name):
+                self.assertTrue(path.is_file(), f"{path} 가 없다")
 
     def test_apple_and_pear_bands_match_outcomes(self):
         for filename, crop_id in CROP_ID.items():
@@ -85,12 +109,12 @@ class TestSoilBandContract(unittest.TestCase):
                     )
 
     def test_unmirrored_indicators_are_known_and_deliberate(self):
-        """K·Ca·Mg가 아직 반영 안 된 것은 의도된 상태다 — 컬럼이 없어 채점 입력이 없다.
+        """새로운 토양 지표가 조용히 늘어나는 것을 잡는다.
 
-        이 테스트는 "빠졌다"를 실패로 만들지 않는다. 대신 **새로운 지표가 조용히 늘어나는 것**을
-        잡는다. outcomes에 모르는 지표가 생기면 여기서 드러나 판단을 강제한다.
+        K·Ca·Mg는 `0024`로 반영됐으므로 미반영 목록이 비었다. outcomes에 모르는 지표가 생기면
+        여기서 드러나 "백엔드에 넣을지" 판단을 강제한다 — 조용히 갈리는 것을 막는 게 목적이다.
         """
-        known_unmirrored = {"k", "ca", "mg"}
+        known_unmirrored: set[str] = set()
         for filename in CROP_ID:
             rules = json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
             for name in rules.get("soil_overrides", {}):

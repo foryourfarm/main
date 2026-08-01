@@ -306,6 +306,11 @@ def gather_indicator_values(
         "ec": soil.ec if soil else None,
         "p2o5": soil.p2o5 if soil else None,
         "organic": soil.organic_matter if soil else None,
+        # 치환성 양이온(cmol/kg, 0024). 사과·배·상추만 지침이 있고 나머지 작물은
+        # 지침이 없어 룰 엔진이 알아서 제외한다 — 값을 넣어도 채점 대상이 되지 않는다.
+        "k": soil.k if soil else None,
+        "ca": soil.ca if soil else None,
+        "mg": soil.mg if soil else None,
     }
 
 

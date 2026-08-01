@@ -16,7 +16,8 @@ from app.services.district_soil_service import (
 
 
 def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | None = None,
-          ec: float | None = None) -> SoilExam:
+          ec: float | None = None, k: float | None = None, ca: float | None = None,
+          mg: float | None = None) -> SoilExam:
     return SoilExam(
         pnu_code="4615010100100010001",
         sample_year="2023",
@@ -28,9 +29,9 @@ def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | N
         avail_p=p,
         avail_silica=None,
         organic_matter=om,
-        mg=None,
-        k=None,
-        ca=None,
+        mg=mg,
+        k=k,
+        ca=ca,
         ec=ec,
     )
 
@@ -85,6 +86,49 @@ class TestSummarize(unittest.TestCase):
 
     def test_is_deterministic(self):
         self.assertEqual(summarize(SAMPLES, "4"), summarize(SAMPLES, "4"))
+
+
+class TestSummarizeCations(unittest.TestCase):
+    """치환성 양이온(K·Ca·Mg) 집계 — 0024에서 채점 대상이 됐다.
+
+    흙토람이 `POSIFERT_K/CA/MG`를 주고 있었는데 저장할 컬럼이 없어 버려지던 값이다. 그
+    경로가 실제로 이어졌는지 본다 — 아래 값은 고창 공음면 구암리 실호출 표본에서 가져왔다
+    (2026-08-01, K 0.314~2.469 / Ca 1.94~12.16 / Mg 0.76~4.92 범위 안).
+
+    `_avg`가 소수 2자리로 반올림하므로 여유(delta)를 두고 비교한다. 그 정밀도로 충분하다 —
+    가장 좁은 밴드가 K optimal 0.6~0.9(폭 0.3)라 0.01은 폭의 3%이고, 등급 컷을 뒤집지 못한다.
+    """
+
+    def _cation_exam(self, field_type_code: str, k, ca, mg) -> SoilExam:
+        return _exam(field_type_code, ph=6.1, om=14.7, p=182.4, ec=1.35, k=k, ca=ca, mg=mg)
+
+    def test_cations_are_averaged_per_field_type(self):
+        samples = [
+            self._cation_exam("4", 0.886, 4.24, 1.44),
+            self._cation_exam("4", 0.564, 8.37, 2.85),
+            self._cation_exam("2", 2.469, 9.53, 3.32),  # 밭 표본 — 과수 평균에 섞이면 안 된다
+        ]
+        result = summarize(samples, "4")
+        self.assertAlmostEqual(float(result["k"]), (0.886 + 0.564) / 2, delta=0.01)
+        self.assertAlmostEqual(float(result["ca"]), (4.24 + 8.37) / 2, delta=0.01)
+        self.assertAlmostEqual(float(result["mg"]), (1.44 + 2.85) / 2, delta=0.01)
+
+    def test_cations_are_none_when_all_samples_lack_them(self):
+        """전부 결측이면 값을 지어내지 않는다 — 룰 엔진이 그 지표를 제외한다(§12)."""
+        result = summarize(SAMPLES, "4")  # 기존 픽스처는 양이온이 전부 None
+        for name in ("k", "ca", "mg"):
+            with self.subTest(indicator=name):
+                self.assertIsNone(result[name])
+
+    def test_partial_missing_cations_are_excluded_from_average(self):
+        samples = [
+            self._cation_exam("4", 0.886, None, 1.44),
+            self._cation_exam("4", None, 8.37, 2.85),
+        ]
+        result = summarize(samples, "4")
+        self.assertAlmostEqual(float(result["k"]), 0.886, delta=0.01)
+        self.assertAlmostEqual(float(result["ca"]), 8.37, delta=0.01)
+        self.assertAlmostEqual(float(result["mg"]), (1.44 + 2.85) / 2, delta=0.01)
 
 
 class TestRiCodes(unittest.TestCase):

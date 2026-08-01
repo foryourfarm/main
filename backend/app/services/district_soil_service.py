@@ -115,6 +115,10 @@ def summarize(exams: list[SoilExam], field_type: str) -> dict[str, object]:
         "ec": _avg([e.ec for e in matched]),
         "p2o5": _avg([e.avail_p for e in matched]),
         "organic_matter": _avg([e.organic_matter for e in matched]),
+        # 치환성 양이온(cmol/kg) — 흙토람이 주는 값을 그동안 버리고 있었다(0024에서 컬럼 추가).
+        "k": _avg([e.k for e in matched]),
+        "ca": _avg([e.ca for e in matched]),
+        "mg": _avg([e.mg for e in matched]),
         "sample_count": len(matched),
     }
 

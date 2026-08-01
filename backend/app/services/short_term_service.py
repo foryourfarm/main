@@ -158,6 +158,9 @@ def forecast_values(
         "ec": soil.ec if soil else None,
         "p2o5": soil.p2o5 if soil else None,
         "organic": soil.organic_matter if soil else None,
+        "k": soil.k if soil else None,
+        "ca": soil.ca if soil else None,
+        "mg": soil.mg if soil else None,
     }
 
 
