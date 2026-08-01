@@ -1,0 +1,29 @@
+# Cloud Build 설정 — 프론트 이미지 빌드/푸시.
+#
+# 왜 이 파일이 필요한가: `gcloud builds submit --tag`은 --build-arg를 넘길 수 없다.
+# 프론트는 NEXT_PUBLIC_API_BASE를 **빌드 시점에** 받아야 한다 — Next가 그 값을 클라이언트
+# 번들에 굳혀 넣기 때문에 런타임 env(`gcloud run deploy --set-env-vars`)로는 못 바꾼다.
+# 그렇게 배포하면 배포는 성공하는데 브라우저가 localhost:8000을 부른다.
+#
+# 컨텍스트는 frontend/ 다(backend와 반대 — frontend/Dockerfile 주석 참고).
+# 실행: gcloud builds submit --config cloudbuild.frontend.yaml \
+#         --substitutions=_API_BASE=https://<백엔드 Cloud Run URL> frontend
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_API_BASE=${_API_BASE}
+      - -t
+      - gcr.io/$PROJECT_ID/foryourfarm-frontend
+      - .
+
+# 기본값을 localhost로 두지 않는다 — 빈 채로 빌드되면 프로덕션 번들이 조용히
+# localhost를 가리키고, 배포 후에야 브라우저 콘솔에서 발견된다.
+substitutions:
+  _API_BASE: MUST_BE_SET
+
+images:
+  - gcr.io/$PROJECT_ID/foryourfarm-frontend
