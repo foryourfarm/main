@@ -44,7 +44,7 @@ from app.infra.public_api.aws_daily_client import (  # noqa: E402
     fetch_daily,
 )
 from app.db.session import SessionLocal  # noqa: E402
-from app.models import RegionGrid, WeatherClimatology  # noqa: E402
+from app.models import Region, RegionGrid, WeatherClimatology  # noqa: E402
 
 CACHE_DIR = ROOT / "data" / "aws_daily_cache"
 CALIBRATION = ROOT / "docs" / "seed" / "aws_temp_calibration.json"
@@ -67,13 +67,10 @@ MIN_DISTANCE_KM = 0.001  # 거리역수 가중의 0 나눗셈 방지
 # 넘었고 서귀포시는 1,524m였다(한라산 지점과 해안 지점이 같은 후보에 든다). 그대로 두면
 # 그 구역 평년치가 3℃ 넘게 틀린다.
 #
-# 기준은 **최근접 지점의 고도**다 — 구역 대표 고도가 우리에게 없다(아래 [확인 필요]).
+# 기준은 **구역 대표 고도**(`region.altitude_m`)다. 종전엔 최근접 지점의 고도를 대표로
+# 삼았는데 그건 근사였다 — 최근접 지점이 산 중턱이면 필터가 거꾸로 저지대 도너를 걸러낸다.
 # 100m 허용폭은 위 실측에서 0~100m 구간 MAE(0.98~1.07℃)가 지점 고유 잡음과 구분되지
 # 않는다는 근거에서 왔다. 그 안쪽 고도차는 추가 오차가 잡음에 묻힌다.
-#
-# **[확인 필요]** 최근접 지점 고도를 구역 대표로 삼는 것은 근사다. 구역·읍면동 고도를
-# 확보하면 (1) 구역 대표 고도로 필터하고 (2) 유저 밭 고도로 감률 보정하는 쪽이 옳다.
-# nexttodo.md "구역·밭 고도 확보" 참고.
 ALTITUDE_TOLERANCE_M = 100.0
 
 # 한 달에 이만큼은 관측이 있어야 그 달 값을 인정한다. 며칠짜리로 월평균을 내지 않는다(§12).
@@ -104,16 +101,21 @@ def station_altitudes() -> dict[str, float]:
 
 
 def pick_donors(
-    near: list[tuple[str, float]], altitudes: dict[str, float]
+    near: list[tuple[str, float]], altitudes: dict[str, float], base: float | None
 ) -> tuple[list[tuple[str, float]], float]:
     """거리로 고른 후보에서 고도가 동떨어진 지점을 걷어낸다. (남은 도너, 버려진 최대 고도차).
 
-    기준은 최근접 지점의 고도다. 고도를 모르는 지점은 판정할 수 없으므로 남긴다 —
-    없는 정보로 지점을 버리면 그 구역이 통째로 비어버린다.
+    `base`는 구역 대표 고도다. 없으면(고도 미적재 구역) 최근접 지점 고도로 폴백한다 —
+    근사지만 필터를 통째로 끄는 것보다 낫다. 고도를 모르는 지점은 판정할 수 없으므로
+    남긴다: 없는 정보로 지점을 버리면 그 구역이 통째로 비어버린다.
+
+    필터가 도너를 다 걷어내면 필터를 포기한다 — 근사 평년치가 없는 것보다는 낫고,
+    그 사실은 호출부가 로그로 드러낸다.
     """
     if not near:
         return [], 0.0
-    base = altitudes.get(near[0][0])
+    if base is None:
+        base = altitudes.get(near[0][0])
     if base is None:
         return near, 0.0
 
@@ -124,7 +126,24 @@ def pick_donors(
             kept.append((stn, dist))
         else:
             dropped = max(dropped, abs(height - base))
-    return kept, dropped
+    return (kept or near), dropped
+
+
+def reference_altitude(
+    near: list[tuple[str, float]], altitudes: dict[str, float]
+) -> int | None:
+    """이 구역 평년치가 대표하는 고도 = 실제 섞인 도너 고도의 거리역수 가중평균.
+
+    값을 만든 방식과 같은 가중을 써야 감률 보정의 기준선이 맞는다(§18-4).
+    """
+    pairs = [
+        (altitudes[stn], 1.0 / max(dist, MIN_DISTANCE_KM))
+        for stn, dist in near
+        if stn in altitudes
+    ]
+    if not pairs:
+        return None
+    return round(sum(v * w for v, w in pairs) / sum(w for _, w in pairs))
 
 
 def _fetch_month(obs: str, year: int, month: int) -> list:
@@ -213,7 +232,12 @@ def main() -> None:
         from app.infra.public_api.kma_grid import grid_to_latlon
 
         altitudes = station_altitudes()
+        region_altitude = {
+            r.id: float(r.altitude_m)
+            for r in db.query(Region).filter(Region.altitude_m.isnot(None))
+        }
         rows_by_region: dict[int, dict[int, dict[str, float]]] = {}
+        ref_altitude: dict[int, int | None] = {}
         skipped_far: list[int] = []
         altitude_filtered: list[tuple[int, float, int]] = []
         for grid in grids:
@@ -229,9 +253,12 @@ def main() -> None:
                 skipped_far.append(grid.region_id)
                 continue
 
-            near, dropped_m = pick_donors(near, altitudes)
+            near, dropped_m = pick_donors(
+                near, altitudes, region_altitude.get(grid.region_id)
+            )
             if dropped_m:
                 altitude_filtered.append((grid.region_id, dropped_m, len(near)))
+            ref_altitude[grid.region_id] = reference_altitude(near, altitudes)
 
             per_month: dict[int, dict[str, float]] = {}
             for month in range(1, 13):
@@ -280,6 +307,7 @@ def main() -> None:
                         rainfall_normal=_dec(v.get("rainfall")),
                         sunlight_normal=None,  # AWS엔 일조 관측이 없다(농업기상 전용)
                         solar_radiation_normal=None,
+                        reference_altitude_m=ref_altitude.get(region_id),
                         source=SOURCE,
                     )
                 )
