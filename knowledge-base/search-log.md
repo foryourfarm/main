@@ -2,6 +2,48 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 4 (2026-08-01) — 오이 근권온도 구조확정 + 상추 EC/pH 재검증 + 감자 괴경냉해/DTR (소급 반영)
+
+> 이 13편은 registry-keeper 미실행 상태로 파일만 커밋돼 있다가 이번에 소급 반영됐다. 각 파일 말미의 `Registry Delta` 블록을 그대로 registry.md에 옮겼다.
+
+### Iteration 4-오이 (3편, 전부 approved)
+| 논문 | 저자 | 연도 | 상태 | 핵심 발견 |
+|---|---|---|---|---|
+| Distinct Impacts of Air/Root-Zone Temp on Cucumber | Wang, Gao & Tian | 2018 | approved/reference_only | temp_day≠temp_soil 구조를 실험으로 확정(수치는 미제공) |
+| Water Use Efficiency of Cucumber (Greenhouse/Field) | Abdel Rahman & Al-Wahaibi | 2004 | approved/partial | 노지 관수 회귀식, 온실:노지≈1:3 (오만, 한국 미검증) |
+| 시설재배 오이 엽중 무기성분 함량 | 이주영 외 | 2011 | approved/filled+partial | 적정 토양온도 18~20℃(P09와 수렴), 화학성 실태치 |
+
+### Iteration 4-상추 (5편, 전부 approved)
+| 논문 | 저자 | 연도 | 상태 | 핵심 발견 |
+|---|---|---|---|---|
+| EC 환산계수(간척지, 포화침출↔1:5) | Lee 외 | 2003 | approved/reference_only | 상추 EC 실측치에 적용 불가(저자 스스로 명시), 문헌간 EC 편차는 단위문제 아님을 반증 |
+| Field Evaluation of Lettuce for Heat Tolerance | Lafta 외 | 2017 | approved/filled | 적온 18℃(재인용), allowed_max 30 노지실측 뒷받침 |
+| 염류집적이 상추 발아·생육에 미치는 영향 | 강보구 외 | 1996 | approved/filled | EC 실측(수량최고 3.50 무비, 입모율 회귀식) |
+| 인산석고 유래 소석회처리 퇴비-상추 | 윤진주 외 | 2025 | approved/partial | pH·유기물·유효인산 실측(협소구간) |
+| Lettuce Yield/Quality High Tunnel vs Open-Field | Wallace 외 | 2012 | approved/partial | 적온 18.5℃(재인용, Lafta와 동일계보 가능성) |
+
+### Iteration 4-감자 (5편, 전부 approved)
+| 논문 | 저자 | 연도 | 상태 | 핵심 발견 |
+|---|---|---|---|---|
+| Snow Compaction for Frost-Killing Potato | Shimoda & Hirota | 2018 | approved/filled | 토양동결심도 0.3m↑ 시 자란모 괴경 고사(방제용) |
+| Effective Killing of Volunteer Tubers by Soil Frost | Yazaki 외 | 2013 | approved/partial | 토양서리 기반 고사(수치 원문 재확인 필요) |
+| 기온상승에 따른 감자 생육·수량 변화 | 이인하 외 | 2024 | approved/reference_only | 품종별(수미/조풍) 민감도 차이, ΔT 상대값(절대환산 불가) |
+| Freezing Behavior of Potato Tubers in Soil | Boydston 외 | 2006 | approved/filled | 괴경 동결치사 -1.5~-2.8℃(인용34, 6년 포장실측) |
+| High Temp/Daylength/Solar Radiation Effect on Potato | Kim & Lee | 2016 | approved/filled+partial | tuber allowed_max=27 강력재확인, DTR 신규지표 발견 |
+
+### 통과율 / throughput (Iteration 4)
+- 신규 발견: 13편 (전부 사용자 제공 PDF, scout 자동검색 아님)
+- 승인: 13/13 (100%) — 전부 텍스트 추출 성공(스캔본 없음)
+- registry 반영: filled 7, partial 5, reference_only(수치 미사용) 3 — 일부 중복 status(한 논문이 여러 지표에 걸침)
+
+### 커버리지 상향 (13항목 체크리스트 기준)
+- 감자: 4/13 → 5/13 (tuber allowed_max 실측 재확인)
+- 오이: 2/13 → 3/13 (화학성 missing→partial)
+- 상추: 1/13 → 4/13 (temp_day filled, ec 신규 filled, 화학성 partial)
+- 신규 지표 후보 7개 발견(13항목 체크리스트 밖, §5/§6 registry.md 참고)
+
+---
+
 ## Iteration 3 (2026-07-25) — 감자 고온/냉해 + 배 일소 피해 + 강수 mm 임계값 확정
 
 ### Iteration 3-a: 감자 고온/냉해 임계값 (4편 approved)
@@ -199,6 +241,26 @@
 - Ye et al. (2019): 배 강수 270mm [rainfall_optimal partial]
 - Mora et al. (2025): 감자 수분수요 [rainfall partial]
 - Ru et al. (2025): 사과 단계별 강수 [rainfall_by_stage partial]
+
+#### Iteration 4 (13편, 2026-08-01 소급 반영)
+**오이 (3편)**
+- Wang, Gao & Tian (2018): 기온·근권온도 별개 메커니즘 [temp_day/temp_soil 구조 확정, reference_only]
+- Abdel Rahman & Al-Wahaibi (2004): 온실·노지 관수 효율 [rainfall_optimal_field partial]
+- 이주영 외 (2011): 오이 엽중 무기성분 [temp_soil filled, 화학성 partial]
+
+**상추 (5편)**
+- Lee 외 (2003): EC 환산계수(간척지) [reference_only, 상추 적용 불가]
+- Lafta 외 (2017): 노지 내열성 평가 [temp_day filled]
+- 강보구 외 (1996): 염류집적 발아·생육 [ec filled]
+- 윤진주 외 (2025): 소석회처리퇴비-상추 [ph/organic/p2o5 partial]
+- Wallace 외 (2012): High Tunnel vs Open-Field [temp_day partial]
+
+**감자 (5편)**
+- Shimoda & Hirota (2018): 적설압축 방제 [soil_frost_depth_snow_compaction filled]
+- Yazaki 외 (2013): 토양서리 자란모 방제 [soil_frost_tuber_killing partial]
+- 이인하 외 (2024): 온도구배하우스 [reference_only, ΔT 상대값]
+- Boydston 외 (2006): 괴경 동결거동 [temp_min_frost_damage_tuber filled]
+- Kim & Lee (2016): 고온·일장·일사 영향 [temp_day tuber allowed_max filled, DTR 신규]
 
 ## 원문 접근 실패 (paywall/초록만) — 재시도 후보, 재추천 제외하지 않음
 
