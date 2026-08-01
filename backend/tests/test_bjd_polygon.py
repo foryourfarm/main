@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
 
-from bjd_polygon import _centroid, _exterior_rings, resolve  # noqa: E402
+from bjd_polygon import _centroid, _exterior_rings, augment_by_name, resolve  # noqa: E402
 
 
 def _ring_wkb(rings: list[list[tuple[float, float]]], multi: bool = False) -> str:
@@ -104,6 +104,46 @@ class TestCodeResolution(unittest.TestCase):
         """못 찾으면 None — 호출부가 상위 단위로 폴백하고 그 사실을 표기한다(§18-4).
         엉뚱한 좌표를 지어내지 않는다."""
         self.assertIsNone(resolve("9999999999", {"4211038021": (37.0, 128.0)}, {}))
+
+
+class TestNameFallback(unittest.TestCase):
+    """구(區) 신설처럼 읍면동·리 코드까지 재부여되면 코드 규칙이 통째로 깨진다.
+    그때 이름으로 이어 붙이되, 확신할 수 없으면 붙이지 않는다."""
+
+    # 옛 화성시(41590)에 리 4개가 있고, 새 화성시효행구(41593)는 코드가 전부 재부여됐다.
+    OLD = {f"415903002{i}": (37.0 + i / 100, 126.9) for i in range(1, 5)}
+    OLD_NAMES = {
+        "4159030021": "가리", "4159030022": "나리",
+        "4159030023": "다리", "4159030024": "라리",
+    }
+
+    def test_recovers_when_every_code_digit_changed(self):
+        rows = [("4159370011", "가리"), ("4159370012", "나리"), ("4159370013", "다리")]
+        added = augment_by_name(rows, self.OLD, self.OLD_NAMES, {})
+        self.assertEqual(set(added), {"4159370011", "4159370012", "4159370013"})
+        self.assertEqual(added["4159370011"], self.OLD["4159030021"])
+
+    def test_already_resolvable_rows_are_left_alone(self):
+        """코드로 찾히는 행은 건드리지 않는다 — 이름 매칭은 폴백이지 대체가 아니다."""
+        added = augment_by_name(
+            [("4159030021", "가리")], self.OLD, self.OLD_NAMES, {}
+        )
+        self.assertEqual(added, {})
+
+    def test_duplicate_name_in_same_sgg_is_dropped(self):
+        """같은 시군구에 같은 이름 리가 둘이면 어느 쪽인지 알 수 없다. 찍지 않는다 —
+        엉뚱한 골짜기 고도가 들어가면 폴백보다 나쁘다(§18-4)."""
+        centroids = dict(self.OLD) | {"4159040021": (37.5, 127.2)}
+        names = dict(self.OLD_NAMES) | {"4159040021": "가리"}  # '가리'가 두 곳
+        rows = [("4159370011", "가리"), ("4159370012", "나리"), ("4159370013", "다리")]
+        added = augment_by_name(rows, centroids, names, {})
+        self.assertNotIn("4159370011", added)  # 모호한 것만 빠지고
+        self.assertIn("4159370012", added)  # 나머지는 붙는다
+
+    def test_weak_vote_maps_nothing(self):
+        """이름 하나가 우연히 겹쳤다고 시군구 대응을 만들면 전국이 뒤섞인다."""
+        rows = [("9999900011", "가리"), ("9999900012", "없는리"), ("9999900013", "또없는리")]
+        self.assertEqual(augment_by_name(rows, self.OLD, self.OLD_NAMES, {}), {})
 
 
 if __name__ == "__main__":

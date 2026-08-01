@@ -64,7 +64,7 @@ from pathlib import Path
 
 import openpyxl
 
-from bjd_polygon import legacy_sgg_map, load_centroids, resolve
+from bjd_polygon import augment_by_name, legacy_sgg_map, load_centroids, resolve
 
 ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = ROOT / "docs" / "seed"
@@ -145,14 +145,37 @@ def main() -> None:
     legacy = legacy_sgg_map()
     # 폴리곤은 선택이다 — 없으면 종전 엑셀 전용 동작으로 돌아간다(팀원이 292MB를 받지
     # 않고도 시드를 재생성할 수 있어야 한다).
-    ri_poly = load_centroids(args.ri_polygon) if args.ri_polygon else {}
-    emd_poly = load_centroids(args.emd_polygon, "00") if args.emd_polygon else {}
+    ri_poly, ri_names = (
+        load_centroids(args.ri_polygon) if args.ri_polygon else ({}, {})
+    )
+    emd_poly, emd_names = (
+        load_centroids(args.emd_polygon, "00") if args.emd_polygon else ({}, {})
+    )
     if ri_poly or emd_poly:
         print(f"폴리곤 로드: 리 {len(ri_poly)}건 / 읍면동 {len(emd_poly)}건")
 
     by_code, by_name = read_excel(Path(args.excel))
+    districts_all = list(csv.DictReader(BJD_SEED.open(encoding="utf-8")))
+
+    # 코드로 못 찾은 것을 이름으로 이어 붙인다 — 구(區) 신설처럼 코드가 통째로 재부여된
+    # 구역은 코드 규칙으로는 못 푼다. 찾은 것은 현행 코드를 키로 폴리곤 표에 합쳐 두면
+    # 아래 조회부가 그대로 직접 히트로 찾는다.
+    if ri_poly:
+        added = augment_by_name(
+            [(d["bjd_code"], d["ri"]) for d in districts_all if d["ri"]],
+            ri_poly, ri_names, legacy,
+        )
+        ri_poly.update(added)
+        print(f"  리 이름 매칭으로 추가 확보 {len(added)}건")
+    if emd_poly:
+        added = augment_by_name(
+            [(d["bjd_code"], d["eupmyeondong"]) for d in districts_all if not d["ri"]],
+            emd_poly, emd_names, legacy,
+        )
+        emd_poly.update(added)
+        print(f"  읍면동 이름 매칭으로 추가 확보 {len(added)}건")
     regions = list(csv.DictReader(REGION_SEED.open(encoding="utf-8")))
-    districts = list(csv.DictReader(BJD_SEED.open(encoding="utf-8")))
+    districts = districts_all
 
     # 구역 좌표
     region_point: dict[str, tuple[float, float]] = {}
