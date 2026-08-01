@@ -327,6 +327,30 @@ class TestLapseRate(unittest.TestCase):
         self.assertIn("-1.9℃", msg)  # 300m × 0.65/100 = 1.95 → 소수 1자리 표기
         self.assertIn("읍·면·동", msg)  # 밭 실측이 아님을 밝힌다
 
+    def test_each_altitude_source_gets_its_own_wording(self):
+        """출처마다 근사 정도가 다르다 — 뭉뚱그리면 리 단위 정밀도를 시군구 폴백과
+        같게 보이게 만든다(§18-4)."""
+        seen = set()
+        for src, expect in (
+            ("ri_polygon", "리(里)"),
+            ("emd_polygon", "동 경계"),
+            ("emd_point", "읍·면·동"),
+            ("region_point", "시·군"),
+        ):
+            msg = lapse_limitation(
+                ClimatologySource(by_month={}, lapse_delta_m=200.0, farm_altitude_source=src)
+            )
+            self.assertIn(expect, msg)
+            seen.add(msg)
+        self.assertEqual(len(seen), 4, "출처 4종이 서로 다른 문구를 내야 한다")
+
+    def test_unknown_altitude_source_falls_back_conservatively(self):
+        """시드가 새 값을 먼저 쓰더라도 없는 정밀도를 주장하지 않는다."""
+        msg = lapse_limitation(
+            ClimatologySource(by_month={}, lapse_delta_m=200.0, farm_altitude_source="parcel_xyz")
+        )
+        self.assertIn("상위 행정구역", msg)
+
     def test_no_limitation_when_not_corrected(self):
         self.assertIsNone(lapse_limitation(ClimatologySource(by_month={})))
 

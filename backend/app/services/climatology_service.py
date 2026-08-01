@@ -593,6 +593,18 @@ def _add_sunlight_to_climatology(
 LIMITATION_NAMED_DONORS = 3
 
 
+# `district.altitude_source` → 유저에게 보여줄 근거 표현. 값마다 근사 정도가 다르므로
+# 뭉뚱그리지 않는다(§18-4). 값의 생성 규칙은 `scripts/gen_altitude_seed.py`.
+# 모르는 값이 오면 가장 보수적인 문구로 폴백한다 — 시드가 앞서 나가도 거짓말은 안 하게.
+# 문구가 "{basis}의 고도라"로 이어지므로 값 안에 "의"를 넣지 않는다(조사 겹침).
+FARM_ALTITUDE_BASIS = {
+    "ri_polygon": "리(里) 경계 중심점",
+    "emd_polygon": "동 경계 중심점",
+    "emd_point": "소속 읍·면·동 대표 지점",
+    "region_point": "시·군 대표 지점",
+}
+
+
 def lapse_limitation(source: ClimatologySource) -> str | None:
     """감률 보정 사실을 알리는 한계 문구. 보정하지 않았으면 None.
 
@@ -605,11 +617,7 @@ def lapse_limitation(source: ClimatologySource) -> str | None:
     delta = source.lapse_delta_m
     shift = -LAPSE_RATE_C_PER_100M * delta / 100
     direction = "높아" if delta > 0 else "낮아"
-    basis = (
-        "소속 읍·면·동 대표 지점"
-        if source.farm_altitude_source == "emd_point"
-        else "시·군 대표 지점"
-    )
+    basis = FARM_ALTITUDE_BASIS.get(source.farm_altitude_source, "상위 행정구역 대표 지점")
     return (
         f"밭 위치가 평년치 관측 기준보다 약 {abs(delta):.0f}m {direction} "
         f"기온을 {shift:+.1f}℃ 보정했습니다(감률 0.65℃/100m). "
