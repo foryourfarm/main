@@ -60,9 +60,6 @@ function DashboardBody() {
     );
   }
 
-  // 카드마다 같은 한계 문구가 반복되므로 화면 하단에 한 번만 모아 보여준다.
-  const limitations = [...new Set(data.farms.flatMap((f) => f.limitations))];
-
   return (
     <>
       <p className={styles.sub}>
@@ -78,7 +75,16 @@ function DashboardBody() {
           + 밭 추가 등록
         </Link>
       </p>
-      <Limitations items={limitations} />
+      {/* 밭마다 한계가 다르다(예: 어떤 밭만 유기물이 채점 안 됨). 하나로 합쳐 보여주면
+          그 사실이 어느 밭 얘기인지 사라져 다른 밭에도 적용되는 것처럼 오독된다(§18-4) —
+          그래서 밭별로 분리해서 보여준다. */}
+      {data.farms.map((card) => (
+        <Limitations
+          key={card.farm_id}
+          label={`${card.crop_name ?? "작물 미지정"} · ${card.region_name ?? "지역 미지정"}`}
+          items={card.limitations}
+        />
+      ))}
     </>
   );
 }
