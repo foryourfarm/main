@@ -21,12 +21,52 @@
 
 **빠진 것**:
 
-1. **프로덕션 적재 자체** — 0행이다. `load_observation_points.py` 실행(프록시 필요).
+1. **프로덕션 적재 자체** — 0행이다. **키 없이 지금 바로 가능하다** — `load_observation_points.py`는
+   커밋된 CSV만 읽고 API를 부르지 않는다(스크립트 §8에 명시). 프록시만 띄우고 실행하면 된다.
+   시드 검증: 752행 = agri 218 + kma_aws 534, `region_id` 빈 행 19개(40km 초과 도서 — 모델
+   주석대로 조회에서 제외된다).
 2. **`resolve_station`을 부르는 곳이 0건** — `climatology_service.py`·`short_term_service.py`·
    `suitability_service.py`·`dashboard_service.py` 전체에 호출이 없다. AWS 지점은 좌표
    메타데이터만 DB에 있고 결측 보완에 쓰이지 않는다.
 3. **AWS 관측망의 실측 시계열을 받는 클라이언트가 없다** — `KmaObservationPoint`엔 좌표만 있다.
    값이 채워지는 소스는 여전히 `weather_client.py`(data.go.kr 농업기상)뿐이다.
+   **← 이게 apihub 키에 막혀 있다(아래).**
+
+### 🔑 진짜 블로커: apihub 자격증명 하나가 두 작업을 동시에 막는다 (2026-08-01 실측)
+
+`기상청_API-Guide.md`와 `Sunlight-Calculation_API-Guide.md`가 문서화한 엔드포인트가 **전부
+apihub.kma.go.kr** 이다. 그래서 이 키 하나가 다음 둘을 같이 막고 있다:
+
+| 막힌 것 | 필요한 엔드포인트 |
+|---|---|
+| AWS 실측 시계열(위 3번) | `getDailyAwsData`·`getStnbyMmSumry`(typ02), `sfc_aws_day.php`(typ01) |
+| **평년치 140개 지역 공백의 근본 해결** | **`sfc_norm1.php`(typ01)** — 아래 "기상청 30년 평년값" 항목과 같은 것 |
+
+즉 아래 🟡에 따로 적혀 있던 "기상청 30년 평년값 API"는 **별개 과제가 아니라 같은 키 문제다.**
+
+**현재 상태**: 유효한 apihub 키가 리포에 없다.
+
+- `.env`의 `weather_data_APIkey`(23자, `obHO…`)를 실호출해보니 **typ01·typ02 양쪽에서 401**
+  (`유효한 인증키가 아닙니다`). data.go.kr 키들은 64자인데 이건 23자다.
+- 그런데 `docs/seed/observation_point_seed.csv`는 실호출로 만들어졌다(생성 스크립트가
+  응답에 섞인 테스트 지점 `동방로거테스트`까지 걸러낸다) — **당시엔 유효한 키가 있었고 지금
+  `.env`에 없다.** 🟡의 "팀원이 키 보유"와 일치한다.
+
+**→ 팀원에게서 유효한 apihub 키를 받는 것이 이 작업의 시작점이다.** 받으면 `.env` 루트에
+`WEATHER_APIHUB_KEY=`로 넣으면 된다(과거 이름 `WEATHER_DATA_APIkey`로 넣어도 읽힌다).
+
+**곁들여 고친 것** — 키를 받아도 엉뚱한 곳에 들어가면 또 조용히 실패하므로 먼저 정리했다:
+
+- `config.py`에 같은 자격증명을 가리키는 필드가 **둘**이었다. `weather_apihub_key`(빈 값,
+  `kma_station_client:93`이 읽는 쪽)와 `weather_data_apikey`(값은 있지만 401). 실제 키가
+  클라이언트가 안 읽는 쪽에 있었다 → `AliasChoices`로 하나로 합쳐 두 env 이름 모두 받는다.
+- `.env.example`이 `VWORLD_API`를 안내했는데 필드는 `vworld_apikey`라 **안 읽히는 이름**이었다.
+  apihub 키는 아예 목록에 없었다(그래서 아무 이름으로나 들어갔다). 둘 다 정정.
+- `config.py`·`.env.example` 양쪽에 "이름 바꾸면 같이 고쳐라"와 "이런 불일치가 다시 생기면
+  §17 검증 테스트가 잡는다"고 적혀 있었지만 **그 테스트가 없었다.** 규칙만 있고 강제 장치가
+  없어서 같은 부류가 세 번 반복됐다(팀원 `WEATHER_API_KEY`, `VWORLD_API`, apihub 키 분기).
+  `test_env_example_matches_settings.py`로 그 장치를 만들었다 — `.env.example`의 모든 키가
+  Settings가 실제로 읽는 이름(필드명 또는 alias)인지 검사하고, 아니면 실패한다.
 
 **착수 전 정할 것 `[확인 필요]`** — 이게 핵심이고 임의로 정하지 않는다:
 
@@ -324,8 +364,10 @@ farm 6, 8, 9            bjd_code=None (구버전 등록) — 조회 자체가 �
 - **`temp_night_min_normal`·`sunlight_normal` 전 행 NULL** — 채워지면 KNN 이득이 두 필드로도 확장된다.
 - **`VWORLD_API` 키 없음** (주소 → PNU 변환용). 나머지 6개 키는 로드 확인됨.
 - **AWS 관측지점 배선** — 최상단 "다음 착수" 항목으로 올렸다.
-- **기상청 30년 평년값 API** — 전국 256개 완전 커버의 근본 해결. 팀원이 키 보유, 추후 PR로 받음.
-  지금의 KNN 대체는 그때까지의 완화책이다.
+- **기상청 30년 평년값 API** — 전국 256개 완전 커버의 근본 해결. 지금의 KNN 대체는 그때까지의
+  완화책이다. **엔드포인트를 특정했다: `sfc_norm1.php`(apihub typ01,
+  `Sunlight-Calculation_API-Guide.md`에 문서화).** 위 AWS 배선과 **같은 apihub 키**를 쓰므로
+  별개 과제가 아니다 — 최상단 "🔑 진짜 블로커" 참고. 팀원이 키 보유.
 
 ### 주의 (되돌리지 말 것)
 
