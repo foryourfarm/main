@@ -196,10 +196,14 @@ class TestSoilAdvice(unittest.TestCase):
         text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
         self.assertNotIn("낮 기온", text)
 
-    def test_defers_dosage_to_chat(self):
+    def test_defers_dosage_to_agricultural_center_not_chatbot(self):
         # 비료 표준사용량 API 미연동 + 시비 시드 없음 → 수치를 지어내면 §18-3·§18-4 위반.
+        # 챗봇으로도 보내지 않는다 — 실측(2026-08-02)으로 RAG가 무관한 조각을 주고도
+        # 모델이 시비량을 지어내는 것을 확인했다(코사인 거리로 근거 유무가 안 갈린다).
         text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
-        self.assertIn("상담", text)
+        self.assertIn("농사로", text)
+        self.assertIn("농업기술센터", text)
+        self.assertNotIn("상담에서", text)  # 챗봇 유도 문구가 되돌아오면 안 된다
         self.assertNotIn("kg", text)
         self.assertNotIn("10a", text)
 
