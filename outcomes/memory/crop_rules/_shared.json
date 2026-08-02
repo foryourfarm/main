@@ -1,10 +1,33 @@
 {
-  "knowledge_version": "2026-07-25-v2",
+  "knowledge_version": "2026-08-03-v3",
+  "knowledge_version_note": "2026-08-03 개정(사용자 확인). ① 출처미상 공유 soil_rules(ph 6.0~7.0 / organic_matter 20~30 / available_p 300~550) 삭제 — 채점에서 제거하고 5작물 전부 문헌 출처가 있는 작물별 밴드로 전환했다. 종전 available_p 300~550은 계보가 scripts/ml/baselines.py OPT_BAND일 뿐 출처가 없었고(2026-08-01 자체 감사에서 '근거 없는 승격' 판정), RDA 비료사용처방 5차(200~500 작물별)와 국가농업환경변동조사 등급표(최적 200~450) 양쪽에서 반증됐다. 이제 채점에 쓰이는 밴드 중 출처 미확인은 0건이다. ② 오이·감자에 RDA 비료사용처방 5차(2022) 진단기준표 전 지표 신설, 상추 유기물 신설, 감자 pH 신설(교본 5.0~6.0). ③ 물리성(경사·자갈) 신규 채점축 도입.",
+  "scoring_version": "2026-08-03-v2",
+  "scoring_version_note": "채점 곡선·감쇠폭·구성인자 버전. knowledge_version(문헌 밴드값)과 분리한다 — 문헌이 그대로여도 곡선이나 구성인자가 바뀌면 산출 점수가 전부 달라지기 때문이다. 2026-07-27 로그 곡선 채택(허용경계 0점→60점, scripts/ml/scoring.py) + 2026-07-29 risk_width 도입(감쇠폭을 완충폭→실측 산포도 2×robust_sd) + 2026-08-03 물리성 지표(slope_pct·gravel_pct)를 soil_score_total 구성인자에 추가를 포함한다. 물리성 추가로 토양 총점이 화학 지표만의 평균이 아니게 됐다 — 가중치(soil 60 / temperature 40)는 그대로 두고 토양 총점 내부에서 지표를 균등 평균하므로, 지표 수가 늘어난 작물은 개별 화학 지표의 실효 비중이 그만큼 희석된다(예: 감자 화학 6 + 물리 2 = 8지표). 새 가중치 파라미터를 만들지 않은 이유는 물리성 배분 비율을 줄 문헌이 없기 때문이다(추측 금지). 이 값이 다르면 RegionalScore.csv 숫자를 직접 비교할 수 없다.",
   "score_year": 2025,
-  "weights": {"soil": 45, "temperature": 30, "precipitation": 25},
-  "soil_rules": {
-    "ph": {"optimal_min": 6.0, "optimal_max": 7.0, "allowed_min": 5.5, "allowed_max": 7.5, "source": "FarmML baselines.py OPT_BAND. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(1.0)의 ±50%(0.5) 확장. [확인 필요] 흙토람 공식 완충구간(진단기준표)이 로컬에 없어 실제 부족/과잉 경계가 아님, 향후 문헌 확보 시 교체."},
-    "organic_matter": {"optimal_min": 20.0, "optimal_max": 30.0, "allowed_min": 15.0, "allowed_max": 35.0, "source": "흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(10.0)의 ±50%(5.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상."},
-    "available_p": {"optimal_min": 300.0, "optimal_max": 550.0, "allowed_min": 175.0, "allowed_max": 675.0, "source": "흙토람 과수원 토양 구성요소. allowed_min/max는 2026-07-25 이진채점 폐기 결정(사용자 확인)에 따른 명시적 휴리스틱 — optimal 폭(250.0)의 ±50%(125.0) 확장. [확인 필요] 실제 완충구간 문헌 미확보, 향후 교체 대상."}
+  "weights": {
+    "soil": 60,
+    "temperature": 40,
+    "precipitation": 0
+  },
+  "weights_note": "2026-08-01 재설계(사용자 확인). 종전 표기는 soil45/temp30/precip25였으나 강수 점수는 5작물 전부 산출된 적이 없어(작물별 optimal range 문헌 부재, 감자 유일 가이드는 refuted) build_regional_score.py가 45/30만 0.6/0.4로 암묵 재정규화하고 있었다 — 즉 실효 가중치와 표기가 달랐다. 실효값을 그대로 명시값으로 올린 것이라 산출 점수는 바뀌지 않는다. precipitation=0은 '중요하지 않다'가 아니라 '근거가 없어 채점하지 않는다'는 뜻이며, 작물별 강수 optimal range 문헌이 확보되면 다시 배분한다(memory/open-gaps.md 필요문헌 4번). 2026-08-03 재확인: 3차 리서치에서도 작물별 강수 optimal range는 확보되지 않았다 — 일반 과습 임계 30/50mm는 '배수 불량 토양에서'가 필수 전제이고 1차 출처 작물이 대두이며(rainfall-drainage-literature), 배 rainfall_optimal 270mm는 작물 오인(대추)에 단위 10배 오류까지 확인돼 폐기됐다(pear-irrigation-optimization-ye-2019.md). precipitation=0 유지.",
+  "method_note": "각 밴드의 method 필드는 그 기준값이 어떤 측정 프로토콜에서 나온 값인지를 적는다. 같은 단위에서도 프로토콜이 다르면 값이 통째로 어긋나기 때문이다. 2026-08-03 대폭 진전: 국가농업환경변동조사 최종보고서(national-agri-environment-monitoring-2020.md)가 농촌진흥청 「토양 및 식물체 분석」(2007) 기준 국내 표준을 명시해 종전 전부 'unknown'이던 문헌측 프로토콜을 처음으로 확정했다 — pH: 토양:증류수 1:5 / 유기물: Tyurin법 / 유효인산: Lancaster법 / EC: 1:5 / 치환성 K·Ca·Mg: 1M NH4OAc 침출 후 AA·ICP / 질산태질소: 2M KCl / 시료조제: 그늘 풍건 후 20 mesh 체. 동시에 종전 최대 위험으로 적어둔 '유효인산 Bray-1 30~50 mg/kg과 약 6배 갈림'은 그 Bray 수치 자체가 원문에 없는 창작값으로 확인돼(kfia-inorganic-fertilizer-guide-2022.md, 322쪽 중 Bray 0건) 소멸했다. 남은 [확인 필요] 2건: ① 흙토람 API 반환값(우리 실측 입력)의 추출법은 여전히 미확인이다 — 명세서 3종에 단위만 있고 추출법 표기가 전혀 없어 문헌값과 실측값이 같은 프로토콜인지 자체가 보장되지 않는다. ② pH도 척도가 갈린다: 같은 시료가 pH(H2O) 5.8 / pH(KCl) 4.6으로 1.2 차이 나는 사례가 확인됐다(korean-soil-drainage-idonghyun-2023.md) — KCl 값이 섞이면 산성 판정이 통째로 뒤집힌다.",
+  "soil_rules_removed_note": "종전 soil_rules(작물 무관 공유 밴드)는 2026-08-03 삭제됐다. 사용자 결정: '채점에서 제거 — 전면 작물별 전환'. 채점 코드(build_regional_score.py)는 작물이 필수 지표 override를 갖지 않으면 조용히 폴백하지 않고 즉시 실패한다 — 출처 없는 값으로 조용히 채점되는 경로 자체를 없애기 위함이다. 삭제된 값의 이력은 memory/log.md와 git 히스토리에 남는다.",
+  "required_soil_indicators": ["ph", "organic_matter", "available_p"],
+  "required_soil_indicators_note": "모든 작물이 반드시 작물별 밴드를 가져야 하는 최소 토양 지표. 실측 데이터(data/01_soil_chemistry_modified.csv)에 항상 있는 3지표이며 공유 밴드 삭제 이후 이 목록이 fail-fast 기준이 된다. k/ca/mg는 문헌이 주는 작물만 채점한다(현재 5작물 전부 보유하나 필수로 강제하지 않는다 — 문헌이 없으면 만들지 않는다는 원칙이 우선).",
+  "physical_code_maps": {
+    "slope_pct": {"1": 2.0, "2": 7.0, "3": 15.0, "4": 30.0, "5": 60.0, "6": 100.0, "99": null},
+    "gravel_pct": {"1": 15.0, "2": 35.0, "3": 100.0, "99": null},
+    "source_column": {"slope_pct": "slope_code", "gravel_pct": "subsoil_gravel_code"},
+    "note": "data/02_soil_physical_modified.csv의 범주형 등급코드를 채점 가능한 연속값(%)으로 환산하는 표. 값은 그 등급 구간의 상한 %다 — 등급 내 최악값을 대표로 쓰는 보수적 선택이며, 등급 내 실제 분포가 데이터에 없어 중앙값을 쓸 수 없다 [확인 필요]. 코드 정의는 data/99_codebook_modified.csv: slope 1=0-2%, 2=2-7%, 3=7-15%, 4=15-30%, 5=30-60%, 6=60-100%, 99=기타 / subsoil_gravel 1=자갈 0-15%, 2=15-35%, 3=35% 이상, 99=기타. 상한이 열린 등급의 처리: gravel 코드 3('35% 이상')은 상한이 없어 물리적 최대인 100%로 둔다 — 같은 '등급 내 최악값' 규칙의 연장이다. 99(기타)와 결측은 null로 두어 채점 대상에서 제외한다(추측해서 채우지 않는다). 해상도 한계: 등급이 3~6개뿐이라 채점 해상도가 화학 지표보다 훨씬 거칠다 — 자갈은 사실상 '코드 1·2 = 100점 / 코드 3 = 0점'의 이진에 가깝게 작동한다. 이는 절벽 채점(§8 금지)이 아니라 입력 데이터의 범주 해상도 자체가 낮은 것이며, 자갈 35% 이상 밭이 감자에 부적합하다는 판정 자체는 문헌과 일치한다.",
+    "texture_not_scored": "subsoil_texture_code(1=사질 2=사양질 3=미사사양질 4=식양질 5=미사식양질 6=식질)는 채점하지 않는다. 처방 5차 기준이 5작물 전부 '사양질~식양질'인데 코드 순서가 그 범위의 어디부터 어디까지인지(미사사양질·미사식양질의 포함 여부와 순위) 문헌으로 확정되지 않는다 — 2026-08-03 사용자 결정으로 경사·자갈만 도입 [확인 필요]."
+  },
+  "climate_baseline": {
+    "normal_mean_c": 12.8,
+    "normal_source": "기상청 기후평년값(1991~2020) 우리나라 연평균기온 12.8℃ (https://data.kma.go.kr/normals/index.do)",
+    "observed_mean_c": 13.16,
+    "observed_source": "data/03_weather_monthly_modified.csv 2025년 기준 136개 지역 연평균기온의 평균(문경 흥덕동 결함행 제외)",
+    "offset_c": 0.36,
+    "applied_to": "temperature_guides (scripts/ml/dispersion.py temp_rule에서 optimal/allowed를 offset만큼 상향 이동)",
+    "note": "문헌 밴드는 평년 기준, 우리 관측은 최근 연도 기준이라 척도가 다르다는 문제(2026-08-01)에 대한 보정. 측정값이며 추정이 아니다. [확인 필요] 두 평균의 관측지점 집합이 다르다 — 기상청 평년은 관서(ASOS) 기준, 우리는 농업 관측지역 136개다. 따라서 이 0.36℃는 '전국 평균 수준의 차이'이지 지점별 정확한 보정계수가 아니다. 한계(중요): 이 보정으로 사과 optimal 포함 지역은 10→11/150로만 바뀐다. 사과 저점수의 약 18%만 설명하며, 주산지가 optimal에 들려면 +1.7~2.3℃가 더 필요하다 — 나머지는 보정으로 해결되지 않는다(docs/ml/memory_consistency_audit.md 후속, 사과 재배적지 북상 가설 참고). 2026-08-03 방법론 경고 추가: '전국 실측 대비 적합 지역이 너무 적다'를 밴드가 틀렸다는 근거로 쓰면 안 된다 — 3자 일치로 검증을 통과한 사과 밴드에서도 같은 현상이 나타나며(4~10월 5년 평균 20.18℃, 적합 11/150), 기준기간·해상도·고도보정의 계통 편차인지 온난화로 실제 적지가 줄어든 것인지 실측만으로는 구분되지 않는다(knowledge-base/registry.md §5-1). 밴드 채택·기각은 원문의 온도 정의 확인으로만 판단한다."
   }
 }

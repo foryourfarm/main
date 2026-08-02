@@ -38,12 +38,29 @@ def band_row(variable, rule, unit, source, scope):
         "ideal_min": lo,
         "ideal_max": hi,
         "unit": unit,
+        # 단위가 같아도 측정 프로토콜이 다르면 값이 통째로 어긋난다(유효인산 약 6배, EC 5배).
+        # crop_rules가 인용하는 출처 중 추출법을 명시한 것이 없어 현재는 전부 unknown이다 —
+        # 빈칸으로 두면 "확인했는데 해당 없음"과 구분이 안 되므로 명시적으로 싣는다.
+        "method": rule.get("method", "unknown [확인 필요] — method 필드 미기재"),
         "source": source,
         "scope": scope,
     }
 
 
-SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg"}
+# 단위는 컬럼에 고정한다(CLAUDE.md §4). k/ca/mg는 치환성 양이온으로 cmol/kg —
+# 종전엔 매핑이 없어 상추 override 3행이 "-"로 나갔다(2026-08-02 정정).
+def month_label(months):
+    """연속 구간이면 `04-10`, 비연속(예: 상추 봄·가을 작기)이면 개별 월을 나열한다.
+    `months[0]-months[-1]`만 쓰면 [4,5,9,10]이 '04-10'으로 보여 6~8월도 채점한 것처럼 읽힌다."""
+    if months == list(range(months[0], months[-1] + 1)):
+        return f"{months[0]:02d}-{months[-1]:02d}"
+    return ".".join(f"{m:02d}" for m in months)
+
+
+SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg",
+              "k": "cmol/kg", "ca": "cmol/kg", "mg": "cmol/kg", "ec": "dS/m"}
+# 물리성(2026-08-03). 등급코드가 아니라 등급 상한 %로 환산한 값의 밴드다(_shared physical_code_maps).
+PHYSICAL_UNITS = {"slope_pct": "%", "gravel_pct": "%"}
 
 
 def main():
@@ -51,13 +68,15 @@ def main():
     crops = load_crops()
     rows = []
 
-    for var, rule in shared["soil_rules"].items():
-        rows.append(band_row(var, rule, SOIL_UNITS.get(var, "-"), rule["source"], "soil"))
+    # 2026-08-03: 작물 무관 공유 soil_rules 블록이 사라졌다(출처 미확인으로 삭제). 라벨 정의도
+    # 전부 작물별 문헌 밴드에서만 나온다 — 어느 문헌 기준인지 말할 수 없는 행을 싣지 않는다.
+    assert "soil_rules" not in shared, \
+        "_shared.json에 soil_rules가 되살아났다 — 공유 밴드는 2026-08-03에 삭제됐다"
 
     for crop_code, crop in crops.items():
         name = crop["name"]
         for g in crop.get("temperature_guides", []):
-            months = f"{g['months'][0]:02d}-{g['months'][-1]:02d}"
+            months = month_label(g["months"])
             rows.append(band_row(
                 f"temperature_{crop_code}_{months}",
                 g, "C", f"memory/crop_rules/{crop_code} ({name} 문헌 시드, {shared['knowledge_version']})",
@@ -66,7 +85,7 @@ def main():
         for g in crop.get("precipitation_guides", []):
             if g.get("refuted"):
                 continue
-            months = f"{g['months'][0]:02d}-{g['months'][-1]:02d}"
+            months = month_label(g["months"])
             rows.append(band_row(
                 f"precipitation_{crop_code}_{months}",
                 g, "mm/week", f"memory/crop_rules/{crop_code} ({name} 문헌 시드, {shared['knowledge_version']})",
@@ -75,17 +94,26 @@ def main():
         for var, rule in crop.get("soil_overrides", {}).items():
             rows.append(band_row(
                 f"soil_{var}_{crop_code}",
-                rule, SOIL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 작물전용 override, {shared['knowledge_version']})",
-                f"crop:{crop_code}:{name}:soil_override",
+                rule, SOIL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 작물전용 밴드, {shared['knowledge_version']})",
+                f"crop:{crop_code}:{name}:soil",
+            ))
+        for var, rule in crop.get("physical_overrides", {}).items():
+            rows.append(band_row(
+                f"physical_{var}_{crop_code}",
+                rule, PHYSICAL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 물리성 밴드, {shared['knowledge_version']})",
+                f"crop:{crop_code}:{name}:physical",
             ))
 
     df = pd.DataFrame(rows)
     assert df["variable"].is_unique, "AnswerData 변수명 중복"
     assert not df.empty, "AnswerData 비어있음"
+    # 측정법 미기재 밴드가 조용히 섞이지 않게 강제한다 — unknown이어도 "확인 결과 미상"임을 적어야 한다.
+    assert df["method"].notna().all() and (df["method"].str.strip() != "").all(), "method 비어있는 밴드 존재"
 
     df.to_csv(OUT, index=False, encoding="utf-8")
-    print(f"{OUT.name}: {len(df)} rows (soil={len(shared['soil_rules'])}, "
-          f"crops={len(crops)}, knowledge_version={shared['knowledge_version']})")
+    print(f"{OUT.name}: {len(df)} rows (crops={len(crops)}, "
+          f"knowledge_version={shared['knowledge_version']})")
+    print(f"  scope별: {df['scope'].str.rsplit(':', n=1).str[-1].value_counts().to_dict()}")
 
 
 if __name__ == "__main__":

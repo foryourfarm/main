@@ -59,7 +59,7 @@ SCRIPTS_ML = Path(__file__).resolve().parent
 if str(SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ML))
 
-from dispersion import soil_rule, temp_rule
+from dispersion import physical_rule, soil_rule, temp_rule
 from imputation import impute, latlon_to_km
 from scoring import band_score  # 백엔드 룰 엔진과 같은 곡선(scoring.py docstring 참조)
 
@@ -75,7 +75,7 @@ from crop_literature_anchor_experiment import (  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 # 원본 산출물 이관 시 `outcomes/data/`는 함께 오지 않았다(git 미추적). 동일 파일명 데이터가
 # 레포 루트 `/data`에 있어 거기를 가리킨다 — outcomes/ 안에 데이터를 중복 복사하지 않는다.
-DATA = ROOT.parent / "data"
+DATA = ROOT / "data"
 CROP_RULES_DIR = ROOT / "memory" / "crop_rules"
 RULES = CROP_RULES_DIR / "_shared.json"
 OUT = ROOT / "RegionalScore.csv"
@@ -83,7 +83,15 @@ MANIFEST = DATA / "ml" / "regional_score_manifest.json"
 VALIDATION = DATA / "ml" / "imputation_validation.json"
 OUTLIERS = DATA / "ml" / "imputation_outliers.csv"
 
-SOIL_WEIGHT, TEMP_WEIGHT = 45, 30
+# 가중치는 승인 파라미터에서 읽는다 — 종전엔 45/30을 하드코딩하고 강수 25를 암묵 재정규화해서
+# 표기 가중치(45/30/25)와 실효 가중치(0.6/0.4)가 달랐다. 2026-08-01 재설계로 강수를 0으로
+# 명시하고 60/40을 승인값으로 올렸다(실효값은 그대로라 점수는 바뀌지 않는다).
+_WEIGHTS = json.loads(RULES.read_text(encoding="utf-8"))["weights"]
+SOIL_WEIGHT, TEMP_WEIGHT = _WEIGHTS["soil"], _WEIGHTS["temperature"]
+assert _WEIGHTS["precipitation"] == 0, (
+    "강수 가중치가 0이 아니다 — 강수 점수를 실제로 산출하도록 이 스크립트를 고치기 전에는 "
+    "0이 아닌 값을 두면 표기와 실효 가중치가 다시 갈린다."
+)
 SOIL_FRAC = SOIL_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 TEMP_FRAC = TEMP_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 
@@ -91,7 +99,7 @@ CROPS = {"09001": "사과", "09011": "배", "07001": "상추", "03001": "감자"
 
 # 대체 대상 원시 변수. 토양 6종 + 작물별 앵커월 평균기온 5종을 **한 번에** 대체한다 —
 # 따로 돌리면 서로를 예측인자로 쓸 수 없고, 이미 대체된 값이 다음 대체에 섞여 들어간다.
-SOIL_VALUE_COLS = ["pH", "organic_matter", "available_p", "k", "ca", "mg"]
+SOIL_VALUE_COLS = ["pH", "organic_matter", "available_p", "k", "ca", "mg", "ec"]
 CLIMATE_COLS = ["annual_mean_temp", "growing_temp", "temp_seasonality", "annual_precip"]
 UNFILLED_SCORE = 50.0  # 원시값이 끝까지 결측인 경우의 최종 폴백(최고점의 50%)
 
@@ -107,23 +115,61 @@ UNFILLED_SCORE = 50.0  # 원시값이 끝까지 결측인 경우의 최종 폴�
 REPLACE_KNN_OUTLIERS = False
 
 SOIL_COL = {"ph": "pH", "organic_matter": "organic_matter", "available_p": "available_p"}
-# 공유 3지표 외에 크롭전용 override만 쓸 수 있는 추가 지표(예: 상추 K/Ca/Mg, 2026-07-25 도입).
-# 공유 soil_rules에는 없어 이 지표를 override하지 않는 크롭의 soil_score_total에는 포함되지 않는다.
-EXTRA_SOIL_COL = {"k": "k", "ca": "ca", "mg": "mg"}
+# 문헌이 주는 크롭만 채점하는 추가 화학 지표(2026-07-25 상추 도입, 2026-08-03 5작물 전체 보유).
+# ec(2026-08-03)는 01_soil_chemistry가 아니라 data/ml/soil_ec_by_region.csv에서 온다 — 처방 5차가
+# EC 기준을 주는 작물은 오이·감자·상추 3종뿐이고(사과·배 칸은 '–') 그 3종만 채점된다.
+EXTRA_SOIL_COL = {"k": "k", "ca": "ca", "mg": "mg", "ec": "ec"}
+
+# 물리성 지표(2026-08-03 도입). 범주형 등급코드를 _shared.json physical_code_maps로 %로 환산해
+# 화학 지표와 같은 band_score 곡선에 태운다. 자갈 기준은 문헌상 감자에만 있어 감자만 채점된다.
+_SHARED = json.loads(RULES.read_text(encoding="utf-8"))
+PHYSICAL_CODE_MAPS = _SHARED["physical_code_maps"]
+PHYSICAL_COL = PHYSICAL_CODE_MAPS["source_column"]  # {지표: 원본 등급코드 컬럼}
+REQUIRED_SOIL = _SHARED["required_soil_indicators"]
 
 
-def load_crop_soil_overrides():
-    """crop_rules/<crop>.json의 선택적 soil_overrides 필드 → {crop_code: {indicator: rule}}.
-    없는 크롭은 공유 soil_rules만 쓴다(기존 동작 유지)."""
-    overrides = {}
+def load_crop_overrides():
+    """crop_rules/<crop>.json → ({crop_code: 화학 규칙}, {crop_code: 물리성 규칙}).
+
+    2026-08-03: 공유 soil_rules가 삭제돼 폴백이 없다. 필수 지표(REQUIRED_SOIL)를 갖지 않은
+    크롭은 조용히 공유값으로 채점되는 대신 즉시 실패한다 — 출처 없는 값이 산출물에 섞이는
+    경로 자체를 없애기 위함이다(_shared.json soil_rules_removed_note).
+    """
+    soil, physical = {}, {}
     for path in sorted(CROP_RULES_DIR.glob("*.json")):
         if path.name == "_shared.json":
             continue
         crop = json.loads(path.read_text(encoding="utf-8"))
-        so = crop.get("soil_overrides")
-        if so:
-            overrides[crop["crop_code"]] = so
-    return overrides
+        code = crop["crop_code"]
+        so = crop.get("soil_overrides", {})
+        missing = [ind for ind in REQUIRED_SOIL if ind not in so]
+        if missing:
+            raise ValueError(
+                f"{path.name}: 필수 토양 지표 {missing} 밴드 없음. 공유 soil_rules는 "
+                "2026-08-03에 삭제됐다(출처 미확인) — 작물별 문헌 밴드를 추가하거나, "
+                "문헌이 없다면 그 작물을 채점 대상에서 빼야 한다. 폴백은 두지 않는다."
+            )
+        soil[code] = so
+        if crop.get("physical_overrides"):
+            physical[code] = crop["physical_overrides"]
+    return soil, physical
+
+
+def physical_frame(regions):
+    """등급코드 → 대표 %(등급 상한) 환산 프레임. 결측·99(기타)는 NaN으로 남긴다.
+
+    KNN 대체 대상에 넣지 않는다 — 지형은 이웃 지역에서 빌려올 수 있는 값이 아니고,
+    범주 3~6개를 연속값처럼 보간하면 없는 정밀도를 만들어낸다. 결측은 기존 최종 폴백
+    (UNFILLED_SCORE=50)으로 처리되고 `*_missing` 플래그로 노출된다.
+    """
+    phys = pd.read_csv(DATA / "02_soil_physical_modified.csv", dtype={"region_code": str})
+    out = regions[["region_code"]].merge(phys, on="region_code", how="left")
+    for indicator, col in PHYSICAL_COL.items():
+        code_to_pct = {int(k): v for k, v in PHYSICAL_CODE_MAPS[indicator].items()}
+        out[indicator] = out[col].map(
+            lambda c: code_to_pct.get(int(c)) if pd.notna(c) else None
+        ).astype("float64")
+    return out.set_index("region_code")[list(PHYSICAL_COL)]
 
 
 def temp_raw_col(crop_code: str) -> str:
@@ -137,8 +183,16 @@ def load_raw_features(regions):
     base = 위경도 등거리 평면(x_km,y_km) + 기후 4피처. 기후 피처는 기상 관측이 없는
     14개 지역에서 결측이지만 nan-aware 거리라 남은 피처로 거리가 계산된다.
     """
+    chem_cols = [c for c in SOIL_VALUE_COLS if c != "ec"]
     soil = pd.read_csv(DATA / "01_soil_chemistry_modified.csv", dtype={"region_code": str})
-    soil = soil[["region_code", *SOIL_VALUE_COLS]].drop_duplicates("region_code")
+    soil = soil[["region_code", *chem_cols]].drop_duplicates("region_code")
+    # EC는 별도 집계 파일에서 온다(흙토람 필지 실측 → 시군구 중앙값). 평균이 아니라 중앙값을
+    # 쓰는 이유는 분포가 오른쪽으로 심하게 치우쳐 시설 염류집적 필지가 지역 대표값을 끌어올리기 때문.
+    ec = pd.read_csv(DATA / "ml" / "soil_ec_by_region.csv", dtype={"region_code": str})
+    soil = soil.merge(
+        ec[["region_code", "ec_median"]].rename(columns={"ec_median": "ec"}),
+        on="region_code", how="left",
+    )
 
     regions_full, weather = load_regions_weather()
     climate = climate_features(regions_full, weather)[["region_code", *CLIMATE_COLS]]
@@ -167,48 +221,54 @@ def score_column(values, rule):
     return values.apply(lambda v: band_score(v, rule)).fillna(UNFILLED_SCORE)
 
 
-def build_soil(df, raw_missing, crop_soil_overrides):
-    """대체 완료된 원시 토양값으로 채점한다. 대체 자체는 main에서 한 번에 끝난 상태다."""
-    rules = json.loads(RULES.read_text(encoding="utf-8"))["soil_rules"]
+def build_soil(df, raw_missing, crop_soil_overrides, crop_physical_overrides, physical):
+    """대체 완료된 원시 토양값 + 물리성으로 작물별 토양 총점을 낸다.
 
-    for var, col in SOIL_COL.items():
-        df[f"{var}_score"] = score_column(df[col], soil_rule(rules[var], var)).round(1)
-        df[f"{var}_missing"] = raw_missing[col]
-    df["soil_score_total"] = df[["ph_score", "organic_matter_score", "available_p_score"]].mean(axis=1).round(1)
-    df["soil_score_total_missing"] = df["ph_missing"] | df["organic_matter_missing"] | df["available_p_missing"]
+    2026-08-03 개정 2건:
+      1. **공유 밴드 경로 삭제.** 종전엔 출처미상 공유 soil_rules로 `{var}_score`를 먼저 내고
+         override가 있는 지표만 덮어썼다. 이제 모든 화학 지표가 작물별 문헌 밴드로만
+         채점된다 — 작물 무관 `soil_score_total` 컬럼도 함께 사라진다(그 값이 어느 문헌
+         기준인지 말할 수 없기 때문이다).
+      2. **물리성 지표 합류.** 경사·자갈이 화학 지표와 같은 평균에 들어간다. 별도 가중치를
+         만들지 않은 이유는 배분 비율을 줄 문헌이 없어서다(_shared.json scoring_version_note).
 
-    # 크롭전용 soil override: 공유 3지표는 override된 지표만 재계산(나머지는 공유값 유지),
-    # 공유에 없는 추가 지표(EXTRA_SOIL_COL, 예: 상추 K/Ca/Mg)는 override한 크롭에만 더해진다.
-    # 원본값 결측 여부는 규칙(rule)과 무관하므로 공유 지표는 기존 {var}_missing을 재사용한다.
-    for crop_code, override_rules in crop_soil_overrides.items():
-        indicator_scores = []
-        missing_flags = []
-        for var, col in SOIL_COL.items():
-            if var in override_rules:
-                score_col = f"{var}_score_{crop_code}"
-                df[score_col] = score_column(
-                    df[col], soil_rule(override_rules[var], var)
-                ).round(1)
-                indicator_scores.append(score_col)
-            else:
-                indicator_scores.append(f"{var}_score")
-            # 원본 결측 여부는 채점 규칙과 무관하므로 override 여부와 상관없이 원시값 기준.
-            missing_flags.append(raw_missing[col])
+    반환: (df, {crop_code: [그 작물 총점을 구성한 지표 점수 컬럼]}). 두 번째 값은 제한요인
+    (MLCM) 점수가 "어떤 인자들 중 최악인가"를 알아야 해서 필요하다 — 여기서 이미 조립한
+    목록을 재계산하지 않고 그대로 넘긴다(정의가 갈라지면 안 된다).
+    """
+    crop_indicator_cols = {}
+    for crop_code in CROPS:
+        override_rules = crop_soil_overrides[crop_code]
+        indicator_scores, missing_flags = [], []
+
         for var, rule in override_rules.items():
-            if var in SOIL_COL:
-                continue
-            col = EXTRA_SOIL_COL[var]
+            col = SOIL_COL.get(var) or EXTRA_SOIL_COL[var]
             score_col = f"{var}_score_{crop_code}"
             df[score_col] = score_column(df[col], soil_rule(rule, var)).round(1)
             indicator_scores.append(score_col)
             missing_flags.append(raw_missing[col])
+
+        for var, rule in crop_physical_overrides.get(crop_code, {}).items():
+            values = df["region_code"].map(physical[var])
+            df[var] = values  # 원시 대표 %(등급 상한). 프론트가 관측값을 보여줄 수 있게 싣는다.
+            score_col = f"{var}_score_{crop_code}"
+            df[score_col] = score_column(values, physical_rule(rule, var)).round(1)
+            df[f"{var}_missing_{crop_code}"] = values.isna()
+            indicator_scores.append(score_col)
+            missing_flags.append(values.isna())
+
         df[f"soil_score_total_{crop_code}"] = df[indicator_scores].mean(axis=1).round(1)
         df[f"soil_score_total_{crop_code}_missing"] = pd.concat(missing_flags, axis=1).any(axis=1)
-    return df
+        crop_indicator_cols[crop_code] = indicator_scores
+
+    # 원시값 결측 플래그는 작물과 무관하므로 한 번만 노출한다(종전 `{var}_missing`과 동일).
+    for col in SOIL_VALUE_COLS:
+        df[f"{col}_missing"] = raw_missing[col]
+    return df, crop_indicator_cols
 
 
-def build_temp(df, raw_missing):
-    """대체 완료된 앵커월 평균기온으로 채점 + 작물별 총점 조립.
+def build_temp(df, raw_missing, crop_indicator_cols):
+    """대체 완료된 앵커월 평균기온으로 채점 + 작물별 총점 조립(가중평균·MLCM 두 가지).
 
     종전엔 실험 CSV의 **점수**를 읽어 점수공간에서 대체했다. 이제 원시 기온을 대체한 뒤
     같은 곡선으로 채점한다 — 원래 관측이 있던 지역의 점수는 실험 CSV와 일치해야 하므로
@@ -232,8 +292,8 @@ def build_temp(df, raw_missing):
             drift = float((score[observed] - reference[observed]).abs().max())
             assert drift <= 0.1, f"{name} 기온 점수가 실험 CSV와 불일치(최대 {drift})"
 
-        # 크롭전용 soil override가 있으면 그 총점(soil_score_total_{crop_code})을 쓰고, 없으면 공유 총점 사용.
-        soil_col = f"soil_score_total_{crop_code}" if f"soil_score_total_{crop_code}" in df.columns else "soil_score_total"
+        # 2026-08-03: 모든 작물이 작물별 토양 총점을 갖는다(공유 총점 폴백 없음).
+        soil_col = f"soil_score_total_{crop_code}"
         soil_missing_col = f"{soil_col}_missing"
         df[f"total_score_{crop_code}_{name}"] = (
             df[soil_col] * SOIL_FRAC + df[f"temp_{crop_code}_{name}_score"] * TEMP_FRAC
@@ -241,6 +301,13 @@ def build_temp(df, raw_missing):
         df[f"total_score_{crop_code}_{name}_missing"] = (
             df[soil_missing_col] | df[f"temp_{crop_code}_{name}_missing"]
         )
+
+        # 제한요인(MLCM) 병행 점수(2026-08-02). 기존 가중평균 컬럼은 그대로 두고 옆에 낸다 —
+        # 채택 결정 자체가 "우선 채택, 최종 확정 아님"이므로 임의 교체하지 않는다.
+        # 구성 인자 = 그 작물의 토양 지표들 + 해당 작물 기온. 강수는 애초에 채점되지 않아
+        # min 대상에서도 빠진다(가중평균과 같은 누락, 숨기지 않고 manifest에 명시).
+        factor_cols = crop_indicator_cols[crop_code] + [f"temp_{crop_code}_{name}_score"]
+        df[f"total_score_{crop_code}_{name}_mlcm"] = df[factor_cols].min(axis=1).round(1)
     return df
 
 
@@ -263,7 +330,8 @@ def main():
     regions = pd.read_csv(DATA / "raw" / "selected_regions_modified.csv", dtype={"region_code": str})
     regions = regions[["region_code", "region_name", "instl_la", "instl_lo"]].drop_duplicates("region_code")
 
-    crop_soil_overrides = load_crop_soil_overrides()
+    crop_soil_overrides, crop_physical_overrides = load_crop_overrides()
+    physical = physical_frame(regions)
 
     # 원시값 대체를 **한 번에** 끝낸 뒤 채점한다(모듈 docstring 결측·이상치 처리 참조).
     frame, base, targets = load_raw_features(regions)
@@ -276,8 +344,10 @@ def main():
         replace_outliers=REPLACE_KNN_OUTLIERS,
     )
 
-    df = build_soil(df, raw_missing, crop_soil_overrides)
-    df = build_temp(df, raw_missing)
+    df, crop_indicator_cols = build_soil(
+        df, raw_missing, crop_soil_overrides, crop_physical_overrides, physical
+    )
+    df = build_temp(df, raw_missing, crop_indicator_cols)
     df = add_percentile_columns(df)
     # 대체 출처 컬럼은 사람이 읽는 이름으로 노출한다(§18-4 근사 표기 의무).
     df = df.rename(
@@ -289,31 +359,109 @@ def main():
     for crop_code, name in CROPS.items():
         assert df[f"total_score_{crop_code}_{name}"].between(0, 100).all(), f"{name} 총점 범위 위반"
         assert df[f"total_score_{crop_code}_{name}_percentile"].between(0, 100).all(), f"{name} percentile 범위 위반"
-    for crop_code in crop_soil_overrides:
-        assert f"soil_score_total_{crop_code}" in df.columns, f"{crop_code} soil override 총점 컬럼 누락"
+        # MLCM은 구성 인자의 min이므로 그 인자들의 가중평균보다 높을 수 없다(구조적 불변).
+        mlcm = df[f"total_score_{crop_code}_{name}_mlcm"]
+        assert mlcm.between(0, 100).all(), f"{name} MLCM 범위 위반"
+        assert (mlcm <= df[f"total_score_{crop_code}_{name}"] + 0.05).all(), \
+            f"{name} MLCM이 가중평균 총점보다 높다 — min 정의 위반"
+    for crop_code in CROPS:
+        assert f"soil_score_total_{crop_code}" in df.columns, f"{crop_code} 토양 총점 컬럼 누락"
+    assert "soil_score_total" not in df.columns, \
+        "작물 무관 공유 토양 총점이 남아 있다 — 공유 밴드는 2026-08-03에 삭제됐다"
     assert df["region_code"].is_unique, "지역 중복"
 
     df.to_csv(OUT, index=False, encoding="utf-8")
 
+    # 가중평균 vs MLCM 분포 비교(교체 판단 자료, 임의 교체 안 함).
+    mlcm_compare = {}
+    for crop_code, name in CROPS.items():
+        w = df[f"total_score_{crop_code}_{name}"]
+        m = df[f"total_score_{crop_code}_{name}_mlcm"]
+        mlcm_compare[name] = {
+            "weighted_mean": round(float(w.mean()), 1),
+            "mlcm_mean": round(float(m.mean()), 1),
+            "mlcm_zero_regions": int((m == 0).sum()),
+            "rank_spearman": round(float(w.rank().corr(m.rank(), method="pearson")), 3),
+            "limiting_factor_top": df[
+                [*crop_indicator_cols[crop_code], f"temp_{crop_code}_{name}_score"]
+            ].idxmin(axis=1).value_counts().head(3).to_dict(),
+        }
+
+    shared = json.loads(RULES.read_text(encoding="utf-8"))
     manifest = {
-        "knowledge_version": json.loads(RULES.read_text(encoding="utf-8"))["knowledge_version"],
-        "weight_note": "강수(25) 점수 미산출 — 토양45/기온30만 재정규화(0.6/0.4)해 총점 계산. 강수 제외를 숨기지 않음.",
+        "knowledge_version": shared["knowledge_version"],
+        # 문헌 밴드값과 채점 곡선은 따로 움직인다 — 곡선만 바뀌어도 숫자가 전부 달라지므로
+        # 소비자(ForYourFarm)가 knowledge_version만 보고 "변화 없음"으로 오독하지 않게 분리 노출.
+        "scoring_version": shared["scoring_version"],
+        "weights": _WEIGHTS,
+        "weight_note": "2026-08-01 가중치 재설계(사용자 확인): 토양60/기온40/강수0. 종전 표기(45/30/25)는 "
+                        "강수 점수를 한 번도 산출한 적이 없어 실효 가중치(0.6/0.4)와 달랐다 — 실효값을 명시값으로 "
+                        "올린 것이라 총점 숫자는 바뀌지 않는다. precipitation=0은 '중요하지 않다'가 아니라 "
+                        "'작물별 optimal range 문헌이 없어 채점하지 않는다'는 뜻이다(memory/open-gaps.md 필요문헌 4번).",
         "percentile_note": "total_score_{crop}_percentile(2026-07-25 도입)은 크롭 내부 상대순위(0~100)일 뿐, "
                             "크롭간 절대 비교가 아니다. 크롭마다 문헌 기준의 엄격도가 실제로 다르므로(예: 상추 RDA "
                             "토양기준이 감자보다 훨씬 좁음, 전국 pH 중앙값 5.91이 상추 optimal 6.5~7.0과 구조적으로 "
                             "어긋남) total_score_{crop} 절대값 자체는 그대로 둔다 — 가중치를 임의로 조정해 크롭간 "
                             "점수를 맞추지 않는다(CLAUDE.md §2·§8).",
+        "crop_band_precision_note": "2026-08-02부터 크롭간 근거 정밀도가 비대칭이다. 사과·배는 "
+                            "RDA 교본(사과 표5-21 2018·2025 동일 / 배 표5-25) 실값으로 pH·K·Ca·Mg를 "
+                            "채점하고, 감자·오이·상추는 공유 흙토람 기준 + `allowed = optimal ±50%` "
+                            "휴리스틱이 남아 있다. 따라서 total_score_{crop} 절대값의 크롭간 비교는 "
+                            "이전보다 더 어긋난다 — percentile(크롭 내 상대순위)만 크롭간 나란히 "
+                            "읽을 수 있다. 또한 같은 토양이 작물별로 정반대 판정을 받을 수 있다: "
+                            "치환성 Ca를 사과 교본은 '5~6 cmol/kg 이상'(상한 없음 → 단측 밴드)으로, "
+                            "배 교본은 '5~6'(양측)으로 써서 Ca 14.42 지역이 사과 100점·배 0점이 된다. "
+                            "계산 오류가 아니라 두 교본의 표기 차이를 그대로 반영한 것이며, 어느 "
+                            "표기가 옳은지는 미확정이다([확인 필요], knowledge-base/registry.md §1).",
         "imputation_rule": "2026-07-29 개정: 원시값 공간에서 거리역수 가중 KNN 대체"
                             f"(k={impute_report['k_used']}, 홀드아웃 CV로 선택). 예측인자 = 공간(위경도→km "
                             "평면) + 기후 4피처 + 나머지 원시변수. 폴백: KNN 불가 → 컬럼 평균 → 점수 50.0. "
                             "이상치는 이웃 대비 KNN 잔차 modified z>3.5를 결측 처리해 재대체하고 원본값은 "
                             "imputation_outliers.csv에 보존한다. 상세·베이스라인 비교는 imputation_validation.json.",
-        "reliability_flag_rule": "soil_score_total_missing = ph/유기물/유효인산 중 하나라도 결측. "
+        "reliability_flag_rule": "soil_score_total_{crop}_missing = 그 작물 토양 총점을 구성한 "
+                                  "지표(화학 + 물리성) 중 하나라도 원본 결측. "
                                   "total_score_{crop}_missing = 토양 결측 or 해당 작물 기온 결측. "
-                                  "대체값 자체는 그대로 쓰되(총점 계산엔 포함), 신뢰도만 별도 표시.",
+                                  "대체값 자체는 그대로 쓰되(총점 계산엔 포함), 신뢰도만 별도 표시. "
+                                  "2026-08-03: 작물 무관 soil_score_total(_missing) 컬럼은 사라졌다.",
+        "shared_band_removal_note": "2026-08-03 사용자 결정: 출처미상 공유 soil_rules(ph 6.0~7.0 / "
+                            "organic_matter 20~30 / available_p 300~550)를 채점에서 제거하고 5작물 "
+                            "전부 문헌 출처가 있는 작물별 밴드로 전환했다. 특히 available_p 300~550은 "
+                            "RDA 비료사용처방 5차(작물별 200~500)와 국가농업환경변동조사 등급표"
+                            "(최적 200~450) 양쪽에서 반증된 값이었다. 감자는 종전에 ph override가 없어 "
+                            "공유 6.0~7.0으로 채점됐는데 감자는 산성 토양 작물(교본 5.0~6.0)이라 방향이 "
+                            "반대였다 — 이번 개정의 최대 결함 수정이다. 코드는 필수 지표 밴드가 없는 "
+                            "작물을 만나면 폴백하지 않고 즉시 실패한다.",
+        "physical_axis_note": "2026-08-03 신규: 물리성(경사 slope_pct, 자갈 gravel_pct)을 토양 총점 "
+                            "구성인자로 추가했다. 근거는 RDA 「작물별 비료사용처방」 5차(2022) 물리성 표"
+                            "(사과 경사 0-15% / 나머지 0-7%, 자갈은 감자만 0-35%)이고, 입력은 "
+                            "data/02_soil_physical_modified.csv의 등급코드를 _shared.json "
+                            "physical_code_maps로 등급 상한 %로 환산한 값이다. ⚠️근사·한계 3건: "
+                            "① 등급 내 최악값(상한)을 대표로 쓴다 — 등급 내 실제 분포가 데이터에 없다. "
+                            "② 자갈 최상위 등급('35% 이상')은 상한이 열려 있어 물리적 최대 100%로 둔다. "
+                            "③ 등급이 3~6개뿐이라 해상도가 화학 지표보다 훨씬 거칠고, 자갈은 사실상 "
+                            "'코드 1·2 = 100점 / 코드 3 = 0점'으로 작동한다. 토성(subsoil_texture_code)은 "
+                            "처방 기준 '사양질~식양질'의 코드 순서 해석이 문헌으로 확정되지 않아 "
+                            "채점하지 않는다 [확인 필요]. 유효토심·배수등급은 데이터 컬럼 자체가 없다. "
+                            "가중치(soil 60/temp 40)는 바꾸지 않았고 토양 총점 내부 균등 평균에 합류시켰다 "
+                            "— 물리성 배분 비율을 줄 문헌이 없기 때문이다(추측 금지).",
+        "mlcm_note": "total_score_{crop}_mlcm(2026-08-02 신규)은 제한요인법(MLCM, 최대저해인자법) "
+                      "병행 점수다 — 그 작물의 토양 지표 점수들과 기온 점수 중 **최솟값**. 근거: "
+                      "김호정 외(2016) 한국농림기상학회지 18(3):127-134이 MLCM을 '최악 인자 등급 채택'"
+                      "으로 정의하고, Kim & Shim(2019)이 MLCM(전국 적지 19.55%)이 AHP(99.08%)보다 "
+                      "실측 재배면적에 근접함을 보였다. 사용자 결정(2026-08-01)은 'MLCM 우선 채택, "
+                      "최종 확정 아님'이므로 기존 가중평균 total_score_{crop}을 **교체하지 않고 병행**한다. "
+                      "⚠️근사 2건: ① 원문 MLCM은 등급(S1~N1) 기반 min인데 여기서는 연속 점수의 min을 "
+                      "쓴다(정의의 근사, CLAUDE.md §4 근사 표기 의무) ② 강수는 애초에 채점되지 않아 "
+                      "min 대상에서도 빠진다(가중평균과 같은 누락). ⚠️MLCM은 가중치(토양45/기온30)를 "
+                      "쓰지 않는다 — 구조적으로 min이 가중평균보다 높을 수 없어 점수 수준 자체가 낮다. "
+                      "두 값을 같은 척도로 비교하면 안 된다.",
+        "mlcm_vs_weighted": mlcm_compare,
         "imputation": {k: v for k, v in impute_report.items() if k != "outliers"},
-        "soil_score_total_missing_count": int(df["soil_score_total_missing"].sum()),
-        "crop_soil_overrides": {code: list(rules.keys()) for code, rules in crop_soil_overrides.items()} or "없음",
+        "soil_score_total_missing_count": {
+            name: int(df[f"soil_score_total_{code}_missing"].sum()) for code, name in CROPS.items()
+        },
+        "crop_soil_indicators": {code: list(rules.keys()) for code, rules in crop_soil_overrides.items()},
+        "crop_physical_indicators": {code: list(rules.keys()) for code, rules in crop_physical_overrides.items()} or "없음",
         "regions": len(df),
     }
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
