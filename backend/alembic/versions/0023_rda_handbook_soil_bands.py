@@ -140,6 +140,14 @@ def _upsert(crop_id: int, indicator: str, bands: tuple[float, ...], source: str)
 
 
 def upgrade() -> None:
+    # source_ref는 VARCHAR(300)인데(0011) 이 마이그레이션의 근거 서술이 346자다. 다음
+    # 마이그레이션(0024)의 _HANDBOOK_BASE도 341자라 같은 벽에 걸린다. 근거를 잘라내는
+    # 대신 폭을 넓힌다 — risk_width_source(0020)도 같은 이유로 무제한 String이다.
+    # 실배포 첫 시도(2026-08-02)에서 StringDataRightTruncation으로 여기서 걸려
+    # 트랜잭션 전체가 롤백된 것을 보고 뒤늦게 넣었다 — 로컬 테스트는 DB 없이 순수
+    # 함수만 검증해서(§17 미비) 이 실패를 잡을 수 없었다.
+    op.alter_column("crop_growth_guide", "source_ref", type_=sa.String())
+
     for crop_id, indicator, *bands in _BANDS:
         _upsert(crop_id, indicator, tuple(bands), _HANDBOOK)
 
@@ -154,6 +162,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # source_ref 폭은 되돌리지 않는다 — 아래에서 optimal/allowed_min/max는 종전 값으로
+    # 되돌리지만 source_ref 텍스트는 그대로 둔다(종전에도 그랬다). 즉 다운그레이드 후에도
+    # 이 행들엔 346자 텍스트가 남아 있어 VARCHAR(300)로 좁히면 바로 실패한다.
     conn = op.get_bind()
     for crop_id, indicator in _ADDED_ROWS:
         conn.execute(
