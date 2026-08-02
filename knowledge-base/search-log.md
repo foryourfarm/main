@@ -2,6 +2,28 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 5 (2026-08-02) — 사과 6개 갭 병렬 조사 (착색기/fruit_growth·maturity/EC/organic/rainfall/gdd)
+
+> Aira MCP 미연결로 전 에이전트가 Semantic Scholar/CrossRef/OpenAlex/RISS 공개 API 대체 수행. 상세 판정 근거는 `registry.md` §6-1.
+
+### 채택(approve/filled)
+- **Lee, Park & Park (2015)**, HST 33, DOI 10.7235/hort.2015.15010, 인용5 — 충주 후지 냉각요구시간(Chilling Hours 666h / Utah 517CU). GDD 후보로 검토했으나 **개념이 달라 신규 지표 chilling_requirement로 반영**
+- 이재범·김종윤(2023), 한국원예학회 — FDR/Hilhorst EC 측정법 보정, **reference_only 승인**(원문 미확보, extractor 대기)
+
+### 조건부/caution (원문 확보 시 재검증)
+- 김미리·김승규(2014), 한국농림기상학회지 16(4) — 전국15주산지 패널, 강수 계수 1개만 확인
+- Van Giap Do 외(2024), Agriculture(MDPI), 인용14 — 홍로 관수·열과, mm스펙 없음(정성적 근거만)
+- 김이현 외(2019), 정승탁 외(2021) — 사과 EC 관련 학회 초록집, 메타데이터만 확인
+
+### 기각(reject) / 접근불가(blocked)
+- TRKO202100009605(RDA 5차사업, 2021) — blocked_paywall(재시도했으나 여전히 원문 미확보)
+- 김수옥·윤진일(2010) — access_blocked, 재시도 1회 후 폐기 권고
+- 김진희 외(2019) — reject(타겟 불일치 의심, frost_damage와 개념 중복 추정)
+
+### 국내논문 0편으로 이번 라운드 보류 (해외만 확보, 재추천 대상 아님 — 향후 국내 회색문헌 재검색 시 재검토)
+- 착색기(coloring) temp_day/temp_night_min: Blankenship(1987)·Ubi(2006)·Faragher(1983)·Arakawa(1991)·Peavey(2024) — 전부 해외
+- fruit_growth/maturity temp_day: Warrington(1999)·Blankenship(1987)·Bergh(1990)·Bepete&Lakso(1997) — 전부 해외
+
 ## Iteration 4 (2026-08-01) — 오이 근권온도 구조확정 + 상추 EC/pH 재검증 + 감자 괴경냉해/DTR (소급 반영)
 
 > 이 13편은 registry-keeper 미실행 상태로 파일만 커밋돼 있다가 이번에 소급 반영됐다. 각 파일 말미의 `Registry Delta` 블록을 그대로 registry.md에 옮겼다.

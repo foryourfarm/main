@@ -1,6 +1,6 @@
 # 도메인 지식 명세서 (Registry)
-마지막 갱신: 2026-08-01 (Delta: Iteration 4 — 오이 3편(근권온도 구조확인·노지관수·엽분석) + 상추 5편(EC·pH·온도 재검증) + 감자 5편(괴경냉해·괴경형성·DTR) 소급 반영)
-누적 처리 논문 수: 41 (Iteration 4: +13편)
+마지막 갱신: 2026-08-02 (Delta: Iteration 5 — 사과 EC/유기물/강수/GDD 검증, 신규지표 chilling_requirement 발견)
+누적 처리 논문 수: 42 (Iteration 5: +1 신규지표 논문 filled, 나머지는 caution/blocked/기각 — 상세 §6-1)
 
 > **Iteration 4 반영 경위**: 이 13편은 이번 갱신 이전에 이미 `knowledge-base/papers/{cucumber,lettuce,potato}/`에 파일로 커밋돼 있었으나(각 파일 말미에 `Registry Delta` 블록 존재), registry-keeper가 실행되지 않아 이 문서에는 한 번도 집계되지 않은 상태였다. 이번에 각 파일의 Registry Delta를 읽어 소급 반영했다.
 
@@ -13,8 +13,9 @@
 |---|---|---|---|---|---|---|---|
 | 사과 | temp_day(생육기온) | 전기간 | - | - | - | missing | - |
 | 사과 | ph | 전기간 | 6.0~6.5 | 5.5~6.8 | - | filled | RDA 비료사용처방, 홍로품종 과실품질 |
-| 사과 | ec | 전기간 | 0.8~1.5 | 0.4~2.0 | - | **partial** | papers/apple/hongro-fruit-quality-soil-2009.md(N=60, 품종특화), papers/apple/sod-orchard-soil-acidity-2009.md(N=4처리, 초생), papers/apple/organic-apple-manual-soil-management.md(범위값). **한계**: 소규모 조사+매뉴얼만. national-scale 검증 부재. RDA TRKO202100009605 원문 접근 불가(404) |
-| 사과 | organic | 전기간 | 참고치만 있음(단일 실측) | - | - | partial | papers/apple/root-zone-temperature-2001.md |
+| 사과 | ec | 전기간 | 0.8~1.5 | 0.4~2.0 | - | **partial** | papers/apple/hongro-fruit-quality-soil-2009.md(N=60, 품종특화), papers/apple/sod-orchard-soil-acidity-2009.md(N=4처리, 초생), papers/apple/organic-apple-manual-soil-management.md(범위값). **한계**: 소규모 조사+매뉴얼만. national-scale 검증 부재. RDA TRKO202100009605(농업환경자원변동평가 5차사업, 2021) 재시도(2026-08-02)에도 원문 다운로드 실패(메타데이터만 확인, JS세션 필요) — NTIS/RDA 직접 문의 필요. 김이현 외(2019)·정승탁 외(2021) 국내 학회 초록집 2편은 메타데이터만 확인, 초록 텍스트 미확보(caution, 원문 확보 시 재검증) |
+| 사과 | ec(측정법, **reference_only 예정**) | - | - | - | - | **승인(conflict-checker), 원문 미확보** | 이재범·김종윤(2023, 한국원예학회 학술발표요지) — FDR센서 실시간 EC를 1:5 물추출법과 환산하는 Hilhorst 모델 보정 논문으로 메타데이터 확인·conflict-check 승인됨(reference_only, optimal_range 값 출처 아님, 상추 Lee 2003과 동일 패턴 예상). **원문 텍스트를 아직 못 읽어 실제 추출은 미완료** — extractor가 한국원예학회 아카이브/KISS에서 원문 확보 후 진행 필요 |
+| 사과 | organic | 전기간 | 일반재배 실측 12~35 g/kg(평균 21±6, N=60 홍로농가) — 당도/경도/착색 전부(+)방향 기여(16~17%) / 유기재배 RDA 목표 30~40 g/kg | 15~35(일반, root-zone 논문 근사치와 유사) | - | **partial(근거 강화, 2026-08-02)** | papers/apple/hongro-fruit-quality-soil-2009.md(N=60 실측범위), papers/apple/organic-apple-manual-soil-management.md(RDA 유기재배 목표치). **한계**: 두 수치가 서로 다른 모집단(일반재배 관찰범위 vs 유기재배 처방목표) — 30~35만 겹침, 그대로 합치면 안 됨. papers/apple/sod-orchard-soil-acidity-2009.md는 18개월 단기관찰(16~21g/kg)이라 보조참고만. papers/apple/root-zone-temperature-2001.md(근권온도)는 여전히 별개 성격 |
 | 사과 | p2o5 | 전기간 | 30~50 mg/kg | 20~60 | - | filled | RDA 비료사용처방 (Bray-1) |
 | 사과 | p2o5_유기 | 전기간 | 40~60 mg/kg | 25~80 | - | filled | 유기재배 매뉴얼 |
 | 사과 | p2o5_실제시비 | 전기간 | 10~12 kg/10a | +20% 현장보정 | - | filled | 협회 가이드 |
@@ -22,7 +23,8 @@
 | 사과 | temp_max(고온피해) | 전기간 | 회피 31°C↑ | - | - | filled | Iteration 2-2 (기온 영향) |
 | 사과 | frost_damage_budburst | 개엽기 | -5.0°C(10%), -9.4°C(90%) | - | - | filled | Iteration 2-2 (냉해 임계) |
 | 사과 | frost_damage_fullbloom | 만개기 | -2.2°C(10%), -3.9°C(90%) | - | - | filled | Iteration 2-2 (냉해 임계) |
-| 사과 | gdd(적산온도) | 전기간 | ∑[(Tmax+Tmin)/2 - Tbase] | - | - | partial | Iteration 2-2 (베이스온도 작물별 확정 필요) |
+| 사과 | gdd(적산온도) | 전기간 | ∑[(Tmax+Tmin)/2 - Tbase] | - | - | partial | Iteration 2-2 (베이스온도 작물별 확정 필요). **2026-08-02 검증**: 국내 후보 3편 확인 — 김수옥·윤진일(2010, 학회 프로시딩) 원문 접근 실패(재시도 1회 후 폐기 권고), 김진희 외(2019) 타겟 불일치 의심으로 기각, Lee et al.(2015)은 **GDD가 아니라 냉각요구시간(chilling requirement) 논문으로 확인돼 기각**(아래 신규 지표 참고). Tbase는 여전히 missing |
+| 사과 | chilling_requirement(냉각요구시간, **신규 지표**) | 휴면기(만개후 ~255일까지 역산) | Chilling Hours model 666시간 / Utah model 517 CU | - | - | **filled(2026-08-02 신규)** | Lee, Park & Park(2015), Horticultural Science and Technology 33, DOI 10.7235/hort.2015.15010, 인용5 — 충주 지역 후지(Fuji) 실측, conflict-checker 원문 초록 직접 확인. **주의**: GDD(생육기 적산온도, 가온 축적)와 물리적으로 반대 방향(휴면타파, 냉각 축적) 개념이므로 gdd.Tbase와 절대 혼동 금지. DB 스키마에 이 지표 자체가 없음(완전 신규) — 팀 결정 필요. 인용수 5로 기준 미달이나 "공백 지표" 예외 적용, 단일 품종·단일 지역 한계 명시 |
 | 배 | temp_day(생육기온) | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | 연평균기온 | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | ph | 전기간 | 5.8~7.0 | - | - | filled | Yara Korea + 충청북도 농업기술원 (Iteration 2-1) |
@@ -53,7 +55,7 @@
 | 상추 | temp_day(적온) | 전기간 | 18~18.5℃(Lafta 2017·Wallace 2012 재인용 수렴, 기존 시드 15-20과 부합) | allowed_max 30(노지 실측 뒷받침, 27℃↑부터 추대·팁번 급증) | - | filled | papers/lettuce/lettuce-heat-tolerance-field-lafta-2017.md, papers/lettuce/lettuce-tunnel-openfield-yield-wallace-2012.md ⚠️ 적온 수치 자체는 두 논문 모두 재인용(원출처 Dufault 2006 계열 동일 가능성 있어 완전 독립검증은 아님), allowed_max는 노지 실측 |
 | 상추 | ec(신규) | 전기간 | 수량최고 3.50 dS/m(무비, 강보구 1996 실측) / 입모율 50%확보 ≤6 dS/m / RDA공식 ≤2.0 | - | - | filled | papers/lettuce/lettuce-soil-ec-salinity-kang-1996.md ⚠️ 문헌 간 최적점 편차 큼(0.85~3.50, 품종·토양·시비조건 차이로 추정 — 단위환산 문제 아님, Lee 2003으로 확인됨) |
 | 상추 | ph/organic/p2o5 | 전기간 | pH 6.5~6.9(협소구간, 소석회처리 6.9 최고수량) / 유기물 13.7~19.7 g/kg / 유효인산 358~586 mg/kg | - | - | partial | papers/lettuce/lettuce-soil-ph-organic-compost-yoon-2025.md ⚠️ 상추 전용 실측이나 시험구간이 좁아 상·하한(실패 임계값) 미확인 |
-| 사과 | rainfall_by_stage | 전기간 | 개화-결실 120mm, 과실팽창 319mm, 성숙 113mm | - | - | **partial** | Iteration 3-c (Ru et al. 2025) ⚠️ 중국 모델(R²=0.63), 지역 편차 큼 |
+| 사과 | rainfall_by_stage | 전기간 | 개화-결실 120mm, 과실팽창 319mm, 성숙 113mm | - | - | **partial** | Iteration 3-c (Ru et al. 2025) ⚠️ 중국 모델(R²=0.63), 지역 편차 큼. **2026-08-02 한국 재검증 시도**: 김미리·김승규(2014, 한국농림기상학회지, 전국 15주산지 8개년 패널)에서 "10월 누적강수 1mm↑ → 단수 4.05kg/10a↓"라는 계수 하나는 확인(caution — 초록만 확인, 전 생육단계 계수표는 원문 확보 필요라 registry 대체 불가). Do et al.(2024, Agriculture MDPI, 홍로·군위, N=5·단일연도) 원문 전체 확인 결과 mm 단위 관수 스펙 자체가 없어 정량 갱신 불가, "고온기 미스트관수→열과·착색 개선" 정성적 근거로만 caution 병기 |
 
 ## 2. soil_change_rule 커버리지
 
@@ -190,6 +192,28 @@
 8. 신규 지표 후보 7개의 스키마 반영 여부 팀 결정(§5 Iteration 4 신규 이슈 참고) — 이건 검색이 아니라 팀 결정 사안
 
 > **참고**: `docs/guide-seed-known-issues.md`의 P5("crop-domain-knowledge.md 리포에서 유실")는 이미 해소됨 — 그 문서는 PR #66(2026-08-01 머지)으로 지금 `dev`에 있다.
+
+## 6-1. Iteration 5 완료 요약 (2026-08-02, 사과 6개 갭 병렬 조사)
+
+scout 6개(착색기·fruit_growth/maturity·EC·organic·rainfall·gdd) + conflict-checker 3개(EC·rainfall·gdd)를 병렬 실행. **이번 세션은 Aira MCP가 실제로 연결 안 돼 있어 전 에이전트가 Semantic Scholar/CrossRef/OpenAlex/RISS 공개 API로 대체 수행함 — 인용수 확인이 부분적으로만 가능했던 원인.**
+
+| 갭 | 결과 | 후속 조치 |
+|---|---|---|
+| 0. 착색기 온도 | **국내논문 0편**(인용수 기준 통과작 없음), 해외 5편(Blankenship 1987 등)만 확보 | 사용자 지침("국내 우선")에 따라 **이번 라운드 보류**. 여전히 missing |
+| 5. fruit_growth/maturity 온도 | **국내논문 0편**, 해외 4편(Warrington 1999 등)만 확보 | 상동, **보류**. 여전히 missing |
+| 사과 ec | 국내 4편 확인 — 1편 blocked_paywall(TRKO202100009605, 원문 다운로드 실패), 2편 caution(메타데이터만), 1편 approve(측정법 reference_only, 원문 미확보) | registry 갱신함(위 §1). 원문 확보는 못 함 — 여전히 partial |
+| organic | **신규 검색 없이 기존 보유 논문 2편 교차반영으로 해결** — hongro-fruit-quality-soil-2009.md + organic-apple-manual-soil-management.md에 이미 있던 유기물 수치를 registry에 반영 | registry 갱신 완료(위 §1), partial 유지하나 근거 대폭 강화 |
+| rainfall_by_stage | 국내 2편 확인 — 1편 조건부 approve(김미리·김승규 2014, 단일계수만 확인) + 1편 caution(Do 2024, mm스펙 없어 정성적 근거만) | registry 갱신함(위 §1). 여전히 partial, mm 임계값 자체는 미해결 |
+| gdd(Tbase) | 국내 3편 검증 — 1편 access_blocked(재시도 필요), 1편 reject(타겟 불일치 의심), 1편 reject(**GDD 아닌 chilling requirement로 확인** — 개념 다름) | Tbase는 여전히 partial. 대신 **신규 지표 chilling_requirement 1건 filled**(위 §1) — 뜻밖의 성과 |
+
+**총평**: 사과 6개 갭 중 정량 수치가 실제로 새로 채워진 것은 organic(기존 자료 재발굴)과 chilling_requirement(신규 지표) 2건뿐. EC/rainfall/gdd는 "후보는 있으나 원문 미확보"로 막혀있고, 착색기/fruit_growth·maturity는 국내논문 자체가 없어 손을 못 댔다. **이 도메인(사과 국내 온도·화학성 연구)은 국제 인용지수에 안 잡히는 국내 학회 초록집·정부보고서 형태가 많아, Semantic Scholar류 인용수 필터링 자체가 근본적으로 잘 안 맞는다** — RISS/KISS 원문 직접 열람 또는 저자·학회·RDA 직접 문의 경로가 이 갭들 해소에 더 결정적일 것으로 보임.
+
+### Iteration 6 준비
+1. EC: TRKO202100009605 원문 확보(NTIS 재검색 또는 RDA 국립농업과학원 직접 문의) — national-scale 검증의 유일한 현실적 경로
+2. rainfall: 김미리·김승규(2014) 원문 전체(KISS/DBpia 정식 구매 또는 저자 문의)로 전 생육단계 계수표 확보
+3. gdd: 김수옥·윤진일(2010) 원문 재시도 1회, 실패 시 폐기하고 정식 심사 저널의 사과 물후기 예측 논문으로 재검색("사과 발육모델 DVR", "사과 만개기 예측 적산온도")
+4. chilling_requirement: 신규 지표 스키마 반영 여부 팀 결정 필요(§5 이슈로 등록)
+5. 착색기/fruit_growth·maturity: 국내논문이 이번엔 없었음 — 인용수 기준을 완화하거나(학회 초록집 허용) RDA 사과연구소 회색문헌으로 전환 검토 필요, 사용자 재확인 후 진행
 
 ### 대기 중 (paywall 문제 해결 필요, 기존 이월)
 - Yoon(2010), 2023 비료평가, 전북농기원(2018) 원문 확보 (배 EC/P2O5)
