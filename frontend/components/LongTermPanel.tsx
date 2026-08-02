@@ -10,11 +10,19 @@ import { fetchMonthlyOutlook } from "@/lib/farm";
 import type { FarmMonthlyOutlook, MonthlyOutlookEntry } from "@/types/farm";
 import { describeRiskFlag, stageLabel, statusLabel } from "@/types/farm";
 
-function MonthCell({ entry }: { entry: MonthlyOutlookEntry }) {
+/** 창이 해를 넘기면 "11월 · 12월 · 1월"이 되어 1월이 앞선 달로 읽힌다. 연도가 바뀌는
+ *  칸에만 연도를 붙여 순서를 드러낸다(모든 칸에 붙이면 시끄럽다). */
+function cellLabel(entry: MonthlyOutlookEntry, previous: MonthlyOutlookEntry | undefined) {
+  return previous !== undefined && previous.year !== entry.year
+    ? `${entry.year}년 ${entry.month}월`
+    : `${entry.month}월`;
+}
+
+function MonthCell({ entry, label }: { entry: MonthlyOutlookEntry; label: string }) {
   const tone = gradeTone(entry.grade);
   return (
     <div className={styles.cell}>
-      <div className={styles.cellMonth}>{entry.month}월</div>
+      <div className={styles.cellMonth}>{label}</div>
       <div className={`${styles.cellScore} ${tone}`}>{entry.score ?? "—"}</div>
       <div className={`${styles.cellGrade} ${tone}`}>
         {entry.grade ?? statusLabel(entry.status)}
@@ -37,7 +45,7 @@ function RiskSummary({ months }: { months: MonthlyOutlookEntry[] }) {
       <h2 className={styles.sectionTitle}>주의가 필요한 시기</h2>
       <ul className={styles.riskList}>
         {risky.map((m) => (
-          <li key={m.month}>
+          <li key={`${m.year}-${m.month}`}>
             <strong>{m.month}월</strong> ({stageLabel(m.growth_stage, m.status)}) —{" "}
             {m.risk_flags
               .filter((f) => f.endsWith(":outside_allowed"))
@@ -63,14 +71,25 @@ export default function LongTermPanel({ farmId }: { farmId: number }) {
   if (error !== null) return <p className={styles.error}>{error}</p>;
   if (data === null) return <Loading />;
 
+  const first = data.months[0];
+  const last = data.months[data.months.length - 1];
+  // 창 범위는 백엔드가 따로 안 내려준다 — months가 순서 배열이라 양 끝에서 나온다.
+  const range =
+    first === undefined
+      ? ""
+      : first.year === last.year
+        ? `${first.year}년 ${first.month}~${last.month}월`
+        : `${first.year}년 ${first.month}월 ~ ${last.year}년 ${last.month}월`;
+
   return (
     <>
       <p className={styles.sub}>
-        {data.year}년 · {data.label}
+        {range} · {data.label}
       </p>
       <div className={styles.heatmap}>
-        {data.months.map((m) => (
-          <MonthCell key={m.month} entry={m} />
+        {data.months.map((m, i) => (
+          // 창이 해를 넘기면 month만으로는 키가 겹칠 수 있다(12개월 초과 시).
+          <MonthCell key={`${m.year}-${m.month}`} entry={m} label={cellLabel(m, data.months[i - 1])} />
         ))}
       </div>
       <RiskSummary months={data.months} />

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -44,6 +44,9 @@ class FarmSuitability(BaseModel):
 class MonthlyOutlookEntry(BaseModel):
     """한 달의 전망 한 칸(히트맵 셀). 지표별 breakdown은 응답 비대를 피해 생략 — 상세는 일자 조회로."""
 
+    year: int
+    """창이 해를 넘기므로(11월 조회 → 11·12·1월) 칸마다 연도를 갖는다. 응답 최상위에 하나로
+    두면 걸친 창에서 반드시 한쪽이 틀린다."""
     month: int  # 1~12
     growth_stage: str | None
     status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
@@ -52,18 +55,25 @@ class MonthlyOutlookEntry(BaseModel):
     risk_flags: list[str]
     # 그 달 기온·강수에 3개월전망 보정이 반영됐는지. false면 평년치만 쓴 칸이다.
     outlook_applied: bool = False
+    outlook_published_at: datetime | None = None
+    """이 칸에 쓰인 전망의 발표일. 보정이 없으면 None.
+
+    칸마다 다른 발표분에서 올 수 있어(8/25 기준: 8월은 7/23 발표, 9·10월은 8/23 발표)
+    연도와 마찬가지로 칸이 갖는다."""
 
 
 class FarmMonthlyOutlook(BaseModel):
-    """밭의 1~12월 전망(장기 탭 히트맵, `PRD.md` §4.4).
+    """밭의 **다가오는 3개월** 전망(장기 탭 히트맵, `PRD.md` §4.4).
 
     평년치 기반 이론 추정이며 예보가 아니다 — 한계는 limitations로 함께 내려 UI에 병기한다.
+
+    창 범위는 `months[0]`·`months[-1]`에서 나오므로 별도 필드를 두지 않는다 — 중복 필드는
+    실제 값과 어긋날 여지만 만든다.
     """
 
     farm_id: int
     crop_id: int
     region_id: int
-    year: int
     label: str
     months: list[MonthlyOutlookEntry]
     limitations: list[str]

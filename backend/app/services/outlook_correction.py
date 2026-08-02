@@ -15,7 +15,8 @@
 반폭 하나로 대칭화하고, 원본 경계는 DB에 그대로 남겨 나중에 정교화할 수 있게 둔다.
 """
 
-from datetime import date
+from collections.abc import Sequence
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -59,16 +60,24 @@ def correction_delta(
 
 
 def load_corrections(
-    db: Session, region_id: int, months: list[int], year: int
-) -> dict[tuple[int, str], Decimal]:
-    """{(월, 생육지침 지표): 보정치}. 같은 (지역,월,지표)는 최신 발표분만 쓴다.
+    db: Session, region_id: int, window: Sequence[tuple[int, int]]
+) -> tuple[dict[tuple[int, int, str], Decimal], dict[tuple[int, int], datetime]]:
+    """창의 각 달에 대한 보정치와, 그 값이 온 발표일.
 
-    published_at 내림차순으로 읽고 처음 본 키만 채택 — 과거 발표분이 최신을 덮지 않게.
+    Returns:
+        ({(연도, 월, 생육지침 지표): 보정치}, {(연도, 월): 그 달에 쓰인 발표일})
+
+    **키에 연도가 들어가는 이유**: 창이 해를 넘긴다(11월 조회 → 11·12·1월). 종전처럼 월만
+    키로 쓰면 2027-01 보정치가 2026-01 자리에 붙어도 **예외 없이 조용히 틀린다.**
+
+    같은 (지역, 대상월, 지표)는 최신 발표분만 쓴다 — published_at 내림차순으로 읽고 처음 본
+    키만 채택한다. 대상월마다 따로 고르므로 **창 안의 달들이 서로 다른 발표분에서 올 수 있다**
+    (8월 25일 기준: 8월은 7/23 발표, 9·10월은 8/23 발표). 그래서 발표일도 달 단위로 돌려준다.
     """
-    if not months:
-        return {}
+    if not window:
+        return {}, {}
     # date 객체로 넘겨야 한다 — 문자열이면 Postgres가 DATE vs VARCHAR 비교를 거부한다.
-    targets = [date(year, m, 1) for m in months]
+    targets = [date(year, month, 1) for year, month in window]
     stmt = (
         select(WeatherOutlook)
         .where(
@@ -78,10 +87,12 @@ def load_corrections(
         .order_by(WeatherOutlook.published_at.desc())
     )
 
-    seen: set[tuple[int, str]] = set()
-    out: dict[tuple[int, str], Decimal] = {}
+    seen: set[tuple[int, int, str]] = set()
+    out: dict[tuple[int, int, str], Decimal] = {}
+    published: dict[tuple[int, int], datetime] = {}
     for row in db.scalars(stmt):
-        key = (row.target_month.month, row.indicator)
+        target = (row.target_month.year, row.target_month.month)
+        key = (*target, row.indicator)
         if key in seen:
             continue  # 더 오래된 발표분 — 무시
         seen.add(key)
@@ -92,23 +103,28 @@ def load_corrections(
             continue
         for guide_indicator, outlook_indicator in INDICATOR_TO_OUTLOOK.items():
             if outlook_indicator == row.indicator:
-                out[(row.target_month.month, guide_indicator)] = delta
-    return out
+                out[(*target, guide_indicator)] = delta
+                # 같은 달에 지표가 둘(기온·강수)이고 발표일이 다를 수 있다 — 최신을 남긴다.
+                if published.get(target) is None or published[target] < row.published_at:
+                    published[target] = row.published_at
+    return out, published
 
 
 def apply_corrections(
     values: dict[str, float | Decimal | None],
-    corrections: dict[tuple[int, str], Decimal],
+    corrections: dict[tuple[int, int, str], Decimal],
+    year: int,
     month: int,
 ) -> tuple[dict[str, float | Decimal | None], dict[str, tuple[Decimal, Decimal]]]:
     """보정 적용값과 분해 내역을 반환. 내역 = {지표: (baseline, 보정치)} (§8.1-5 근거 제시용).
 
+    연도까지 키로 받는다 — 창이 해를 넘길 때 다른 해의 같은 달 보정치가 붙는 것을 막는다.
     baseline이 결측인 지표는 보정할 대상이 없으므로 건너뛴다.
     """
     corrected = dict(values)
     applied: dict[str, tuple[Decimal, Decimal]] = {}
     for indicator in INDICATOR_TO_OUTLOOK:
-        delta = corrections.get((month, indicator))
+        delta = corrections.get((year, month, indicator))
         baseline = values.get(indicator)
         if delta is None or baseline is None:
             continue

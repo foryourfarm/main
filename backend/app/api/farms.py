@@ -140,9 +140,9 @@ def get_farm_monthly_outlook(
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ApiResponse[FarmMonthlyOutlook]:
-    """장기 탭 월별 히트맵. 올해 1~12월 — 연도 선택은 요구 생기면 쿼리파라미터로."""
+    """장기 탭 월별 히트맵. 오늘이 속한 달부터 3개월(PRD §4.4) — 해를 넘길 수 있다."""
     data = suitability_service.compute_monthly_outlook(
-        db, current.id, farm_id, date.today().year
+        db, current.id, farm_id, date.today()
     )
     return ApiResponse.ok(FarmMonthlyOutlook(**data))
 

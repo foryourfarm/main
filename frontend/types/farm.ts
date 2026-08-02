@@ -77,6 +77,8 @@ export interface DashboardResponse {
 }
 
 export interface MonthlyOutlookEntry {
+  /** 창이 해를 넘기므로(11월 조회 → 11·12·1월) 칸마다 연도를 갖는다. */
+  year: number;
   month: number; // 1~12
   growth_stage: string | null;
   status: SuitabilityStatus;
@@ -85,6 +87,9 @@ export interface MonthlyOutlookEntry {
   risk_flags: string[];
   /** 그 달 기온·강수에 3개월전망 보정이 반영됐는지. false면 평년치만 쓴 칸. */
   outlook_applied: boolean;
+  /** 이 칸에 쓰인 전망의 발표일(ISO). 보정이 없으면 null.
+   *  칸마다 다른 발표분에서 올 수 있어 응답 최상위가 아니라 칸이 갖는다. */
+  outlook_published_at: string | null;
 }
 
 /** 단기 탭 하루치. 계약: docs/long-term-tab-api.md + PR #33 */
@@ -122,11 +127,12 @@ export interface FarmShortTerm {
   limitations: string[];
 }
 
+/** 다가오는 3개월 전망. 창 범위는 months[0]·months.at(-1)에서 나온다 —
+ *  최상위 year는 걸친 창에서 반드시 한쪽이 틀리므로 두지 않는다. */
 export interface FarmMonthlyOutlook {
   farm_id: number;
   crop_id: number;
   region_id: number;
-  year: number;
   label: string;
   months: MonthlyOutlookEntry[];
   limitations: string[];
