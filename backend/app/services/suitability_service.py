@@ -2,7 +2,7 @@
 from calendar import monthrange
 from math import log1p
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import or_, select
