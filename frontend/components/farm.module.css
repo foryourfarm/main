@@ -216,6 +216,20 @@
   line-height: 1.8;
   white-space: pre-wrap;
 }
+.adviceLoading {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+/* 토양 문단 — 매일 바뀌는 기상과 성격이 달라 구분선을 둔다(상시 상태) */
+.adviceSoil {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--card);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
 /* 규칙 기반 문구임을 숨기지 않는다(§18-4). 색만으로 구분하지 않도록 라벨을 쓴다 */
 .adviceTag {
   padding: 2px 8px;
@@ -387,13 +401,29 @@
   border-radius: 12px;
   padding: 14px 16px;
 }
+/* summary는 항상 보인다 — "추정치"라는 사실을 접으면 §18-4 위반이다 */
 .limitsTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0;
+  cursor: pointer;
+  list-style: revert; /* 기본 삼각형 마커를 유지 — 펼칠 수 있다는 신호다 */
+}
+.limitsTitle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* 건수를 적어 "감춘 게 아니라 접은 것"이 드러나게 한다 */
+.limitsCount {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
 }
 .limitsList {
-  margin: 0;
+  margin: 8px 0 0;
   padding-left: 18px;
   font-size: 12px;
   color: var(--muted);

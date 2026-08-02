@@ -1,6 +1,7 @@
 import { authFetch } from "@/lib/auth";
 import type {
   Crop,
+  DailyAdvice,
   DashboardResponse,
   District,
   Farm,
@@ -24,6 +25,11 @@ export function fetchMonthlyOutlook(farmId: number): Promise<FarmMonthlyOutlook>
 
 export function fetchShortTerm(farmId: number): Promise<FarmShortTerm> {
   return authFetch<FarmShortTerm>(`/api/v1/farms/${farmId}/short-term`);
+}
+
+/** 오늘의 행동추천. 단기 탭과 **따로** 부른다 — LLM 지연이 탭 렌더를 막지 않도록. */
+export function fetchAdvice(farmId: number): Promise<DailyAdvice> {
+  return authFetch<DailyAdvice>(`/api/v1/farms/${farmId}/advice`);
 }
 
 // 온보딩 선택지. regions/crops/districts는 공개 마스터지만 같은 래퍼로 통일한다.

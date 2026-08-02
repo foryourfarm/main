@@ -31,8 +31,13 @@ class DailyAdvice(BaseModel):
     """오늘의 행동추천. 위험 판정은 룰 엔진이 하고 LLM은 문장만 다듬는다(PRD §10-1)."""
 
     text: str
+    """기상 기반 오늘의 행동. 매일 바뀌므로 LLM이 다듬는다."""
     is_llm: bool
-    """false면 규칙 기반 문구다 — LLM 실패·미도달. 화면에 구분 표기한다(§18-4)."""
+    """false면 규칙 기반 문구다 — LLM 실패·미도달. 화면에 구분 표기한다(§18-4).
+    토양 문단(`soil_text`)에는 해당하지 않는다 — 그쪽은 항상 규칙 문구다."""
+    soil_text: str | None = None
+    """이 밭이 속한 법정동의 토양 특성. 상시 상태라 LLM을 태우지 않고, 위험 지표가
+    없으면 None이다. 별도 문단으로 렌더해 매일 바뀌는 기상 문구와 구분한다."""
 
 
 class FarmShortTerm(BaseModel):
@@ -49,6 +54,4 @@ class FarmShortTerm(BaseModel):
     label: str
     days: list[ShortTermDay]
     persistent_risks: list[PersistentRisk]
-    advice: DailyAdvice | None = None
-    """오늘의 행동추천. None이면 생성 자체가 실패한 것 — 화면은 이 블록만 숨기면 된다."""
     limitations: list[str]

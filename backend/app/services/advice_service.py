@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.infra.llm_client import LlmClient
-from app.models import DailyRecommendation
+from app.models import DailyRecommendation, District, UserFarm
 from app.prompts.daily_advice import build_prompt
 from app.services.suitability_service import INDICATOR_NAMES, WEATHER_INDICATORS
 
@@ -98,7 +98,9 @@ def _subject_josa(word: str) -> str:
     문구다. 지표 한글명이 시드가 아니라 코드 상수(INDICATOR_NAMES)라 받침이 고정이므로
     한글 음절 계산으로 정확히 고를 수 있다.
     """
-    last = word[-1]
+    # 괄호 병기는 떼고 본 이름으로 고른다 — "토양 산도(pH)이"가 아니라 "토양 산도가"다.
+    stem = word.split("(")[0].strip() or word
+    last = stem[-1]
     if "가" <= last <= "힣":
         return "이" if (ord(last) - 0xAC00) % 28 else "가"
     return "이"  # 숫자·영문으로 끝나면 판정 불가 — 덜 어색한 쪽으로 고정
@@ -143,6 +145,64 @@ def rule_advice(risks: list[RiskLine], stage_label: str | None, horizon_days: in
         if line.streak_days >= 2:
             parts.append(f"{line.streak_days}일 연속입니다.")
     return " ".join(parts)
+
+
+def soil_advice(
+    db: Session, farm_id: int, days: list[dict[str, Any]], crop_name: str
+) -> str | None:
+    """이 밭이 속한 법정동의 토양 특성 한 문단. 위험 지표가 없으면 None.
+
+    **LLM을 태우지 않는다.** 매일 같은 내용이라 표현이 흔들릴 이유가 없고, 시비 조언은
+    문구가 고정돼 검증 가능한 편이 안전하다. 기상 문단만 다듬는다.
+
+    **말투는 "이 리는"이지 "회원님 밭은"이 아니다.** 값이 이 밭 실측이 아니라 동·리
+    토양검정 표본 평균이라 밭을 단정하면 §18-4를 정면으로 어긴다(같은 이유로
+    `SOIL_LIMITATION` 문구를 한 번 고쳤다).
+
+    **구체적인 시비량은 말하지 않는다.** 비료 표준사용량 API가 미연동이고 시비 시드도
+    없어 근거가 없다 — 지어내는 대신 챗봇으로 넘긴다(챗봇은 RAG 근거가 있다, §13).
+    """
+    if not days:
+        return None
+    breakdown: dict[str, Any] = days[0].get("breakdown") or {}
+    sentences: list[str] = []
+    has_low = has_high = False
+    for flag in days[0].get("risk_flags", []):
+        indicator = str(flag).split(":")[0]
+        if not str(flag).endswith(RISK_SUFFIX) or indicator in WEATHER_INDICATORS:
+            continue
+        entry = breakdown.get(indicator)
+        if entry is None or entry.get("value") is None:
+            continue
+        name = INDICATOR_NAMES.get(indicator, indicator)
+        josa = _subject_josa(name)
+        value, lo, hi = entry["value"], entry.get("allowed_min"), entry.get("allowed_max")
+        # 지표마다 한 문장으로 끊는다 — 목록으로 이어붙이면 괄호 뒤에 조사가 붙어 읽기 나쁘다.
+        if lo is not None and value < lo:
+            has_low = True
+            sentences.append(
+                f"{name}{josa} {_num(value)}로 권장 범위({_num(lo)} 이상)에 못 미칩니다."
+            )
+        elif hi is not None and value > hi:
+            has_high = True
+            sentences.append(
+                f"{name}{josa} {_num(value)}로 권장 범위({_num(hi)} 이하)를 넘습니다."
+            )
+    if not sentences:
+        return None
+
+    farm = db.get(UserFarm, farm_id)
+    where = None
+    if farm is not None and farm.bjd_code is not None:
+        where = db.query(District.name).filter(District.bjd_code == farm.bjd_code).scalar()
+    subject = f"이 밭이 속한 {where}" if where else "이 밭이 속한 지역"
+
+    direction = "보충" if has_low and not has_high else ("조절" if has_high and not has_low else "조정")
+    return (
+        f"{subject}의 토양검정 표본 기준으로는 {' '.join(sentences)} "
+        f"{crop_name} 재배에서는 이 부분을 {direction}하는 방향으로 관리하시고, "
+        "구체적인 시비량은 상담에서 물어봐 주세요."
+    )
 
 
 def polish(base_text: str, crop_name: str, llm: LlmClient) -> str | None:

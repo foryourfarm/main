@@ -147,6 +147,105 @@ class TestRuleAdvice(unittest.TestCase):
                 self.assertNotIn(indicator, text, "지표 코드가 그대로 노출됐다")
 
 
+class _FakeDb:
+    """soil_advice가 쓰는 두 조회만 흉내낸다 — 실제 DB 없이 문구 규칙을 고정한다."""
+
+    def __init__(self, bjd_code="4182031022", district_name="설악면 선촌리"):
+        self._bjd, self._name = bjd_code, district_name
+
+    def get(self, _model, _pk):
+        return type("F", (), {"bjd_code": self._bjd})()
+
+    def query(self, *_a):
+        return self
+
+    def filter(self, *_a):
+        return self
+
+    def scalar(self):
+        return self._name
+
+
+SOIL_DAY = {
+    "target_date": D1,
+    "risk_flags": ["p2o5:outside_allowed", "temp_day:outside_allowed"],
+    "breakdown": {
+        "p2o5": {"value": 118.0, "allowed_min": 200.0, "allowed_max": 300.0},
+        "temp_day": {"value": 28.0, "allowed_min": 10.0, "allowed_max": 27.0},
+    },
+}
+
+
+class TestSoilAdvice(unittest.TestCase):
+    def test_states_district_not_the_farm(self):
+        """값이 동·리 표본 평균이라 밭을 단정하면 §18-4 위반이다(SOIL_LIMITATION 전례)."""
+        text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
+        self.assertIn("설악면 선촌리", text)
+        self.assertNotIn("회원님 밭은", text)
+        self.assertNotIn("이 밭은 ", text)
+
+    def test_includes_value_and_recommended_bound(self):
+        text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
+        self.assertIn("유효인산", text)
+        self.assertIn("118", text)
+        self.assertIn("200", text)
+        self.assertIn("못 미칩니다", text)
+
+    def test_excludes_weather_indicators(self):
+        # 기상은 기상 문단이 다룬다 — 두 문단이 같은 말을 반복하면 안 된다.
+        text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
+        self.assertNotIn("낮 기온", text)
+
+    def test_defers_dosage_to_chat(self):
+        # 비료 표준사용량 API 미연동 + 시비 시드 없음 → 수치를 지어내면 §18-3·§18-4 위반.
+        text = svc.soil_advice(_FakeDb(), 1, [SOIL_DAY], "사과")
+        self.assertIn("상담", text)
+        self.assertNotIn("kg", text)
+        self.assertNotIn("10a", text)
+
+    def test_none_when_no_soil_risk(self):
+        day = {
+            "target_date": D1,
+            "risk_flags": ["temp_day:outside_allowed"],
+            "breakdown": {"temp_day": {"value": 28.0, "allowed_max": 27.0}},
+        }
+        self.assertIsNone(svc.soil_advice(_FakeDb(), 1, [day], "감자"))
+
+    def test_none_when_no_days(self):
+        self.assertIsNone(svc.soil_advice(_FakeDb(), 1, [], "감자"))
+
+    def test_falls_back_when_district_unknown(self):
+        # 구버전 등록 밭은 bjd_code가 없다 — 이름을 지어내지 말고 뭉뚱그린다.
+        text = svc.soil_advice(_FakeDb(bjd_code=None), 1, [SOIL_DAY], "사과")
+        self.assertIn("이 밭이 속한 지역의", text)
+
+    def test_particle_follows_name_not_parenthesis(self):
+        """"토양 산도(pH)이"가 아니라 "토양 산도가" — 괄호 병기 뒤에 조사를 붙이지 않는다."""
+        self.assertEqual(svc._subject_josa("토양 산도(pH)"), "가")
+        day = {
+            "target_date": D1,
+            "risk_flags": ["ph:outside_allowed"],
+            "breakdown": {"ph": {"value": 4.9, "allowed_min": 5.5, "allowed_max": 7.0}},
+        }
+        text = svc.soil_advice(_FakeDb(), 1, [day], "상추")
+        self.assertIn("토양 산도(pH)가", text)
+        self.assertIn("못 미칩니다", text)
+
+    def test_low_and_high_together_says_adjust(self):
+        day = {
+            "target_date": D1,
+            "risk_flags": ["ph:outside_allowed", "p2o5:outside_allowed"],
+            "breakdown": {
+                "ph": {"value": 4.9, "allowed_min": 5.5, "allowed_max": 7.0},
+                "p2o5": {"value": 438.4, "allowed_min": 200.0, "allowed_max": 350.0},
+            },
+        }
+        text = svc.soil_advice(_FakeDb(), 1, [day], "사과")
+        self.assertIn("못 미칩니다", text)
+        self.assertIn("넘습니다", text)
+        self.assertIn("조정", text)  # 한쪽만이면 보충/조절, 둘 다면 조정
+
+
 class _Llm:
     def __init__(self, out=None, boom=False):
         self.out, self.boom, self.prompts = out, boom, []

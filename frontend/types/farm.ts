@@ -114,9 +114,13 @@ export interface PersistentRisk {
 
 /** 오늘의 행동추천. 위험 판정은 백엔드 룰 엔진이 하고 LLM은 문장만 다듬는다. */
 export interface DailyAdvice {
+  /** 기상 기반 오늘의 행동. 매일 바뀌므로 LLM이 다듬는다. */
   text: string;
-  /** false면 규칙 기반 문구 — LLM 실패·미도달. 다듬어진 것처럼 보이게 하지 않는다. */
+  /** false면 규칙 기반 문구 — LLM 실패·미도달. 다듬어진 것처럼 보이게 하지 않는다.
+   * soil_text에는 해당하지 않는다(그쪽은 항상 규칙 문구). */
   is_llm: boolean;
+  /** 이 밭이 속한 법정동의 토양 특성. 상시 상태라 별도 문단으로 구분해 보여준다. */
+  soil_text: string | null;
 }
 
 export interface FarmShortTerm {
@@ -131,8 +135,6 @@ export interface FarmShortTerm {
   label: string;
   days: ShortTermDay[];
   persistent_risks: PersistentRisk[];
-  /** null이면 추천 생성 실패 — 이 블록만 숨기고 나머지는 정상 렌더한다. */
-  advice: DailyAdvice | null;
   limitations: string[];
 }
 
