@@ -50,7 +50,9 @@ class Settings(BaseSettings):
     # 챗봇 RAG 임베딩 — 같은 Ollama 서버, 다른 모델(bge-m3, 1024차원 = knowledge_chunk.embedding과 매칭)
     embedding_model: str = "bge-m3"
     # 질문당 근거로 주입할 문서 조각 수(top-k). 검색 파라미터라 농업 기준값 아님.
-    rag_top_k: int = 3
+    # 3 -> 5: 5종 작물 19문항으로 hit@k를 실측(scripts/eval_rag_retrieval.py)한 결과
+    # @3 0.95 / @5 1.00 / @8 1.00 — 5에서 천장에 닿고 8은 컨텍스트만 늘고 얻는 게 없다.
+    rag_top_k: int = 5
     # 프롬프트에 넣을 이전 대화 최대 메시지 수(최근 것부터). 프롬프트 길이/응답시간 방어용 캡.
     chat_history_max_messages: int = 6
 

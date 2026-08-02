@@ -6,6 +6,8 @@
 
 재실행해도 내용이 같은 청크는 다시 임베딩하지 않는다 — DB에 이미 있는 content와 비교해
 신규/변경된 청크만 임베딩·삽입하고, 더 이상 존재하지 않는 청크만 삭제한다(diff 동기화).
+**주의**: 비교 기준이 `content`뿐이라 본문은 그대로인데 문서제목·섹션만 바뀐 경우
+(= `embed_input`이 달라지는 경우) 재임베딩되지 않는다. 그럴 땐 해당 작물 행을 지우고 다시 돌린다.
 
 사용법 (backend 가상환경으로 실행 — app.* 모듈/의존성이 거기 있음):
     backend/.venv/Scripts/python.exe scripts/embed_corpus.py            # data/ 전체
@@ -69,6 +71,18 @@ def embed_batch(client: httpx.Client, texts: list[str]) -> list[list[float]]:
     return embeddings
 
 
+def embed_input(rec: dict) -> str:
+    """임베딩에 넣을 텍스트 = "문서제목 > 섹션" 머리말 + 본문.
+
+    DB에 저장하는 `content`는 본문 그대로 두고 **임베딩 벡터만** 이 텍스트로 만든다.
+    청크 본문은 "이 문단이 어느 문서 어느 절인지"를 안 담고 있어서(예: 표 문장 나열),
+    질문이 주제어로 들어오면 매칭이 약해진다. 5종 작물 19문항 실측(hit@k)에서 머리말을
+    붙이면 4개 청크 설정 전부에서 나아졌다 — @3 0.84->0.95, @5 0.95->1.00(700/1200 기준).
+    """
+    head = rec["doc_title"] + (f" > {rec['section']}" if rec.get("section") else "")
+    return f"{head}\n{rec['content']}"
+
+
 def load_chunks(crop_dir: Path) -> list[dict]:
     path = crop_dir / "_chunks.jsonl"
     if not path.exists():
@@ -105,7 +119,7 @@ def sync_crop(db, client: httpx.Client, crop_dir: Path, crop_id: int, label: str
     to_add = pick_new_or_changed(records, existing_contents)
     for i in range(0, len(to_add), BATCH_SIZE):
         batch = to_add[i : i + BATCH_SIZE]
-        embeddings = embed_batch(client, [r["content"] for r in batch])
+        embeddings = embed_batch(client, [embed_input(r) for r in batch])
         for rec, emb in zip(batch, embeddings, strict=True):
             db.add(
                 KnowledgeChunk(
@@ -124,7 +138,9 @@ def sync_crop(db, client: httpx.Client, crop_dir: Path, crop_id: int, label: str
 
 
 def main() -> None:
-    targets = sys.argv[1:] or [d.name for d in sorted(DATA_DIR.iterdir()) if d.is_dir()]
+    # 기본 대상은 매핑에 있는 작물 폴더뿐이다. data/ 아래 원자재 폴더(raw·soil·aws_daily_cache)까지
+    # 훑으면 매번 "건너뜀" 세 줄이 로그를 채워 진짜 건너뜀(청크 없음)과 구분이 안 된다.
+    targets = sys.argv[1:] or sorted(FOLDER_TO_CROP_NAME)
 
     db = SessionLocal()
     try:
