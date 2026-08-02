@@ -7,7 +7,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Crop, CropGrowthStage, Region, UserFarm
+from app.models import Crop, Region, UserFarm
 from app.schemas.dashboard import DashboardCard, DashboardResponse
 from app.services.short_term_service import compute_short_term
 
@@ -19,6 +19,8 @@ STAGE_LABELS = {
     "growing": "생육기",
     "early": "초기 생육",
     "tuber": "괴경비대기",
+    "spring": "봄 작기",
+    "fall": "가을 작기",
 }
 
 
@@ -28,19 +30,26 @@ def _stage_label(stage: str | None, status: str) -> str | None:
     if status == "out_of_season":
         return "제철 아님"
     # 기상 판정 근거가 없는 달 — "전기간"이라고 하면 정상 산출로 오해된다.
+    # "휴면기"는 과수에만 맞는 말이라 쓰지 않는다 — 상추가 작기 밖에서 이 상태에 들어오는데
+    # 한해살이는 휴면하지 않는다(0025). `statusLabel`이 이미 쓰던 표현으로 맞춘다.
     if status == "dormant":
-        return "휴면기"
+        return "생육기 아님"
     return "전기간"
 
 
+ORCHARD_FIELD_TYPE = "4"  # 농사로 경지구분 코드. 시드 0010이 사과·배에 부여한다.
+
+
 def _is_orchard(db: Session, crop_id: int) -> bool:
-    # 과수(사과·배)는 연중일자 단계를 갖는다 — 시드에서 파생(하드코딩 아님).
-    row = (
-        db.query(CropGrowthStage.id)
-        .filter(CropGrowthStage.crop_id == crop_id, CropGrowthStage.mode == "day_of_year")
-        .first()
+    """재배 형태를 `crop.exam_field_type`(0010 시드)에서 읽는다.
+
+    종전엔 "연중일자 단계를 가지면 과수"로 추론했는데, 0025가 상추에 달력 기준 작기
+    단계를 세우면서 그 추론이 깨졌다(상추가 과수로 판정). 재배 형태를 실제로 적어둔
+    컬럼이 이미 있으므로 그것을 읽는다.
+    """
+    return (
+        db.query(Crop.exam_field_type).filter(Crop.id == crop_id).scalar() == ORCHARD_FIELD_TYPE
     )
-    return row is not None
 
 
 # 예보를 못 구한 날 카드가 조용히 비어 있으면 "위험 없음"으로 읽힌다(§18-4·§12).

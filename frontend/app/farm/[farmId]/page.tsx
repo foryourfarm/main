@@ -12,7 +12,7 @@ import styles from "@/components/farm.module.css";
 /** 장기(시즌 커리큘럼·예방) / 단기(당일~3일 대응) 분리 제공 — PRD.md §4.4~4.5. */
 const TABS = [
   { key: "short", label: "단기 (오늘~며칠)", hint: "실시간 예보 기반 위험 대응" },
-  { key: "long", label: "장기 (올해 월별)", hint: "평년치·3개월전망 기반 시즌 조망" },
+  { key: "long", label: "장기 (올해 월별)", hint: "과거 5년 평균·3개월전망 기반 시즌 조망" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];

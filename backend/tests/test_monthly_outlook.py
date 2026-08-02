@@ -28,6 +28,17 @@ PEAR_STAGES = [
 PEAR_GUIDES = [
     CropGrowthGuide(crop_id=2, growth_stage="growing", indicator="temp_day", optimal_min=18.5, optimal_max=21.5, allowed_min=17, allowed_max=23, weight=2.0),
 ]
+# 시드(0025) 상추 작기 — 봄 3/1~6/30, 가을 8/1~11/30(비윤년 DOY). 기상 지침은 두 작기에만,
+# 토양은 전기간에 남는다 → 작기 밖은 기상 0건이라 dormant.
+LETTUCE_STAGES = [
+    CropGrowthStage(crop_id=5, growth_stage="spring", mode="day_of_year", range_start=60, range_end=181, priority=1),
+    CropGrowthStage(crop_id=5, growth_stage="fall", mode="day_of_year", range_start=213, range_end=334, priority=2),
+]
+LETTUCE_GUIDES = [
+    CropGrowthGuide(crop_id=5, growth_stage="spring", indicator="temp_day", optimal_min=22, optimal_max=24, allowed_min=2.5, allowed_max=36, weight=2.0),
+    CropGrowthGuide(crop_id=5, growth_stage="fall", indicator="temp_day", optimal_min=22, optimal_max=24, allowed_min=2.5, allowed_max=36, weight=2.0),
+    CropGrowthGuide(crop_id=5, growth_stage=None, indicator="ph", optimal_min=6.5, optimal_max=7.0, allowed_min=6.25, allowed_max=7.25, weight=1.5),
+]
 
 SOIL = SoilState(user_farm_id=1, ph=Decimal("6.3"), organic_matter=Decimal("25"), base_source="test")
 
@@ -113,14 +124,29 @@ class TestBuildMonthlyRows(unittest.TestCase):
         self.assertEqual(rows[6]["status"], "ok")
 
     def test_no_stage_rows_falls_back_to_common_guides(self):
-        # 오이·상추처럼 단계 시드가 없는 작물 — 12개월 모두 전기간 공통 지침으로 채점.
-        lettuce_guides = [
-            CropGrowthGuide(crop_id=5, growth_stage=None, indicator="temp_day",
+        # 오이처럼 단계 시드가 없는 작물 — 12개월 모두 전기간 공통 지침으로 채점.
+        cucumber_guides = [
+            CropGrowthGuide(crop_id=3, growth_stage=None, indicator="temp_day",
                             optimal_min=15, optimal_max=20, allowed_min=4, allowed_max=30, weight=2.0)
         ]
-        rows = build_monthly_rows([], lettuce_guides, CLIM_ALL, SOIL, PLANTING, YEAR)
+        rows = build_monthly_rows([], cucumber_guides, CLIM_ALL, SOIL, PLANTING, YEAR)
         self.assertTrue(all(r["growth_stage"] is None for r in rows))
         self.assertTrue(all(r["status"] == "ok" for r in rows))
+
+    def test_lettuce_scores_only_inside_cropping_season(self):
+        """0025: 상추 작기 밖(한여름·한겨울)은 dormant로 접힌다 — 사과 겨울과 같은 동작."""
+        rows = {r["month"]: r for r in
+                build_monthly_rows(LETTUCE_STAGES, LETTUCE_GUIDES, CLIM_ALL, SOIL, PLANTING, YEAR)}
+        for month in (3, 4, 5, 6):
+            self.assertEqual(rows[month]["growth_stage"], "spring", month)
+        for month in (8, 9, 10, 11):
+            self.assertEqual(rows[month]["growth_stage"], "fall", month)
+        # 못 심는 달은 점수를 내보내지 않는다 — "1월 상추 40점"은 잘못된 신호다.
+        for month in (1, 2, 7, 12):
+            self.assertEqual(rows[month]["status"], "dormant", month)
+            self.assertIsNone(rows[month]["score"], month)
+        self.assertEqual(rows[5]["status"], "ok")
+        self.assertIsNotNone(rows[5]["score"])
 
 
 if __name__ == "__main__":
