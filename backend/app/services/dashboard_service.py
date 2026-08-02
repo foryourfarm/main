@@ -40,16 +40,22 @@ def _stage_label(stage: str | None, status: str) -> str | None:
 ORCHARD_FIELD_TYPE = "4"  # 농사로 경지구분 코드. 시드 0010이 사과·배에 부여한다.
 
 
-def _is_orchard(db: Session, crop_id: int) -> bool:
-    """재배 형태를 `crop.exam_field_type`(0010 시드)에서 읽는다.
+def _crop_lookup(db: Session, crop_ids: set[int]) -> dict[int, Crop]:
+    """작물 ID → Crop. 대시보드가 밭마다 이름·과수여부를 따로 조회하던 것을 한 번으로 묶는다.
 
-    종전엔 "연중일자 단계를 가지면 과수"로 추론했는데, 0025가 상추에 달력 기준 작기
-    단계를 세우면서 그 추론이 깨졌다(상추가 과수로 판정). 재배 형태를 실제로 적어둔
-    컬럼이 이미 있으므로 그것을 읽는다.
+    작물이 5종 고정이라(§2 YAGNI) 밭이 몇 개든 이 쿼리는 최대 5행이다.
     """
-    return (
-        db.query(Crop.exam_field_type).filter(Crop.id == crop_id).scalar() == ORCHARD_FIELD_TYPE
-    )
+    if not crop_ids:
+        return {}
+    rows = db.query(Crop).filter(Crop.id.in_(crop_ids)).all()
+    return {c.id: c for c in rows}
+
+
+def _region_name_lookup(db: Session, region_ids: set[int]) -> dict[int, str]:
+    if not region_ids:
+        return {}
+    rows = db.query(Region.id, Region.name).filter(Region.id.in_(region_ids)).all()
+    return dict(rows)
 
 
 # 예보를 못 구한 날 카드가 조용히 비어 있으면 "위험 없음"으로 읽힌다(§18-4·§12).
@@ -97,20 +103,24 @@ def build_dashboard(
         .order_by(UserFarm.id)
         .all()
     )
+    # 작물명·지역명·과수여부는 밭마다 달라지지 않는 소수 값이라 한 번에 모아둔다 —
+    # 종전엔 밭 개수만큼 3연속 조회가 반복됐다(N+1). 예보 조회(compute_short_term)는
+    # 밭마다 지역이 달라 배치가 안 된다 — 그건 진짜 N개의 외부 API 호출이다.
+    crops = _crop_lookup(db, {f.crop_id for f in farms})
+    region_names = _region_name_lookup(db, {f.region_id for f in farms})
+
     cards: list[DashboardCard] = []
     for farm in farms:
-        # ponytail: 밭당 조회 반복(N+1). 밭 수가 한 자릿수라 방치, 커지면 배치 조회로.
         st = compute_short_term(db, user_id, farm.id, service_key, on_date, now)
         s = today_values(st, on_date)
-        crop_name = db.query(Crop.name).filter(Crop.id == farm.crop_id).scalar()
-        region_name = db.query(Region.name).filter(Region.id == farm.region_id).scalar()
+        crop = crops.get(farm.crop_id)
         cards.append(
             DashboardCard(
                 farm_id=farm.id,
                 crop_id=farm.crop_id,
-                crop_name=crop_name,
-                region_name=region_name,
-                crop_type="orchard" if _is_orchard(db, farm.crop_id) else "field",
+                crop_name=crop.name if crop else None,
+                region_name=region_names.get(farm.region_id),
+                crop_type="orchard" if crop and crop.exam_field_type == ORCHARD_FIELD_TYPE else "field",
                 growth_stage=s["growth_stage"],
                 growth_stage_label=_stage_label(s["growth_stage"], s["status"]),
                 score=s["score"],

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
+import Loading from "@/components/Loading";
 import styles from "@/components/farm.module.css";
 import { fetchMonthlyOutlook } from "@/lib/farm";
 import type { FarmMonthlyOutlook, MonthlyOutlookEntry } from "@/types/farm";
@@ -60,7 +61,7 @@ export default function LongTermPanel({ farmId }: { farmId: number }) {
   }, [farmId]);
 
   if (error !== null) return <p className={styles.error}>{error}</p>;
-  if (data === null) return <p className={styles.notice}>불러오는 중…</p>;
+  if (data === null) return <Loading />;
 
   return (
     <>

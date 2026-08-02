@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import FarmForm from "@/components/FarmForm";
+import Loading from "@/components/Loading";
 import RequireAuth from "@/components/RequireAuth";
 import styles from "@/components/farm.module.css";
 import { deleteFarm, fetchFarms, updateFarm } from "@/lib/farm";
@@ -96,7 +97,7 @@ function SettingsBody() {
   useEffect(reload, []);
 
   if (error !== "") return <p className={styles.error}>{error}</p>;
-  if (farms === null) return <p className={styles.notice}>불러오는 중…</p>;
+  if (farms === null) return <Loading />;
 
   return (
     <>
