@@ -619,7 +619,7 @@ def lapse_limitation(source: ClimatologySource) -> str | None:
     direction = "높아" if delta > 0 else "낮아"
     basis = FARM_ALTITUDE_BASIS.get(source.farm_altitude_source, "상위 행정구역 대표 지점")
     return (
-        f"밭 위치가 평년치 관측 기준보다 약 {abs(delta):.0f}m {direction} "
+        f"밭 위치가 기상값 관측 기준보다 약 {abs(delta):.0f}m {direction} "
         f"기온을 {shift:+.1f}℃ 보정했습니다(감률 0.65℃/100m). "
         f"밭의 실측 고도가 아니라 {basis}의 고도라 실제와 차이가 있을 수 있습니다."
     )
@@ -645,8 +645,8 @@ def substitution_limitation(source: ClimatologySource) -> str | None:
     # 도너가 1곳이거나 목록이 비어 있으면(하위호환 경로) 종전 단수 문구.
     if len(source.donors) <= 1:
         return (
-            f"이 지역 평년치가 없어 가장 가까운 {source.substituted_from}"
-            f"(약 {source.distance_km:.0f}km) 평년치로 대체했습니다 — 실제와 차이가 있을 수 있습니다."
+            f"이 지역 기상값이 없어 가장 가까운 {source.substituted_from}"
+            f"(약 {source.distance_km:.0f}km)의 값으로 대체했습니다 — 실제와 차이가 있을 수 있습니다."
         )
 
     named = [name for name, _ in source.donors[:LIMITATION_NAMED_DONORS]]
@@ -657,6 +657,6 @@ def substitution_limitation(source: ClimatologySource) -> str | None:
     nearest = source.donors[0][1]
     farthest = source.donors[-1][1]
     return (
-        f"이 지역 평년치가 없어 가까운 {len(source.donors)}곳({listed}, 약 {nearest:.0f}~{farthest:.0f}km)의"
-        f" 평년치를 거리 가중 평균했습니다 — 실제와 차이가 있을 수 있습니다."
+        f"이 지역 기상값이 없어 가까운 {len(source.donors)}곳({listed}, 약 {nearest:.0f}~{farthest:.0f}km)의"
+        f" 값을 거리 가중 평균했습니다 — 실제와 차이가 있을 수 있습니다."
     )

@@ -19,7 +19,7 @@ APPLE = [
 ]
 POTATO = [
     stage("early", "days_after_planting", 0, 45, 1),
-    stage("tuber", "days_after_planting", 46, 120, 2),
+    stage("tuber", "days_after_planting", 46, 112, 2),  # 0026: 120 → 112(문헌 근거 없는 버퍼 제거)
 ]
 
 
@@ -45,6 +45,11 @@ class TestPickStage(unittest.TestCase):
         self.assertEqual(pick_stage(POTATO, day_of_year=1, days_after_planting=45), "early")
         self.assertEqual(pick_stage(POTATO, day_of_year=1, days_after_planting=46), "tuber")
         self.assertIsNone(pick_stage(POTATO, day_of_year=1, days_after_planting=200))
+
+    def test_tuber_ends_before_august(self):
+        """0026: 4/10 파종이어도 8월엔 단계가 없어야 한다 — 이미 수확한 밭이다."""
+        self.assertEqual(pick_stage(POTATO, 1, 112), "tuber")  # 7월 상순까지는 인정
+        self.assertIsNone(pick_stage(POTATO, 1, 113))
 
     def test_no_stage_rows_returns_none(self):
         # 오이·상추: 시드 행 없음 → None.

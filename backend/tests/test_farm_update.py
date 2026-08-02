@@ -34,6 +34,11 @@ def _stub_get_or_fetch(db, bjd_code, field_type):
         ec=Decimal("0.5"),
         p2o5=Decimal("300"),
         organic_matter=Decimal("25"),
+        # 치환성 양이온(0024). 넣어두지 않으면 soil_state 복사 경로가 이 테스트에서 안 타
+        # — None이어도 통과해버려 "복사가 되는지"를 검증하지 못한다.
+        k=Decimal("0.7"),
+        ca=Decimal("5.5"),
+        mg=Decimal("1.8"),
         sample_count=1,
         source=f"stub({bjd_code},{field_type})",
     )
@@ -77,6 +82,14 @@ class TestFarmUpdate(unittest.TestCase):
     def test_create_stores_bjd_code_and_soil_basis(self):
         self.assertEqual(self.farm.bjd_code, "4615012300")
         self.assertEqual(self._soil_source(), "stub(4615012300,4)")
+
+    def test_create_copies_cations_to_soil_state(self):
+        """치환성 양이온이 밭 등록 시 복사되는지(0024) — 안 복사되면 사과·배·상추가 그 세 지표를
+        채점하지 못한다. 컬럼만 추가하고 복사를 빠뜨리면 조용히 결측이 되는 자리다."""
+        soil = self.db.query(SoilState).filter(SoilState.user_farm_id == self.farm.id).first()
+        self.assertEqual(soil.k, Decimal("0.7"))
+        self.assertEqual(soil.ca, Decimal("5.5"))
+        self.assertEqual(soil.mg, Decimal("1.8"))
 
     def test_planting_date_only_keeps_soil(self):
         # 파종일은 토양 기준값과 무관 → 재조회하지 않는다(불필요한 외부 호출 방지).

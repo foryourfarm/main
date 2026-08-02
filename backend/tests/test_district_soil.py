@@ -6,6 +6,8 @@ import unittest
 from decimal import Decimal
 
 from app.infra.public_api.soil_exam_client import SoilExam
+from app.models import DistrictSoil
+from app.services import district_soil_service
 from app.services.district_soil_service import (
     effective_source,
     is_leaf_bjd,
@@ -16,7 +18,8 @@ from app.services.district_soil_service import (
 
 
 def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | None = None,
-          ec: float | None = None) -> SoilExam:
+          ec: float | None = None, k: float | None = None, ca: float | None = None,
+          mg: float | None = None) -> SoilExam:
     return SoilExam(
         pnu_code="4615010100100010001",
         sample_year="2023",
@@ -28,9 +31,9 @@ def _exam(field_type_code: str, ph: float | None, om: float | None, p: float | N
         avail_p=p,
         avail_silica=None,
         organic_matter=om,
-        mg=None,
-        k=None,
-        ca=None,
+        mg=mg,
+        k=k,
+        ca=ca,
         ec=ec,
     )
 
@@ -85,6 +88,128 @@ class TestSummarize(unittest.TestCase):
 
     def test_is_deterministic(self):
         self.assertEqual(summarize(SAMPLES, "4"), summarize(SAMPLES, "4"))
+
+
+class TestSummarizeCations(unittest.TestCase):
+    """치환성 양이온(K·Ca·Mg) 집계 — 0024에서 채점 대상이 됐다.
+
+    흙토람이 `POSIFERT_K/CA/MG`를 주고 있었는데 저장할 컬럼이 없어 버려지던 값이다. 그
+    경로가 실제로 이어졌는지 본다 — 아래 값은 고창 공음면 구암리 실호출 표본에서 가져왔다
+    (2026-08-01, K 0.314~2.469 / Ca 1.94~12.16 / Mg 0.76~4.92 범위 안).
+
+    `_avg`가 소수 2자리로 반올림하므로 여유(delta)를 두고 비교한다. 그 정밀도로 충분하다 —
+    가장 좁은 밴드가 K optimal 0.6~0.9(폭 0.3)라 0.01은 폭의 3%이고, 등급 컷을 뒤집지 못한다.
+    """
+
+    def _cation_exam(self, field_type_code: str, k, ca, mg) -> SoilExam:
+        return _exam(field_type_code, ph=6.1, om=14.7, p=182.4, ec=1.35, k=k, ca=ca, mg=mg)
+
+    def test_cations_are_averaged_per_field_type(self):
+        samples = [
+            self._cation_exam("4", 0.886, 4.24, 1.44),
+            self._cation_exam("4", 0.564, 8.37, 2.85),
+            self._cation_exam("2", 2.469, 9.53, 3.32),  # 밭 표본 — 과수 평균에 섞이면 안 된다
+        ]
+        result = summarize(samples, "4")
+        self.assertAlmostEqual(float(result["k"]), (0.886 + 0.564) / 2, delta=0.01)
+        self.assertAlmostEqual(float(result["ca"]), (4.24 + 8.37) / 2, delta=0.01)
+        self.assertAlmostEqual(float(result["mg"]), (1.44 + 2.85) / 2, delta=0.01)
+
+    def test_cations_are_none_when_all_samples_lack_them(self):
+        """전부 결측이면 값을 지어내지 않는다 — 룰 엔진이 그 지표를 제외한다(§12)."""
+        result = summarize(SAMPLES, "4")  # 기존 픽스처는 양이온이 전부 None
+        for name in ("k", "ca", "mg"):
+            with self.subTest(indicator=name):
+                self.assertIsNone(result[name])
+
+    def test_partial_missing_cations_are_excluded_from_average(self):
+        samples = [
+            self._cation_exam("4", 0.886, None, 1.44),
+            self._cation_exam("4", None, 8.37, 2.85),
+        ]
+        result = summarize(samples, "4")
+        self.assertAlmostEqual(float(result["k"]), 0.886, delta=0.01)
+        self.assertAlmostEqual(float(result["ca"]), 8.37, delta=0.01)
+        self.assertAlmostEqual(float(result["mg"]), (1.44 + 2.85) / 2, delta=0.01)
+
+
+class TestGetOrFetchRefresh(unittest.TestCase):
+    """`refresh=True`가 캐시를 무시하는지(0024 후속).
+
+    **왜 필요한가**: `get_or_fetch`는 `sample_count > 0`이면 캐시를 그대로 준다. 0024로
+    양이온 컬럼이 생겼지만 그 전에 캐시된 행은 그 값이 NULL이고, 평소 경로로는 영구히
+    갱신되지 않는다 — **그 읍면동에 새로 등록하는 밭도 양이온이 빈 채로 시작한다.**
+    `scripts/repair_empty_soil_state.py`가 이 인자로 캐시를 훑는다.
+
+    상시 경로가 바뀌지 않는 것(기본값 False)도 같이 고정한다 — 무분별 재조회는 §18-1 위반이다.
+    """
+
+    def setUp(self):
+        self.cached = DistrictSoil(
+            bjd_code="4615012300",
+            field_type="4",
+            ph=Decimal("6.0"),
+            ec=Decimal("0.3"),
+            p2o5=Decimal("400"),
+            organic_matter=Decimal("30"),
+            sample_count=5,  # > 0 이므로 평소엔 캐시가 그대로 반환된다
+            source="옛 캐시",
+        )
+        self.fetch_calls = 0
+        self._real_fetch = district_soil_service._fetch_exams
+
+        def _fake_fetch(bjd_code: str):
+            self.fetch_calls += 1
+            return [_exam("4", 6.1, 14.7, p=182.4, ec=1.35, k=0.9, ca=6.0, mg=2.0)], bjd_code
+
+        district_soil_service._fetch_exams = _fake_fetch
+
+    def tearDown(self):
+        district_soil_service._fetch_exams = self._real_fetch
+
+    def _db(self):
+        cached = self.cached
+
+        class _Query:
+            def filter(self, *a, **k):
+                return self
+
+            def first(self):
+                return cached
+
+        class _Db:
+            def query(self, *a, **k):
+                return _Query()
+
+            def add(self, _obj):
+                raise AssertionError("캐시가 있으면 새 행을 넣으면 안 된다(유니크 충돌)")
+
+            def flush(self):
+                pass
+
+        return _Db()
+
+    def test_default_uses_cache_and_does_not_call_api(self):
+        got = district_soil_service.get_or_fetch(self._db(), "4615012300", "4")
+        self.assertEqual(self.fetch_calls, 0)
+        self.assertIsNone(got.k)  # 옛 캐시 그대로 — 양이온 없음
+
+    def test_refresh_refetches_and_fills_cations(self):
+        got = district_soil_service.get_or_fetch(
+            self._db(), "4615012300", "4", refresh=True
+        )
+        self.assertEqual(self.fetch_calls, 1)
+        self.assertAlmostEqual(float(got.k), 0.9, delta=0.01)
+        self.assertAlmostEqual(float(got.ca), 6.0, delta=0.01)
+        self.assertAlmostEqual(float(got.mg), 2.0, delta=0.01)
+
+    def test_refresh_updates_the_same_row_not_a_new_one(self):
+        """같은 행을 갱신해야 한다 — 새 행을 add하면 (bjd_code, field_type) 유니크에 걸린다.
+        위 _Db.add가 실패를 던지므로 새 행을 만들면 이 테스트가 깨진다."""
+        got = district_soil_service.get_or_fetch(
+            self._db(), "4615012300", "4", refresh=True
+        )
+        self.assertIs(got, self.cached)
 
 
 class TestRiCodes(unittest.TestCase):

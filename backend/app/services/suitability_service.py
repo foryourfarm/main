@@ -32,12 +32,31 @@ DECAY_CURVATURE = 9.0
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
 # temp_day는 일 실측 컬럼이 없어 월평년으로 근사(승인됨). 조용한 대체 아님 — 응답/UI에 병기.
-TEMP_DAY_LIMITATION = "일 기온(temp_day)은 실측이 아니라 월평년(temp_avg_normal) 근사입니다."
+TEMP_DAY_LIMITATION = "일 기온(temp_day)은 실측이 아니라 월 평균기온 근사입니다."
 # 사과 착색/성숙은 문헌이 한 구간이라 근사 분리(품종 정보 부재 → 이론 추정).
 APPLE_STAGE_LIMITATION = "사과 착색/성숙 단계 구분은 품종 정보 부재로 이론 추정입니다."
+# 상추 작기(0025)는 문헌이 아니라 일반적 노지 재배 시기에서 잡은 범위다. 숨기면 작기 밖
+# "생육기 아님"이 문헌이 정한 사실처럼 읽힌다(§18-4).
+LETTUCE_SEASON_LIMITATION = (
+    "상추 봄(3~6월)·가을(8~11월) 작기 구분은 일반적인 노지 재배 시기 기준이며 "
+    "문헌으로 확정된 범위가 아닙니다."
+)
 
 MONTHLY_CLIMATOLOGY_LIMITATION = (
-    "월별 전망은 평년치(월 단위 기상 평균) 기반 이론 추정이며 실제 예보가 아닙니다."
+    "월별 전망은 과거 기상 평균 기반 이론 추정이며 실제 예보가 아닙니다."
+)
+# 우리가 코드·DB에서 "평년치"(`*_normal`)라고 부르는 값은 기상청이 말하는 평년값이 아니다.
+# 기상청 평년값은 30년(1991~2020) 통계인데 우리 것은 5년 관측 평균이다
+# (`obs_mean_2021_2025`·`aws_mean_2021_2025` — scripts/load_weather_climatology.py,
+# load_aws_climatology.py). 이름만 보고 30년 평년값으로 오해하기 쉬워 화면에 밝힌다(§18-4).
+#
+# 편차는 2026-08-02에 실측했다 — 같은 219지점끼리 `sfc_norm1.php`(tmst=2021)와 우리 관측을
+# 월별로 맞대니 12개월 평균 +0.95℃, 월별로 −0.30(5월) ~ +2.04℃(9월)였다. 달마다 크게
+# 다르므로 단일 상수로 뭉개지 않고 범위를 함께 적는다. 산출 근거는
+# `docs/temperature-open-decisions.md` §① 참고.
+CLIMATOLOGY_PERIOD_LIMITATION = (
+    "기상값은 기상청 30년 평년값(1991~2020)이 아니라 최근 5년(2021~2025) 관측 평균입니다. "
+    "30년 평년값보다 연평균 약 1℃ 따뜻하며 그 차이는 달마다 다릅니다(-0.3 ~ +2.0℃)."
 )
 MONTHLY_STAGE_LIMITATION = (
     "각 월의 생육단계는 그 달에 가장 많은 날을 차지한 단계로 표기합니다 — "
@@ -47,11 +66,11 @@ MONTHLY_SOIL_LIMITATION = (
     "토양 지표는 12개월에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
 )
 OUTLOOK_APPLIED_LIMITATION = (
-    "기온·강수는 평년치에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
-    "전망이 없는 월·지표(야간최저기온·일조 등)는 평년치를 그대로 씁니다."
+    "기온·강수는 과거 평균에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
+    "전망이 없는 월·지표(야간최저기온·일조 등)는 과거 평균을 그대로 씁니다."
 )
 OUTLOOK_MISSING_LIMITATION = (
-    "기상청 3개월전망이 적재되지 않아 보정 없이 평년치만 사용했습니다."
+    "기상청 3개월전망이 적재되지 않아 보정 없이 과거 평균만 사용했습니다."
 )
 
 # 지표 한글명. `risk_flags`의 `<지표>:missing`을 사람 말로 옮길 때 쓴다.
@@ -306,6 +325,11 @@ def gather_indicator_values(
         "ec": soil.ec if soil else None,
         "p2o5": soil.p2o5 if soil else None,
         "organic": soil.organic_matter if soil else None,
+        # 치환성 양이온(cmol/kg, 0024). 사과·배·상추만 지침이 있고 나머지 작물은
+        # 지침이 없어 룰 엔진이 알아서 제외한다 — 값을 넣어도 채점 대상이 되지 않는다.
+        "k": soil.k if soil else None,
+        "ca": soil.ca if soil else None,
+        "mg": soil.mg if soil else None,
     }
 
 
@@ -391,7 +415,7 @@ def compute_farm_suitability(
             if sunlight_result.is_calculated:
                 result["breakdown"]["sunlight"]["confidence"] = sunlight_result.confidence
 
-    limitations = [TEMP_DAY_LIMITATION]
+    limitations = [TEMP_DAY_LIMITATION, CLIMATOLOGY_PERIOD_LIMITATION]
     coverage = coverage_limitation([result["breakdown"]])
     if coverage is not None:
         limitations.insert(0, coverage)
@@ -404,6 +428,8 @@ def compute_farm_suitability(
     limitations.append(OUTLOOK_APPLIED_LIMITATION if applied else OUTLOOK_MISSING_LIMITATION)
     if stage in ("coloring", "maturity"):
         limitations.append(APPLE_STAGE_LIMITATION)
+    if stage in ("spring", "fall"):
+        limitations.append(LETTUCE_SEASON_LIMITATION)
 
     # 휴면기는 기상 판정 근거가 없어 점수를 내보내지 않는다(§18-4). breakdown은 남겨
     # 토양 지표가 어떻게 평가됐는지는 확인할 수 있게 한다.
@@ -551,6 +577,7 @@ def compute_monthly_outlook(
     limitations = [
         TEMP_DAY_LIMITATION,
         MONTHLY_CLIMATOLOGY_LIMITATION,
+        CLIMATOLOGY_PERIOD_LIMITATION,
         MONTHLY_STAGE_LIMITATION,
         MONTHLY_SOIL_LIMITATION,
     ]
@@ -570,6 +597,8 @@ def compute_monthly_outlook(
     )
     if any(m["growth_stage"] in ("coloring", "maturity") for m in months):
         limitations.append(APPLE_STAGE_LIMITATION)
+    if any(m["growth_stage"] in ("spring", "fall") for m in months):
+        limitations.append(LETTUCE_SEASON_LIMITATION)
 
     return {
         "farm_id": farm.id,

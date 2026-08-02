@@ -52,11 +52,11 @@
   },
   "temp_by_crop": {
     "09001": {
-      "n": 150,
-      "median": 20.7643,
-      "sd": 1.2316,
-      "robust_sd": 1.059,
-      "risk_width": 2.118,
+      "n": 136,
+      "median": 20.7929,
+      "sd": 1.2674,
+      "robust_sd": 1.1119,
+      "risk_width": 2.2239,
       "months": [
         4,
         5,
@@ -68,11 +68,11 @@
       ]
     },
     "09011": {
-      "n": 150,
-      "median": 20.7643,
-      "sd": 1.2316,
-      "robust_sd": 1.059,
-      "risk_width": 2.118,
+      "n": 136,
+      "median": 20.7929,
+      "sd": 1.2674,
+      "robust_sd": 1.1119,
+      "risk_width": 2.2239,
       "months": [
         4,
         5,
@@ -84,32 +84,24 @@
       ]
     },
     "07001": {
-      "n": 151,
-      "median": 13.3,
-      "sd": 1.9832,
-      "robust_sd": 1.4455,
-      "risk_width": 2.8911,
+      "n": 136,
+      "median": 17.125,
+      "sd": 1.4115,
+      "robust_sd": 1.2231,
+      "risk_width": 2.4463,
       "months": [
-        1,
-        2,
-        3,
         4,
         5,
-        6,
-        7,
-        8,
         9,
-        10,
-        11,
-        12
+        10
       ]
     },
     "03001": {
-      "n": 150,
-      "median": 14.925,
-      "sd": 1.2217,
-      "robust_sd": 1.0008,
-      "risk_width": 2.0015,
+      "n": 136,
+      "median": 14.95,
+      "sd": 1.2452,
+      "robust_sd": 1.0378,
+      "risk_width": 2.0756,
       "months": [
         3,
         4,
@@ -118,11 +110,11 @@
       ]
     },
     "04009": {
-      "n": 150,
+      "n": 136,
       "median": 21.55,
-      "sd": 1.1794,
-      "robust_sd": 1.0378,
-      "risk_width": 2.0756,
+      "sd": 1.21,
+      "robust_sd": 1.0625,
+      "risk_width": 2.1251,
       "months": [
         4,
         5,
@@ -134,11 +126,11 @@
     }
   },
   "rainfall_monthly": {
-    "n": 164,
+    "n": 150,
     "median": 107.5208,
-    "sd": 36.9926,
-    "robust_sd": 24.4011,
-    "risk_width": 48.8023
+    "sd": 38.3176,
+    "robust_sd": 25.544,
+    "risk_width": 51.0879
   },
   "backend_indicator_risk_width": {
     "ph": 0.4641,
@@ -147,7 +139,7 @@
     "k": 0.5041,
     "ca": 3.7777,
     "mg": 1.2632,
-    "temp_day": 2.2408
+    "temp_day": 2.219
   },
   "backend_note": "temp_night_min·rainfall_daily는 이 데이터로 지역간 산포도를 낼 수 없어 제외한다 — 백엔드는 그 지표에서 종전 완충폭 기준으로 폴백한다(숨기지 않음). temp_day는 작물별 앵커월 산포도의 평균이다 [확인 필요]."
 }

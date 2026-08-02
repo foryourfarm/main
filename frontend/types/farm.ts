@@ -140,12 +140,14 @@ export const STAGE_LABELS: Record<string, string> = {
   growing: "생육기",
   early: "초기 생육",
   tuber: "괴경비대기",
+  spring: "봄 작기",
+  fall: "가을 작기",
 };
 
 export function stageLabel(stage: string | null, status: SuitabilityStatus): string {
   if (stage !== null) return STAGE_LABELS[stage] ?? stage;
   if (status === "out_of_season") return "제철 아님";
-  if (status === "dormant") return "휴면기";
+  if (status === "dormant") return "생육기 아님";
   return "전기간";
 }
 

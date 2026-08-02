@@ -75,7 +75,7 @@ from crop_literature_anchor_experiment import (  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 # 원본 산출물 이관 시 `outcomes/data/`는 함께 오지 않았다(git 미추적). 동일 파일명 데이터가
 # 레포 루트 `/data`에 있어 거기를 가리킨다 — outcomes/ 안에 데이터를 중복 복사하지 않는다.
-DATA = ROOT.parent / "data"
+DATA = ROOT / "data"
 CROP_RULES_DIR = ROOT / "memory" / "crop_rules"
 RULES = CROP_RULES_DIR / "_shared.json"
 OUT = ROOT / "RegionalScore.csv"
@@ -83,7 +83,15 @@ MANIFEST = DATA / "ml" / "regional_score_manifest.json"
 VALIDATION = DATA / "ml" / "imputation_validation.json"
 OUTLIERS = DATA / "ml" / "imputation_outliers.csv"
 
-SOIL_WEIGHT, TEMP_WEIGHT = 45, 30
+# 가중치는 승인 파라미터에서 읽는다 — 종전엔 45/30을 하드코딩하고 강수 25를 암묵 재정규화해서
+# 표기 가중치(45/30/25)와 실효 가중치(0.6/0.4)가 달랐다. 2026-08-01 재설계로 강수를 0으로
+# 명시하고 60/40을 승인값으로 올렸다(실효값은 그대로라 점수는 바뀌지 않는다).
+_WEIGHTS = json.loads(RULES.read_text(encoding="utf-8"))["weights"]
+SOIL_WEIGHT, TEMP_WEIGHT = _WEIGHTS["soil"], _WEIGHTS["temperature"]
+assert _WEIGHTS["precipitation"] == 0, (
+    "강수 가중치가 0이 아니다 — 강수 점수를 실제로 산출하도록 이 스크립트를 고치기 전에는 "
+    "0이 아닌 값을 두면 표기와 실효 가중치가 다시 갈린다."
+)
 SOIL_FRAC = SOIL_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 TEMP_FRAC = TEMP_WEIGHT / (SOIL_WEIGHT + TEMP_WEIGHT)
 
@@ -295,9 +303,17 @@ def main():
 
     df.to_csv(OUT, index=False, encoding="utf-8")
 
+    shared = json.loads(RULES.read_text(encoding="utf-8"))
     manifest = {
-        "knowledge_version": json.loads(RULES.read_text(encoding="utf-8"))["knowledge_version"],
-        "weight_note": "강수(25) 점수 미산출 — 토양45/기온30만 재정규화(0.6/0.4)해 총점 계산. 강수 제외를 숨기지 않음.",
+        "knowledge_version": shared["knowledge_version"],
+        # 문헌 밴드값과 채점 곡선은 따로 움직인다 — 곡선만 바뀌어도 숫자가 전부 달라지므로
+        # 소비자(ForYourFarm)가 knowledge_version만 보고 "변화 없음"으로 오독하지 않게 분리 노출.
+        "scoring_version": shared["scoring_version"],
+        "weights": _WEIGHTS,
+        "weight_note": "2026-08-01 가중치 재설계(사용자 확인): 토양60/기온40/강수0. 종전 표기(45/30/25)는 "
+                        "강수 점수를 한 번도 산출한 적이 없어 실효 가중치(0.6/0.4)와 달랐다 — 실효값을 명시값으로 "
+                        "올린 것이라 총점 숫자는 바뀌지 않는다. precipitation=0은 '중요하지 않다'가 아니라 "
+                        "'작물별 optimal range 문헌이 없어 채점하지 않는다'는 뜻이다(memory/open-gaps.md 필요문헌 4번).",
         "percentile_note": "total_score_{crop}_percentile(2026-07-25 도입)은 크롭 내부 상대순위(0~100)일 뿐, "
                             "크롭간 절대 비교가 아니다. 크롭마다 문헌 기준의 엄격도가 실제로 다르므로(예: 상추 RDA "
                             "토양기준이 감자보다 훨씬 좁음, 전국 pH 중앙값 5.91이 상추 optimal 6.5~7.0과 구조적으로 "

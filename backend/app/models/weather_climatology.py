@@ -8,7 +8,18 @@ from app.models.base import Base
 
 
 class WeatherClimatology(Base):
-    """월별 평년값 캐시, 지역 최초 등록 시 확보(DB.md §3.11). 장기 탭 적합도 계산의 baseline."""
+    """월별 기상 평균 캐시, 지역 최초 등록 시 확보(DB.md §3.11). 장기 탭 적합도의 baseline.
+
+    ⚠️ **`*_normal` 컬럼은 기상청 "평년값"이 아니다.** 기상청 평년값은 30년(1991~2020)
+    통계인데 여기 들어가는 것은 **5년(2021~2025) 관측 평균**이다 — `source`가
+    `obs_mean_2021_2025`(농업기상) 또는 `aws_mean_2021_2025`(AWS)인 이유다.
+    실측하니 30년 평년값보다 12개월 평균 **+0.95℃** 따뜻하고, 월별로 −0.30 ~ +2.04℃
+    갈린다(2026-08-02, 같은 219지점 대조. `docs/temperature-open-decisions.md` §①).
+
+    컬럼명은 마이그레이션 이력 때문에 `_normal`로 두지만, **유저에게 "평년값"이라고
+    적으면 거짓이다.** 화면 문구는 `suitability_service.CLIMATOLOGY_PERIOD_LIMITATION`이
+    실제 성격을 밝힌다 — 새 문구를 쓸 때 그쪽을 따를 것.
+    """
 
     __tablename__ = "weather_climatology"
     __table_args__ = (UniqueConstraint("region_id", "month", name="uq_climatology"),)

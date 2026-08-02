@@ -38,9 +38,21 @@ def band_row(variable, rule, unit, source, scope):
         "ideal_min": lo,
         "ideal_max": hi,
         "unit": unit,
+        # 단위가 같아도 측정 프로토콜이 다르면 값이 통째로 어긋난다(유효인산 약 6배, EC 5배).
+        # crop_rules가 인용하는 출처 중 추출법을 명시한 것이 없어 현재는 전부 unknown이다 —
+        # 빈칸으로 두면 "확인했는데 해당 없음"과 구분이 안 되므로 명시적으로 싣는다.
+        "method": rule.get("method", "unknown [확인 필요] — method 필드 미기재"),
         "source": source,
         "scope": scope,
     }
+
+
+def month_label(months):
+    """연속 구간이면 `04-10`, 비연속(예: 상추 봄·가을 작기)이면 개별 월을 나열한다.
+    `months[0]-months[-1]`만 쓰면 [4,5,9,10]이 '04-10'으로 보여 6~8월도 채점한 것처럼 읽힌다."""
+    if months == list(range(months[0], months[-1] + 1)):
+        return f"{months[0]:02d}-{months[-1]:02d}"
+    return ".".join(f"{m:02d}" for m in months)
 
 
 SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg"}
@@ -57,7 +69,7 @@ def main():
     for crop_code, crop in crops.items():
         name = crop["name"]
         for g in crop.get("temperature_guides", []):
-            months = f"{g['months'][0]:02d}-{g['months'][-1]:02d}"
+            months = month_label(g["months"])
             rows.append(band_row(
                 f"temperature_{crop_code}_{months}",
                 g, "C", f"memory/crop_rules/{crop_code} ({name} 문헌 시드, {shared['knowledge_version']})",
@@ -66,7 +78,7 @@ def main():
         for g in crop.get("precipitation_guides", []):
             if g.get("refuted"):
                 continue
-            months = f"{g['months'][0]:02d}-{g['months'][-1]:02d}"
+            months = month_label(g["months"])
             rows.append(band_row(
                 f"precipitation_{crop_code}_{months}",
                 g, "mm/week", f"memory/crop_rules/{crop_code} ({name} 문헌 시드, {shared['knowledge_version']})",
@@ -82,6 +94,8 @@ def main():
     df = pd.DataFrame(rows)
     assert df["variable"].is_unique, "AnswerData 변수명 중복"
     assert not df.empty, "AnswerData 비어있음"
+    # 측정법 미기재 밴드가 조용히 섞이지 않게 강제한다 — unknown이어도 "확인 결과 미상"임을 적어야 한다.
+    assert df["method"].notna().all() and (df["method"].str.strip() != "").all(), "method 비어있는 밴드 존재"
 
     df.to_csv(OUT, index=False, encoding="utf-8")
     print(f"{OUT.name}: {len(df)} rows (soil={len(shared['soil_rules'])}, "
