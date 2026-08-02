@@ -970,14 +970,42 @@ scripts/load_aws_climatology.py        # 농업기상 없는 구역만 + referen
 
 실제로 이 순서를 틀려서 `solar_radiation_normal`이 전 구역 NULL이 된 적 있다(2026-08-01).
 
-**장기 탭을 "앞으로 3개월"로 제한** (2026-07-27 논의, 진행 안 함)
-지금은 올해 1~12월 전체를 계산한다. 신뢰할 수 있는 신호는 3개월전망뿐이라 이 범위로
-좁히는 게 §12 원칙과 맞다. 착수 전 방식부터 정할 것:
-- 정공법: `build_monthly_rows`가 (연도,월) 윈도우를 받게 + `load_corrections` 다년도 대응
-  + `MonthlyOutlookEntry`에 `year` 추가. `test_monthly_outlook.py` 9개가 "12개월·단일연도"
-  전제라 같이 손봐야 함.
-- 싼 대안: 12개월 계산은 두고 응답만 3개 슬라이스. 11·12월 시작 시 내년 1~2월이 빠진다
-  (연중 2달 구멍, `ponytail:` 남기고 넘어가는 것도 선택지).
+**장기 탭을 "앞으로 3개월"로 제한** — 방식 확정, 착수 (2026-08-02)
+
+지금은 올해 1~12월 전체를 계산한다. 그중 **9칸은 평년치만으로 낸 값인데 화면에서 전망
+반영 3칸과 같은 점수·등급으로 보인다** — 근사를 확정처럼 보이게 하지 않는다는 §18-4에
+어긋난다. 범위를 좁히는 건 정보를 버리는 게 아니라 신뢰할 수 있는 구간만 남기는 것이다.
+
+**명세부터 고친다** — PRD §4.4가 "시즌 전체 적합도 분석"이라 코드만 바꾸면 §3-3 위반이다.
+문서 PR을 먼저 올리고(`docs/prd-long-term-3month`), 승인 후 코드 PR을 낸다.
+
+**확정된 결정**
+
+| 항목 | 결정 | 근거 |
+|---|---|---|
+| 창 정의 | 최신 3개월전망이 커버하는 달 | "왜 이 3칸인가"가 데이터로 설명되고 3칸 모두 전망 반영 |
+| 연도 경계 | (연도,월) 쌍으로 일반화 | `outlook_client._target_months`는 **이미 해를 넘긴다**(12월 발표 → 내년 1·2·3월) — 데이터는 있는데 우리 상류가 단일 연도로 막고 있었다 |
+| 전망 결측 | 달력 고정 3개월 폴백 + 한계 문구 | §12. 실제로 프로덕션에서 전망이 비어 있던 적 있다 |
+| 창 전부 휴면기 | 3칸 그대로 + "다음 생육기 N월" 안내 | 칸을 임의로 늘려 전망 없는 달을 채우지 않는다 |
+| API 계약 | 최상위 `year` 제거 → 칸마다 `year`, `outlook_published_at` 추가 | 걸친 창에서 최상위 `year`는 반드시 한쪽이 틀린다. 창 범위는 `months[0]`·`months[-1]`에서 나오므로 별도 필드 불필요 |
+| 나머지 9개월 | 만들지 않음 | YAGNI |
+| 전망 자동 갱신 | **별도 PR** | 창이 전망에 묶이므로 필요해졌지만 범위를 나눈다 |
+
+**변경 지점**
+
+```
+load_corrections(db, region_id, months, year) → (db, region_id, window)
+build_monthly_rows(..., year)                 → (..., window)      # 순수 함수 유지
+compute_monthly_outlook(db, user, farm, year) → (db, user, farm, today)
+  └ resolve_window(db, region_id, today) → (window, published_at | None)   ← 신규, 유일한 새 로직
+schemas: FarmMonthlyOutlook.year 제거 / +outlook_published_at, MonthlyOutlookEntry +year
+FE: LongTermPanel 헤더, farm.module.css .heatmap repeat(6→3), types/farm.ts
+```
+
+**위험**: `load_corrections`가 지금 `date(year, m, 1)`로 타겟을 만든다 — 창이 걸치면
+2027-01을 2026-01로 조회해 **엉뚱한 보정치가 붙어도 예외가 안 난다.** 테스트로 못 박을 것.
+
+소비처는 `LongTermPanel.tsx` 하나뿐이라 FE 파급은 작다(대시보드·챗봇은 안 쓴다).
 
 **FE 남은 것**
 - 대시보드/밭상세 데이터 신뢰도 배지(출처 N/3)
