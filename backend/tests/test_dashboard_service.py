@@ -2,7 +2,7 @@
 import unittest
 from datetime import date
 
-from app.services.dashboard_service import NO_FORECAST_LIMITATION, _stage_label, today_values
+from app.services.dashboard_service import NO_FORECAST_LIMITATION, stage_label, today_values
 
 TODAY = date(2026, 8, 1)
 
@@ -20,17 +20,17 @@ def _day(target: date, score: float | None, grade: str | None, stage: str = "tub
 
 class TestStageLabel(unittest.TestCase):
     def test_known_stage_maps_to_korean(self):
-        self.assertEqual(_stage_label("tuber", "ok"), "괴경비대기")
-        self.assertEqual(_stage_label("coloring", "ok"), "착색기")
+        self.assertEqual(stage_label("tuber", "ok"), "괴경비대기")
+        self.assertEqual(stage_label("coloring", "ok"), "착색기")
 
     def test_none_stage_ok_is_all_period(self):
-        self.assertEqual(_stage_label(None, "insufficient_data"), "전기간")
+        self.assertEqual(stage_label(None, "insufficient_data"), "전기간")
 
     def test_none_stage_out_of_season(self):
-        self.assertEqual(_stage_label(None, "out_of_season"), "제철 아님")
+        self.assertEqual(stage_label(None, "out_of_season"), "제철 아님")
 
     def test_unknown_code_passes_through(self):
-        self.assertEqual(_stage_label("weird", "ok"), "weird")
+        self.assertEqual(stage_label("weird", "ok"), "weird")
 
 
 class TestTodayValues(unittest.TestCase):

@@ -233,6 +233,9 @@ def compute_short_term(
                 "temp_night_min": snap.temp_night_min,
                 "rainfall": snap.rainfall,
                 "risk_flags": result["risk_flags"],
+                # 행동추천이 값·허용구간을 함께 서술하려면 필요하다. 종전엔 계산해놓고
+                # coverage_limitation에만 쓰고 버렸다(응답에 나가는 건 risk_flags 문자열뿐).
+                "breakdown": result["breakdown"],
             }
         )
 

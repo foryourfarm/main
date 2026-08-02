@@ -24,7 +24,7 @@ STAGE_LABELS = {
 }
 
 
-def _stage_label(stage: str | None, status: str) -> str | None:
+def stage_label(stage: str | None, status: str) -> str | None:
     if stage is not None:
         return STAGE_LABELS.get(stage, stage)
     if status == "out_of_season":
@@ -122,7 +122,7 @@ def build_dashboard(
                 region_name=region_names.get(farm.region_id),
                 crop_type="orchard" if crop and crop.exam_field_type == ORCHARD_FIELD_TYPE else "field",
                 growth_stage=s["growth_stage"],
-                growth_stage_label=_stage_label(s["growth_stage"], s["status"]),
+                growth_stage_label=stage_label(s["growth_stage"], s["status"]),
                 score=s["score"],
                 grade=s["grade"],
                 status=s["status"],

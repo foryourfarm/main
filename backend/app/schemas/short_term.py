@@ -27,6 +27,14 @@ class PersistentRisk(BaseModel):
     dates: list[str]
 
 
+class DailyAdvice(BaseModel):
+    """오늘의 행동추천. 위험 판정은 룰 엔진이 하고 LLM은 문장만 다듬는다(PRD §10-1)."""
+
+    text: str
+    is_llm: bool
+    """false면 규칙 기반 문구다 — LLM 실패·미도달. 화면에 구분 표기한다(§18-4)."""
+
+
 class FarmShortTerm(BaseModel):
     """단기 탭(오늘~3일). 예보이므로 발표마다 바뀐다 — limitations를 UI에 병기한다."""
 
@@ -41,4 +49,6 @@ class FarmShortTerm(BaseModel):
     label: str
     days: list[ShortTermDay]
     persistent_risks: list[PersistentRisk]
+    advice: DailyAdvice | None = None
+    """오늘의 행동추천. None이면 생성 자체가 실패한 것 — 화면은 이 블록만 숨기면 된다."""
     limitations: list[str]

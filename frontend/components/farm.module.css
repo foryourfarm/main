@@ -193,6 +193,40 @@
   color: var(--muted);
 }
 
+/* 오늘의 행동추천 — 위험 배너보다 위. "무엇이 위험한가"보다 "뭘 하라"가 먼저 읽혀야 한다 */
+.adviceCard {
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #f2f5ef;
+}
+.adviceTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.adviceText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+/* 규칙 기반 문구임을 숨기지 않는다(§18-4). 색만으로 구분하지 않도록 라벨을 쓴다 */
+.adviceTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--muted);
+  background: #fff;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
 /* 지속 위험 배너 — 이 탭에서 가장 먼저 보여야 한다 */
 .alertBanner {
   border: 1px solid var(--bad);

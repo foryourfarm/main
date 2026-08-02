@@ -112,6 +112,13 @@ export interface PersistentRisk {
   dates: string[];
 }
 
+/** 오늘의 행동추천. 위험 판정은 백엔드 룰 엔진이 하고 LLM은 문장만 다듬는다. */
+export interface DailyAdvice {
+  text: string;
+  /** false면 규칙 기반 문구 — LLM 실패·미도달. 다듬어진 것처럼 보이게 하지 않는다. */
+  is_llm: boolean;
+}
+
 export interface FarmShortTerm {
   farm_id: number;
   crop_id: number;
@@ -124,6 +131,8 @@ export interface FarmShortTerm {
   label: string;
   days: ShortTermDay[];
   persistent_risks: PersistentRisk[];
+  /** null이면 추천 생성 실패 — 이 블록만 숨기고 나머지는 정상 렌더한다. */
+  advice: DailyAdvice | null;
   limitations: string[];
 }
 

@@ -7,7 +7,7 @@ import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
 import styles from "@/components/farm.module.css";
 import { fetchShortTerm } from "@/lib/farm";
-import type { FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
+import type { DailyAdvice, FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
 import {
   describeRiskFlag,
   formatBaseAt,
@@ -42,6 +42,25 @@ function RiskBanner({ risks }: { risks: PersistentRisk[] }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * 오늘의 행동추천. 위험 배너보다 위에 둔다 — 배너는 "무엇이 위험한가"고 이건 "그래서 뭘
+ * 하라"라서, 초보자에게는 후자가 먼저 읽혀야 한다(PRD 철학 2 눈높이 번역).
+ *
+ * is_llm=false를 숨기지 않는다(§18-4). 규칙 문구도 내용은 정확하지만 "다듬어진 것"처럼
+ * 보이게 하면 품질 기대가 어긋난다.
+ */
+function AdviceCard({ advice }: { advice: DailyAdvice }) {
+  return (
+    <section className={styles.adviceCard} aria-label="오늘의 행동추천">
+      <p className={styles.adviceTitle}>
+        오늘 이렇게 하세요
+        {!advice.is_llm && <span className={styles.adviceTag}>자동 생성 문구</span>}
+      </p>
+      <p className={styles.adviceText}>{advice.text}</p>
     </section>
   );
 }
@@ -109,6 +128,7 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
         {formatBaseAt(data.base_at)} · {data.label}
         {data.is_stale && <span className={styles.staleTag}>최신 아님</span>}
       </p>
+      {data.advice && <AdviceCard advice={data.advice} />}
       <RiskBanner risks={data.persistent_risks} />
       <div className={styles.dayGrid}>
         {data.days.map((d) => (
