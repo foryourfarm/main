@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
+import Loading from "@/components/Loading";
 import styles from "@/components/farm.module.css";
 import { fetchShortTerm } from "@/lib/farm";
 import type { FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
@@ -95,7 +96,7 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
   }, [farmId]);
 
   if (error !== null) return <p className={styles.error}>{error}</p>;
-  if (data === null) return <p className={styles.notice}>불러오는 중…</p>;
+  if (data === null) return <Loading />;
 
   if (data.days.length === 0) {
     // 격자 매핑·예보 조회가 안 된 경우. 조용히 0점 내지 않는다는 백엔드 방침과 맞춘다.

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { useAuth } from "@/lib/auth-context";
 
+import Loading from "./Loading";
 import styles from "./farm.module.css";
 
 /**
@@ -23,7 +24,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     if (!loading && user === null) router.replace("/login");
   }, [loading, user, router]);
 
-  if (loading) return <p className={styles.notice}>불러오는 중…</p>;
+  if (loading) return <Loading />;
   if (user === null) return <p className={styles.notice}>로그인이 필요합니다.</p>;
   return <>{children}</>;
 }

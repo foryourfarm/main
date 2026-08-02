@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import GradeBadge, { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
+import Loading from "@/components/Loading";
 import RequireAuth from "@/components/RequireAuth";
 import styles from "@/components/farm.module.css";
 import { fetchDashboard } from "@/lib/farm";
@@ -46,7 +47,7 @@ function DashboardBody() {
   }, []);
 
   if (error !== null) return <p className={styles.error}>{error}</p>;
-  if (data === null) return <p className={styles.notice}>불러오는 중…</p>;
+  if (data === null) return <Loading />;
 
   if (data.farms.length === 0) {
     return (
