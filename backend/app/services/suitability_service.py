@@ -269,6 +269,11 @@ def calculate_suitability(
             "score": round(score, 1),
             "weight": weight,
             "status": status,
+            # 허용구간을 함께 싣는다 — "왜 위험인가"를 값만으로는 말할 수 없다. 행동추천이
+            # "야간 최저 2.1℃(허용 5℃ 밖)"처럼 기준과 함께 서술하려면 이 값이 필요하고,
+            # 지침을 두 곳에서 각자 읽으면 어긋난다(§18-2는 기준값 하드코딩 금지).
+            "allowed_min": float(guide.allowed_min) if guide.allowed_min is not None else None,
+            "allowed_max": float(guide.allowed_max) if guide.allowed_max is not None else None,
         }
         if applied and indicator in applied:
             baseline, correction = applied[indicator]

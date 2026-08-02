@@ -1,18 +1,20 @@
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
+from app.infra.llm_client import OllamaClient
 from app.infra.public_api.forecast_client import KST
 from app.models import Crop, District, Region, SoilState, User, UserFarm
 from app.schemas.common import ApiResponse
 from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, FarmUpdate, RegionOut
-from app.schemas.short_term import FarmShortTerm
+from app.schemas.short_term import DailyAdvice, FarmShortTerm
 from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability
-from app.services import farm_service, short_term_service, suitability_service
+from app.services import advice_service, farm_service, short_term_service, suitability_service
+from app.services.dashboard_service import stage_label
 from app.services.district_soil_service import effective_source
 
 router = APIRouter(prefix="/api/v1", tags=["farms"])
@@ -153,9 +155,64 @@ def get_farm_short_term(
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ApiResponse[FarmShortTerm]:
-    """단기 탭. 기상청 단기예보(최대 3일) + 날짜별 위험신호(PRD.md §4.5)."""
+    """단기 탭. 기상청 단기예보(최대 3일) + 날짜별 위험신호(PRD.md §4.5).
+
+    행동추천은 여기 싣지 않는다 — `/advice`로 분리했다. 한 응답에 묶었더니 LLM 동기
+    재시도가 탭 전체를 막아 화면이 "불러오는 중…"으로 12초간 비는 것을 실측했다.
+    """
     now = datetime.now(KST)
     data = short_term_service.compute_short_term(
         db, current.id, farm_id, settings.weather_forecast_api, now.date(), now
     )
     return ApiResponse.ok(FarmShortTerm(**data))
+
+
+@router.get("/farms/{farm_id}/advice")
+def get_farm_advice(
+    farm_id: int,
+    background: BackgroundTasks,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[DailyAdvice]:
+    """오늘의 행동추천(PRD §10-1). 단기 탭과 **별도 요청**이라 탭 렌더를 막지 않는다.
+
+    예보는 캐시 히트라 여기서 다시 계산해도 비용이 거의 없다(실측 0.02초). 대신 위험
+    판정 로직이 한 곳(`compute_short_term`)에 머물러 두 경로가 어긋나지 않는다.
+    """
+    now = datetime.now(KST)
+    data = short_term_service.compute_short_term(
+        db, current.id, farm_id, settings.weather_forecast_api, now.date(), now
+    )
+    days: list[dict[str, object]] = data["days"]  # type: ignore[assignment]
+    crop = db.get(Crop, data["crop_id"])
+    crop_name = crop.name if crop else ""
+    label = stage_label(days[0]["growth_stage"], days[0]["status"]) if days else None
+
+    text, is_llm, needs_polish = advice_service.get_or_create(
+        db,
+        farm_id=farm_id,
+        crop_name=crop_name,
+        days=days,
+        persistent=data["persistent_risks"],  # type: ignore[arg-type]
+        stage_label=label,
+        today=now.date(),
+        # 동기 재시도는 짧은 타임아웃으로 — 유저가 기다리는 경로다(config 주석).
+        llm=OllamaClient(timeout_s=settings.advice_llm_timeout_s),
+    )
+    if needs_polish:
+        # 응답을 보낸 뒤 다듬는다. Cloud Run 스로틀링으로 완주 못 하면 다음 조회가 메운다.
+        background.add_task(
+            advice_service.polish_in_background,
+            farm_id,
+            crop_name,
+            now.date(),
+            text,
+            OllamaClient(),
+        )
+    return ApiResponse.ok(
+        DailyAdvice(
+            text=text,
+            is_llm=is_llm,
+            soil_text=advice_service.soil_advice(db, farm_id, days, crop_name),
+        )
+    )

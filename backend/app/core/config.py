@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # 사실 기반이라 일관성 우선으로 낮게(docs/llm-integration.md §6).
     llm_temperature: float = 0.4
 
+    # 행동추천 다듬기의 **동기 재시도** 타임아웃. 유저가 기다리는 경로라 llm_timeout_s(90초)를
+    # 쓸 수 없다 — 넘기면 규칙 문구로 응답하고 다음 조회에 다시 시도한다(advice_service).
+    # 정상 상태 실측이 3초 수준이라 8초면 콜드가 아닌 한 충분하다.
+    advice_llm_timeout_s: float = 8.0
+
     # 챗봇 RAG 임베딩 — 같은 Ollama 서버, 다른 모델(bge-m3, 1024차원 = knowledge_chunk.embedding과 매칭)
     embedding_model: str = "bge-m3"
     # 질문당 근거로 주입할 문서 조각 수(top-k). 검색 파라미터라 농업 기준값 아님.

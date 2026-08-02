@@ -6,8 +6,8 @@ import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
 import styles from "@/components/farm.module.css";
-import { fetchShortTerm } from "@/lib/farm";
-import type { FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
+import { fetchAdvice, fetchShortTerm } from "@/lib/farm";
+import type { DailyAdvice, FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
 import {
   describeRiskFlag,
   formatBaseAt,
@@ -42,6 +42,48 @@ function RiskBanner({ risks }: { risks: PersistentRisk[] }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * 오늘의 행동추천. 위험 배너보다 위에 둔다 — 배너는 "무엇이 위험한가"고 이건 "그래서 뭘
+ * 하라"라서, 초보자에게는 후자가 먼저 읽혀야 한다(PRD 철학 2 눈높이 번역).
+ *
+ * **탭과 따로 부른다.** 한 응답에 묶었더니 LLM 동기 재시도가 탭 전체를 막아 화면이
+ * 12초간 "불러오는 중…"으로 비는 것을 실측했다. 여기서만 기다리게 한다.
+ *
+ * is_llm=false를 숨기지 않는다(§18-4). 규칙 문구도 내용은 정확하지만 "다듬어진 것"처럼
+ * 보이게 하면 품질 기대가 어긋난다. 토양 문단은 항상 규칙 문구라 태그 대상이 아니다.
+ */
+function AdviceCard({ farmId }: { farmId: number }) {
+  const [advice, setAdvice] = useState<DailyAdvice | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetchAdvice(farmId).then(setAdvice).catch(() => setFailed(true));
+  }, [farmId]);
+
+  // 추천 실패가 탭을 망치지 않는다 — 이 블록만 빠지고 예보·위험은 그대로 보인다(§18-5).
+  if (failed) return null;
+
+  return (
+    <section className={styles.adviceCard} aria-label="오늘의 행동추천">
+      <p className={styles.adviceTitle}>
+        오늘 이렇게 하세요
+        {advice && !advice.is_llm && <span className={styles.adviceTag}>자동 생성 문구</span>}
+      </p>
+      {advice === null ? (
+        <p className={styles.adviceLoading}>행동 안내를 준비하고 있어요…</p>
+      ) : (
+        <>
+          <p className={styles.adviceText}>{advice.text}</p>
+          {advice.soil_text && (
+            // 매일 바뀌는 기상과 성격이 달라 문단을 나눈다 — 상시 토양 상태다.
+            <p className={styles.adviceSoil}>{advice.soil_text}</p>
+          )}
+        </>
+      )}
     </section>
   );
 }
@@ -109,6 +151,7 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
         {formatBaseAt(data.base_at)} · {data.label}
         {data.is_stale && <span className={styles.staleTag}>최신 아님</span>}
       </p>
+      <AdviceCard farmId={farmId} />
       <RiskBanner risks={data.persistent_risks} />
       <div className={styles.dayGrid}>
         {data.days.map((d) => (
