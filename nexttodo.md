@@ -633,20 +633,31 @@ farm 6, 8, 9            bjd_code=None (구버전 등록) — 조회 자체가 �
 
 1. **`dev` 브랜치 보호 규칙** — CI가 있어도 빨간불 PR을 머지할 수 있다.
    Settings → Branches → "Require status checks to pass". **저장소 admin 필요.**
-2. **HTTP 엔드포인트 테스트 0건** — TestClient 기반 테스트가 하나도 없다.
-   서비스 계층 회귀는 CI가 잡지만 **배선 회귀는 아무도 못 잡는다.**
+2. **HTTP 엔드포인트 테스트 1개뿐** — 2026-08-02에 `test_admin_outlook_endpoint.py`가
+   최초의 TestClient 테스트로 들어왔다(운영 엔드포인트 인증 가드). 나머지 라우터
+   (`auth`·`farms`·`chat`·`dashboard`)는 여전히 서비스 계층만 검증돼 **배선 회귀는
+   아무도 못 잡는다.**
 3. **의존성 버전 고정** — `requirements.txt`가 전부 `>=`라 상류 릴리스로 갑자기 깨질 수 있다.
 4. **마이그레이션 검증 Job** — `services:`로 Postgres 띄워 `upgrade`/`downgrade` 왕복.
 5. **ruff 린트** — `CLAUDE.md §4`가 권장하는데 로컬 venv에 설치조차 안 돼 있다.
-6. **3개월전망 자동 갱신 스케줄러 부재** — `scripts/load_weather_outlook.py`는 멱등하게
-   짜여 있는데 정작 스케줄러가 없다(cron·APScheduler·Actions 전부 부재). 매월 23일 전후
-   발표 때마다 사람이 수동 실행해야 하고, 안 돌리면 **에러 없이 조용히** 낡은 예보로 남는다.
+6. ✅ **3개월전망 자동 갱신 스케줄러** — 해소. Cloud Scheduler가 매일 06:00 KST에
+   `POST /api/v1/admin/weather-outlooks`를 부른다. 적재 로직을 스크립트 본문에서
+   `app/services/outlook_ingest_service.py`로 옮겨 CLI와 엔드포인트가 같은 함수를 쓴다
+   (scripts/는 배포 이미지에 안 들어가 런타임에서 부를 수 없었다). 인증은 공유 시크릿
+   헤더 + 미설정 시 503(fail closed). **GCP 쪽 세팅 2개는 사람이 한 번 해야 한다** —
+   `docs/outlook-scheduler.md`. 별도 Cloud Run Job이 아니라 기존 서비스에 붙인 근거와
+   공격면 판단도 그 문서에 있다.
 7. **Cloud Run `min-instances` 미설정** (2026-08-02 실측) — 프론트·백엔드 둘 다 0(완전
    콜드 스타트). 실배포 확인 중 유휴 후 첫 진입이 눈에 띄게 느렸고, 콜드 스타트 중 동시
    요청이 겹치면서 대시보드 RSC 프리페치가 503을 낸 사례도 실측했다(대시보드 카드 개수만큼
    생기는 프리페치가 몰림). 체감 완화(로딩 스피너)와 N+1 정리는 #76으로 처리했지만
    **지연 자체는 그대로다.** `min-instances=1`이 근본 해결인데 서비스당 상시 과금(대략
    월 $5~15, 확정 견적 아님)이 붙어 팀 결정 사항으로 남긴다.
+8. **레이트 리밋이 앱 전체에 0건** (2026-08-02, 위 스케줄러 작업 중 확인) — 특히
+   `/api/v1/auth/login`은 인증 없이 열려 있고 요청당 bcrypt 해시를 태운다. `/chat`은
+   게스트에게 LLM 호출을 열어 준다. 둘 다 소량의 요청으로 CPU·비용을 만들 수 있다.
+   Cloud Armor는 LB가 필요하고(지금 `run.app` 직결) 인메모리 리밋은 Cloud Run 다중
+   인스턴스에서 카운터가 갈리므로, 하려면 방식부터 정해야 한다 — 미결정.
 
 ---
 

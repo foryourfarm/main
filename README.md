@@ -302,7 +302,7 @@ backend/.venv/bin/python scripts/audit_seeds.py      # 나머지 시드가 비�
 
 | 스크립트 | 주기 | 비었을 때 증상 |
 |---|---|---|
-| `load_weather_outlook.py` | **매월**(23일 전후 발표) | 장기 탭에 "3개월전망이 적재되지 않아 보정 없이 평년치만 사용" |
+| `load_weather_outlook.py` | **매월**(23일 전후 발표) — 스케줄러가 자동으로 돈다, `docs/outlook-scheduler.md` | 장기 탭에 "3개월전망이 적재되지 않아 보정 없이 평년치만 사용" |
 | `load_region_grid.py` | 1회(256행 고정) | 단기 탭 전멸 + 평년치 KNN 거리계산 불가 |
 | `load_weather_climatology.py` | 소스 CSV 바뀔 때 | 장기 탭 12칸 "데이터 부족" |
 | `load_observation_points.py` | 1회(752행) | 관측지점 폴백 경로 없음 |
@@ -310,7 +310,9 @@ backend/.venv/bin/python scripts/audit_seeds.py      # 나머지 시드가 비�
 | `embed_corpus.py` | 코퍼스 바뀔 때 | 챗봇 근거 0건 → 전부 "확실치 않음" 폴백. **Ollama가 떠 있어야 한다** |
 
 `load_weather_outlook.py`만 주기적이다 — 매월 발표를 안 받으면 **에러 없이 조용히** 낡은
-예보로 남는다(자동 스케줄러 없음).
+예보로 남는다. 그래서 Cloud Scheduler가 매일 `POST /api/v1/admin/weather-outlooks`를
+불러 자동 갱신한다. **신규 프로젝트/신규 백엔드 서비스에는 그 스케줄러와
+`ADMIN_TASK_TOKEN`을 한 번 세팅해야 한다** — `docs/outlook-scheduler.md`.
 
 ### ⑤ 백엔드 빌드·배포 — **env 플래그를 붙이지 않는다**
 

@@ -102,5 +102,10 @@ class Settings(BaseSettings):
     # CORS 허용 오리진 — refresh 쿠키가 크로스오리진으로 오가려면 명시 허용 + credentials 필요.
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # 운영 작업 엔드포인트(app/api/admin.py) 공유 시크릿. Cloud Scheduler가 X-Admin-Token
+    # 헤더로 보낸다. **비워두면 그 엔드포인트가 503으로 꺼진다** — 기본값이 "누구나 통과"가
+    # 되면 env를 빠뜨린 배포가 곧 공개 적재 경로가 된다(fail closed, §17).
+    admin_task_token: str = ""
+
 
 settings = Settings()
