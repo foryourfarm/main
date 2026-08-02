@@ -67,19 +67,27 @@ class TestApplyCorrections(unittest.TestCase):
         }
 
     def test_applies_only_matching_month(self):
-        corrections = {(8, "temp_day"): Decimal("0.25")}
-        corrected, applied = apply_corrections(self.values, corrections, month=8)
+        corrections = {(2026, 8, "temp_day"): Decimal("0.25")}
+        corrected, applied = apply_corrections(self.values, corrections, 2026, 8)
         self.assertEqual(corrected["temp_day"], Decimal("25.65"))
         self.assertEqual(applied["temp_day"], (Decimal("25.4"), Decimal("0.25")))
 
         # 다른 달엔 적용되지 않는다
-        corrected9, applied9 = apply_corrections(self.values, corrections, month=9)
+        corrected9, applied9 = apply_corrections(self.values, corrections, 2026, 9)
         self.assertEqual(corrected9["temp_day"], Decimal("25.4"))
         self.assertEqual(applied9, {})
 
+    def test_does_not_apply_across_years(self):
+        """창이 해를 넘기면(11월 조회 → 11·12·1월) 2026-01 보정치가 2027-01 자리에 붙을 수
+        있었다. 키에 연도가 없으면 **예외 없이 조용히** 틀린 값이 들어간다."""
+        corrections = {(2026, 1, "temp_day"): Decimal("3.0")}
+        corrected, applied = apply_corrections(self.values, corrections, 2027, 1)
+        self.assertEqual(corrected["temp_day"], Decimal("25.4"))
+        self.assertEqual(applied, {})
+
     def test_uncovered_indicators_pass_through_untouched(self):
-        corrections = {(8, "temp_day"): Decimal("0.25")}
-        corrected, applied = apply_corrections(self.values, corrections, month=8)
+        corrections = {(2026, 8, "temp_day"): Decimal("0.25")}
+        corrected, applied = apply_corrections(self.values, corrections, 2026, 8)
         self.assertEqual(corrected["temp_night_min"], Decimal("18"))  # 보정 대상 아님
         self.assertEqual(corrected["ph"], Decimal("6.3"))
         self.assertNotIn("temp_night_min", applied)
@@ -87,18 +95,20 @@ class TestApplyCorrections(unittest.TestCase):
     def test_missing_baseline_is_not_invented(self):
         """평년치가 없는 지표에 보정치만으로 값을 만들어내지 않는다(§12 결측 방어)."""
         values: dict[str, float | Decimal | None] = {"temp_day": None}
-        corrected, applied = apply_corrections(values, {(8, "temp_day"): Decimal("0.25")}, 8)
+        corrected, applied = apply_corrections(
+            values, {(2026, 8, "temp_day"): Decimal("0.25")}, 2026, 8
+        )
         self.assertIsNone(corrected["temp_day"])
         self.assertEqual(applied, {})
 
     def test_no_corrections_returns_values_unchanged(self):
-        corrected, applied = apply_corrections(self.values, {}, month=8)
+        corrected, applied = apply_corrections(self.values, {}, 2026, 8)
         self.assertEqual(corrected, self.values)
         self.assertEqual(applied, {})
 
     def test_does_not_mutate_input(self):
-        corrections = {(8, "temp_day"): Decimal("0.25")}
-        apply_corrections(self.values, corrections, month=8)
+        corrections = {(2026, 8, "temp_day"): Decimal("0.25")}
+        apply_corrections(self.values, corrections, 2026, 8)
         self.assertEqual(self.values["temp_day"], Decimal("25.4"))
 
 

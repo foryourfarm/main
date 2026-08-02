@@ -293,9 +293,10 @@
 }
 
 /* 히트맵 */
+/* 창이 3개월이라 한 줄에 3칸(PRD §4.4). 6열 2행이던 시절의 12개월 전제를 여기서 끊는다. */
 .heatmap {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 .cell {

@@ -63,7 +63,7 @@ MONTHLY_STAGE_LIMITATION = (
     "한 달에 두 단계가 걸치면 짧은 쪽은 표기되지 않습니다."
 )
 MONTHLY_SOIL_LIMITATION = (
-    "토양 지표는 12개월에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
+    "토양 지표는 3개월 전체에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
 )
 OUTLOOK_APPLIED_LIMITATION = (
     "기온·강수는 과거 평균에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
@@ -483,19 +483,72 @@ def dominant_stage(
     return max(counts, key=counts.__getitem__) if counts else None
 
 
+# 장기 탭이 보여주는 달 수. 3개월전망(tercile)이 평년치를 넘어서는 유일한 신호라 그 지평에
+# 맞춘다 — 더 멀리 계산하면 평년치만으로 낸 값이 전망 반영 칸과 같은 등급으로 보인다(§18-4).
+# 명세: PRD.md §4.4.
+OUTLOOK_WINDOW_MONTHS = 3
+
+# 창이 전부 휴면기일 때 다음 생육기를 찾아 앞으로 훑는 최대 개월 수. 12면 연중 어느 시점에서
+# 조회해도 반드시 한 바퀴를 돌아 답을 준다.
+NEXT_SEASON_SEARCH_MONTHS = 12
+
+
+def outlook_window(today: date, size: int = OUTLOOK_WINDOW_MONTHS) -> list[tuple[int, int]]:
+    """오늘이 속한 달부터 size개월 `[(연도, 월), ...]`.
+
+    **달력이 창을 정하고 전망은 그 위에 얹는다**(PRD §4.4). 전망이 커버하는 달을 그대로
+    쓰면 매월 23일 발표 때 창이 한 칸 점프해 **지금 농사 중인 이번 달이 사라진다**
+    (8/22엔 8·9·10월, 8/24엔 9·10·11월). 그래서 오늘에 고정한다.
+
+    이번 달도 전망을 잃지 않는다 — `load_corrections`가 대상월마다 따로 최신 발표분을
+    고르므로 이번 달은 직전 발표분에서 온다.
+    """
+    out: list[tuple[int, int]] = []
+    for step in range(size):
+        total = today.month - 1 + step
+        out.append((today.year + total // 12, total % 12 + 1))
+    return out
+
+
+def next_season_month(
+    stage_rows: Sequence[CropGrowthStage],
+    planting_date: date,
+    after: tuple[int, int],
+    limit: int = NEXT_SEASON_SEARCH_MONTHS,
+) -> tuple[int, int] | None:
+    """`after` 다음 달부터 생육 단계가 잡히는 첫 달. 못 찾으면 None.
+
+    창이 전부 휴면기일 때 "다음 생육기는 언제인가"를 알려주기 위한 것이다. 창 자체를 늘려
+    생육기까지 당겨오지는 않는다 — 전망 없는 달을 채우게 되기 때문이다(PRD §4.4).
+    """
+    stages = list(stage_rows)
+    year, month = after
+    for _ in range(limit):
+        total = month  # 다음 달부터 본다(month는 1-based라 그대로 더하면 +1)
+        year, month = year + total // 12, total % 12 + 1
+        if dominant_stage(stages, planting_date, year, month) is not None:
+            return (year, month)
+    return None
+
+
 def build_monthly_rows(
     stage_rows: Sequence[CropGrowthStage],
     all_guides: Sequence[CropGrowthGuide],
     clim_by_month: Mapping[int, ClimatologyMonth],
     soil: SoilState | None,
     planting_date: date,
-    year: int,
-    corrections: Mapping[tuple[int, str], Decimal] | None = None,
+    window: Sequence[tuple[int, int]],
+    corrections: Mapping[tuple[int, int, str], Decimal] | None = None,
     clim_source: ClimatologySource | None = None,
+    published_by_month: Mapping[tuple[int, int], datetime] | None = None,
 ) -> list[dict[str, object]]:
-    """1~12월 각 월의 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
+    """창의 각 달 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
 
-    토양은 월과 무관하게 밭의 현재 추정값을 12개월에 동일 적용한다. 월별 토양 변화 예측은
+    `window`는 `[(연도, 월), ...]`다. **연도를 월과 함께 다루는 이유**: 창이 해를 넘기므로
+    (11월 조회 → 11·12·1월) 월만으로는 평년치·보정치를 짚을 수 없다. 평년치(`clim_by_month`)는
+    연도와 무관한 월별 값이라 월로 조회하지만, 보정치는 연도까지 키로 쓴다.
+
+    토양은 월과 무관하게 밭의 현재 추정값을 창 전체에 동일 적용한다. 월별 토양 변화 예측은
     P0 shadow 단계라 사용자 노출이 금지돼 있어 여기에 끌어오지 않는다(핸드오프 §12).
 
     clim_source를 받는 이유: 일조시간은 clim_source에서만 나온다. 이걸 빼면 히트맵(월별)과
@@ -504,12 +557,14 @@ def build_monthly_rows(
     rows: list[dict[str, object]] = []
     stages = list(stage_rows)
     corr = dict(corrections or {})
-    for month in range(1, 13):
+    published = dict(published_by_month or {})
+    for year, month in window:
         stage = dominant_stage(stages, planting_date, year, month)
         guides = _guides_for_stage(all_guides, stage)
         values, applied = apply_corrections(
             gather_indicator_values(soil, clim_by_month.get(month), clim_source, month),
             corr,
+            year,
             month,
         )
         result = calculate_suitability(guides, values, applied)
@@ -518,6 +573,7 @@ def build_monthly_rows(
         is_dormant = status == "dormant"
         rows.append(
             {
+                "year": year,
                 "month": month,
                 "growth_stage": stage,
                 "status": status,
@@ -525,7 +581,10 @@ def build_monthly_rows(
                 "grade": None if is_dormant else result["grade"],
                 "risk_flags": result["risk_flags"],
                 "outlook_applied": bool(applied),
-                # 내부용 — 12개월 커버리지 집계(`coverage_limitation`)에만 쓴다.
+                # 칸마다 다른 발표분에서 올 수 있다 — 최상위에 하나로 두면 반드시 한쪽이
+                # 틀린다(최상위 year를 뺀 것과 같은 이유). 보정이 없으면 None.
+                "outlook_published_at": published.get((year, month)) if applied else None,
+                # 내부용 — 창 커버리지 집계(`coverage_limitation`)에만 쓴다.
                 # 응답 스키마(`MonthlyOutlookEntry`)에 없으므로 직렬화에서 빠진다.
                 "breakdown": result["breakdown"],
             }
@@ -534,11 +593,14 @@ def build_monthly_rows(
 
 
 def compute_monthly_outlook(
-    db: Session, user_id: int, farm_id: int, year: int
+    db: Session, user_id: int, farm_id: int, today: date
 ) -> dict[str, object]:
-    """밭의 1~12월 '문헌 기반 예상 적합도' 전망(장기 탭 히트맵, `PRD.md` §4.4).
+    """밭의 **다가오는 3개월** '문헌 기반 예상 적합도'(장기 탭 히트맵, `PRD.md` §4.4).
 
-    단계·지침·평년치를 각각 1회만 읽고 12개월을 메모리에서 돌린다 — 월별 재조회 방지(§17).
+    창은 오늘이 속한 달부터 3개월이고 해를 넘길 수 있다 — 그래서 연도가 아니라 `today`를
+    받는다(테스트에서 연말 시나리오를 주입할 수 있게 하는 목적도 겸한다).
+
+    단계·지침·평년치를 각각 1회만 읽고 창을 메모리에서 돌린다 — 월별 재조회 방지(§17).
     소유권은 compute_farm_suitability와 동일하게 user_id 스코프 404(§11).
     """
     farm = (
@@ -561,17 +623,19 @@ def compute_monthly_outlook(
     clim_source = load_climatology(db, farm.region_id, farm.bjd_code)
     clim_by_month = clim_source.by_month
 
-    # 12개월 보정치를 1회 조회(월별 재조회 금지). read-time 적용이라 캐시하지 않는다.
-    corrections = load_corrections(db, farm.region_id, list(range(1, 13)), year)
+    window = outlook_window(today)
+    # 창 전체 보정치를 1회 조회(월별 재조회 금지). read-time 적용이라 캐시하지 않는다.
+    corrections, published_by_month = load_corrections(db, farm.region_id, window)
     months = build_monthly_rows(
         stage_rows,
         all_guides,
         clim_by_month,
         soil,
         farm.planting_date,
-        year,
+        window,
         corrections,
         clim_source,
+        published_by_month,
     )
 
     limitations = [
@@ -599,12 +663,19 @@ def compute_monthly_outlook(
         limitations.append(APPLE_STAGE_LIMITATION)
     if any(m["growth_stage"] in ("spring", "fall") for m in months):
         limitations.append(LETTUCE_SEASON_LIMITATION)
+    # 창이 전부 비었으면 화면이 통째로 "제철 아님"이라 유저가 다음에 언제 보러 와야 할지
+    # 알 수 없다. 창을 늘려 채우지 않고 문구로만 알린다(PRD §4.4).
+    if all(m["growth_stage"] is None for m in months):
+        following = next_season_month(stage_rows, farm.planting_date, window[-1])
+        if following is not None:
+            limitations.insert(
+                0, f"이 작물은 {following[0]}년 {following[1]}월부터 생육기가 시작됩니다."
+            )
 
     return {
         "farm_id": farm.id,
         "crop_id": farm.crop_id,
         "region_id": farm.region_id,
-        "year": year,
         "label": SUITABILITY_LABEL,
         "months": months,
         "limitations": limitations,

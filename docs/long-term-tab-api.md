@@ -18,7 +18,10 @@
 
 ## 2. `GET /api/v1/farms/{farm_id}/monthly-outlook`
 
-장기 탭 히트맵. 올해 1~12월 적합도를 한 번에 준다. (연도 선택은 요구 생기면 쿼리파라미터로 추가)
+장기 탭 히트맵. **오늘이 속한 달부터 3개월** 적합도를 준다(PRD §4.4).
+
+> ⚠️ **2026-08-02 계약 변경** — 종전 1~12월 12칸에서 3칸으로 좁혔고, 최상위 `year`가 **사라졌다.**
+> 자세한 배경과 마이그레이션은 §2.3.
 
 ```json
 {
@@ -27,17 +30,21 @@
     "farm_id": 1,
     "crop_id": 1,
     "region_id": 255,
-    "year": 2026,
     "label": "문헌 기반 예상 적합도",
     "months": [
       {
-        "month": 8,
+        "year": 2026,
+        "month": 11,
         "growth_stage": "fruit_growth",
         "status": "ok",
         "score": 58.3,
         "grade": "C",
-        "risk_flags": ["temp_day:outside_allowed", "temp_night_min:missing"]
-      }
+        "risk_flags": ["temp_day:outside_allowed", "temp_night_min:missing"],
+        "outlook_applied": true,
+        "outlook_published_at": "2026-10-23T15:00:00Z"
+      },
+      { "year": 2026, "month": 12, "...": "..." },
+      { "year": 2027, "month": 1, "...": "..." }
     ],
     "limitations": ["일 기온(temp_day)은 ...", "..."]
   },
@@ -45,7 +52,7 @@
 }
 ```
 
-`months`는 **항상 12개**, `month` 1~12 오름차순이다.
+`months`는 **항상 3개**, 오늘이 속한 달부터 오름차순이다. **연도를 넘어갈 수 있다** — 11월에 조회하면 `11월, 12월, 내년 1월`이다.
 
 | 필드 | 값 | FE 처리 |
 |---|---|---|
@@ -56,6 +63,9 @@
 | `grade` | `S`/`A`/`B`/`C` 또는 `null` | S≥90, A≥75, B≥60, C<60 |
 | `growth_stage` | 코드 또는 `null` | 한글 라벨은 아래 §2.1 |
 | `risk_flags` | `"<지표>:<사유>"` 배열 | 사유: `missing`/`invalid`/`invalid_guide`/`outside_allowed` |
+| `year` | 연도 | **신규.** 창이 해를 넘길 때 칸 순서를 드러내는 데 쓴다 |
+| `outlook_applied` | `true`/`false` | 3개월전망 보정 반영 여부. `false`면 평년치만 쓴 칸 |
+| `outlook_published_at` | ISO 일시 또는 `null` | **신규.** 그 칸에 쓰인 전망의 발표일. `outlook_applied=false`면 `null` |
 
 **색만으로 등급을 구분하지 말고 라벨을 병기**한다(§8 접근성).
 
@@ -79,6 +89,45 @@
 월 경계에 걸친 짧은 단계가 12칸 어디에도 안 나타난다(사과 성숙 DOY 294~314 → 10/15·11/15 양쪽
 빗나감 → 수확 단계 소실). **한 달에 두 단계가 걸치면 짧은 쪽은 표기되지 않는다** — 이 한계는
 `limitations`에 실려 온다.
+
+### 2.3 3개월 창 전환 (2026-08-02) — FE 마이그레이션
+
+**왜 좁혔나.** 평년치를 넘어서는 신호는 3개월전망뿐이다. 12개월을 계산하면 9칸이 평년치만으로
+낸 값인데 화면에서 전망 반영 3칸과 **같은 점수·같은 등급으로** 보였다(§18-4 위반).
+
+**왜 달력 고정인가.** 3개월전망은 매월 23일경 발표되며 **발표월 다음 1~3개월**을 준다.
+전망 창을 그대로 쓰면 매월 23일에 창이 한 칸 점프해 **지금 농사 중인 이번 달이 사라진다**
+(8/22엔 8·9·10월, 8/24엔 9·10·11월). 그래서 창은 오늘에 고정하고 전망을 그 위에 얹는다.
+이번 달도 전망을 잃지 않는다 — 보정 조회가 대상월마다 따로 최신 발표분을 고르기 때문이다.
+
+**깨지는 것 (FE 필수 수정)**
+
+| 항목 | 종전 | 변경 |
+|---|---|---|
+| 최상위 `year` | 있음 | **제거** — 창이 걸치면 반드시 한쪽이 틀린다 |
+| `months` 길이 | 12 | **3** |
+| 리스트 key | `m.month` | `` `${m.year}-${m.month}` `` 권장 |
+
+창 범위는 **`months[0]`·`months.at(-1)`에서 나온다.** 백엔드가 `window_from`/`window_to`를
+따로 주지 않는 건 중복 필드가 실제 값과 어긋날 여지만 만들기 때문이다.
+
+```ts
+const first = data.months[0];
+const last = data.months[data.months.length - 1];
+const range = first.year === last.year
+  ? `${first.year}년 ${first.month}~${last.month}월`
+  : `${first.year}년 ${first.month}월 ~ ${last.year}년 ${last.month}월`;
+```
+
+**칸 라벨 주의** — 걸친 창에서 "11월 · 12월 · 1월"로만 쓰면 1월이 앞선 달로 읽힌다.
+연도가 바뀌는 칸에만 연도를 붙이는 방식을 쓰고 있다(`LongTermPanel.cellLabel`).
+
+**전망이 없을 때** — 창은 오늘 기준이라 과거를 보여줄 수 없고, 결측은 칸별
+`outlook_applied: false`로 드러난다. 전부 false면 기존 "3개월전망이 적재되지 않아…" 문구가
+`limitations`에 실린다. 별도의 낡음 판정 임계값은 두지 않는다.
+
+**창이 전부 휴면기일 때** — 칸을 늘리지 않고 3칸을 그대로 보여주며,
+`limitations` 맨 앞에 `"이 작물은 2027년 5월부터 생육기가 시작됩니다."`가 실린다(최대 12개월 앞까지 탐색).
 
 ## 3. `GET /api/v1/farms/{farm_id}/suitability`
 
