@@ -16,6 +16,7 @@ LLM이 죽어도 화면 내용이 빈약해지지 않는다. 프로덕션 LLM은
 생성 시점은 DB.md §3.14의 온디맨드 경로만 쓴다 — 사전생성 스케줄러는 아직 없다.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import Any
@@ -27,6 +28,8 @@ from app.infra.llm_client import LlmClient
 from app.models import DailyRecommendation, District, UserFarm
 from app.prompts.daily_advice import build_prompt
 from app.services.suitability_service import INDICATOR_NAMES, WEATHER_INDICATORS
+
+_log = logging.getLogger(__name__)
 
 # 지표 단위. 표기용이라 농업 기준값이 아니다(기준값은 crop_growth_guide, §18-2).
 UNITS: dict[str, str] = {
@@ -225,7 +228,12 @@ def polish(base_text: str, crop_name: str, llm: LlmClient) -> str | None:
     try:
         out = llm.generate(build_prompt(crop_name, base_text)).strip()
     except Exception:
+        # 폴백은 유지하되 원인은 남긴다 — 종전엔 조용히 삼켜서 "왜 규칙 문구만 나오는지"를
+        # 로그로 알 수 없었다(2026-08-03). LLM 장애·타임아웃·모델 미로드가 여기 다 모인다.
+        _log.warning("행동추천 다듬기 실패 — 규칙 문구로 폴백한다", exc_info=True)
         return None
+    if not out:
+        _log.warning("행동추천 LLM이 빈 응답을 줬다 — 규칙 문구로 폴백한다")
     return out or None
 
 
@@ -339,6 +347,8 @@ def polish_in_background(
             row.is_llm = True
             db.commit()
     except Exception:
+        # 백그라운드 경로라 유저에게 드러날 길이 없다 — 로그가 유일한 단서다.
+        _log.warning("행동추천 백그라운드 저장 실패", exc_info=True)
         db.rollback()
     finally:
         db.close()
