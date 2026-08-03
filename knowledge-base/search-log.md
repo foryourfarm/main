@@ -2,6 +2,19 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 10 (2026-08-04) — 배 temp_night_min 최초 partial 전환 + 신규지표 winter_bud_freezing_hardiness 발견 + EC/organic/p2o5 배전용 실측 보강
+
+> 사용자가 직접 다운로드한 PDF 3편(Yim 2014, Lee 2016, Cho 2023)을 제공, 전부 원문 확보·md화 완료. 상세 판정 근거는 `registry.md` §6-6.
+
+### 채택(approve/filled·partial)
+- **Yim, Choi, Choi, Kim, Kwon, Han & Lee(2014)**, Korean J. Agric. Forest Meteorol. 16(1):51-58, DOI 10.5532/KJAFM.2014.16.1.51 — **⚠️타겟 불일치**: 원래 frost_damage_budburst/fullbloom(봄철 냉해) 후보였으나 겨울 휴지아 내동성(-21~-33℃대)으로 확인돼 신규지표 `winter_bud_freezing_hardiness`로 분리(filled). 원 타겟은 여전히 미해결
+- **Lee, Lee, Kim, Choi, Suh & Na(2016)**, Korean J. Environ. Agric. 35(3):159-165, DOI 10.5338/KJEA.2016.35.3.26 — ec/organic/p2o5 배 전용 실측 2번째 확보(완주 신고배, EC 1.01/유기물 32/유효인산 2050mg). 전북 실측(Ahn 2011)과 유효인산 2.4배 편차 확인
+- **Cho, Jeong-Hwa(2023)**, 전남대학교 박사학위논문 — temp_night_min 최초 partial 전환(나주 3개년 실측, 야간기온 17.1~17.6℃, 관찰적 상관관계)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **배 frost_damage_budburst/fullbloom(봄철 냉해)**: 4회 연속 이월 — 임순희(2012)·Lee et al.(2023, Scientia Hortic.) 원문 확보가 최우선
+- **배 ec/organic/p2o5 national-scale**: 배 전용 실측 2건 간 편차(유효인산 859 vs 2050) 원인 미규명
+
 ## Iteration 9 (2026-08-04) — 배 ec/organic/p2o5 최초 partial 전환 (신규 다운로드 없이 기존 자료 재조명) + 냉해 후보 4편 발굴
 
 > 배 13항목 체크리스트 중 완전 미착수 상태였던 ec·organic·p2o5를 scout 3개 에이전트로 병렬 탐색. **핵심 발견**: 셋 다 이미 확보돼 있던 사과배치 논문(Ahn et al. 2011, 전북 110개소 과종별 비교표)에 배 데이터가 부수적으로 포함돼 있었음 — 신규 PDF 없이 registry.md만 갱신해 반영(md 파일 신규 생성 없음). 별도로 냉해(frost_damage) scout 1개 추가 실행. 상세 판정 근거는 `registry.md` §6-5.

@@ -1,6 +1,6 @@
 # 도메인 지식 명세서 (Registry)
-마지막 갱신: 2026-08-04 (Delta: Iteration 9 — 배 ec/organic/p2o5 3개 **missing→partial 최초 전환**, 신규 다운로드 없이 기존 사과배치 논문(Ahn 2011 전북 110개소)의 배 부수데이터 재발견으로 반영. 배 냉해(개엽기/만개기) 후보 4편 신규 확보, 원문 확보 대기중)
-누적 처리 논문 수: 61 (Iteration 9: 신규 md 파일 추가 없음 — 기존 파일 재조명, 배 6/13→9/13 상세 §6-5)
+마지막 갱신: 2026-08-04 (Delta: Iteration 10 — 배 temp_night_min **최초 partial 전환**(Cho 2023), 신규 지표 winter_bud_freezing_hardiness 발견(Yim 2014, ⚠️봄철 frost_damage와 온도대가 달라 혼동 주의), ec/organic/p2o5 배 전용 실측 2번째 확보(Lee 2016, 완주). frost_damage_budburst/fullbloom(봄철)은 여전히 미착수)
+누적 처리 논문 수: 64 (Iteration 10: +3편 — 배 9/13→10/13, 상세 §6-6)
 
 > **Iteration 4 반영 경위**: 이 13편은 이번 갱신 이전에 이미 `knowledge-base/papers/{cucumber,lettuce,potato}/`에 파일로 커밋돼 있었으나(각 파일 말미에 `Registry Delta` 블록 존재), registry-keeper가 실행되지 않아 이 문서에는 한 번도 집계되지 않은 상태였다. 이번에 각 파일의 Registry Delta를 읽어 소급 반영했다.
 
@@ -31,12 +31,16 @@
 | 배 | temp_day(생육기온) | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | 연평균기온 | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | ph | 전기간 | 5.8~7.0 | - | - | filled | Yara Korea + 충청북도 농업기술원 (Iteration 2-1) |
-| 배 | ec | 전기간 | 0.6 dS/m(전북 실측, N=110 중 배) / ≤2.0(RDA 과수원 통합 상한) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 전북 110개소 과종별 비교 — 배 실측 0.6dS/m, 1:5법)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(RDA-NAAS, 과수원 통합 상한 2.0). **한계**: 두 논문 모두 "사과" 폴더 파일에 부수적으로 포함된 배 데이터이며, 배 전용 연구가 아님. 지역단위(전북)·소표본이라 national-scale 아님. **신규 후보(원문 미확보)**: Lee & Lee(2011, 경남 25개소, 인용10) — EC 수치 미확인, 원문 필요. Lee et al.(2016, Acta Hortic. 1146:41-48, 배 단독) — 원문 접근 차단(Anubis 봇방어), 재시도 필요 |
-| 배 | organic | 전기간 | 35 g/kg(전북 실측) / 25~35(RDA 과수원 통합 기준) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 배 실측 35g/kg — 5과종 중 최고)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 25~35, 배 실측치와 정확히 겹침 — 상호검증됨). **한계**: 상동(배 전용 연구 아님, 지역단위). 윤성탁 외(2010, 배 전용, papers/pear/yoon-organic-amendment-soil-2010.md 이미 KB 존재)는 KCI paywall로 정량수치 미확보 — 원문 재확보 시 최우선 |
-| 배 | p2o5 | 전기간 | 859 mg/kg(전북 실측, Lancaster법) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 배 실측 859mg/kg — RDA 적정 200~300의 2.9~4.3배 과잉) + papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 300~550mg/kg, 동일 Lancaster법 계열). ⚠️Lancaster법이라 사과의 Bray-1 기준과 동일한 단위체계 혼재 문제 재현. **신규 후보(원문 미확보)**: Park, Lim & Lee(2012, 배 전용, Korean J. Soil Sci. Fert. 45(2)) — 측정법 미확인, 원문 확보 최우선 |
+| 배 | ec | 전기간 | 0.6~1.01 dS/m(전북·완주 실측 2건) / ≤2.0(RDA 과수원 통합 상한) | - | - | **partial** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(전북 110개소 중 배 부수데이터, 0.6dS/m)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 상한 2.0). **2026-08-04 배 전용 실측 확보**: papers/pear/pear-carbonized-biomass-soil-carbon-lee-2016.md(완주 33년생 신고배 단일과원, EC 1.01dS/m) — 배 전용 2번째 데이터점. **한계**: 두 실측(0.6/1.01)이 서로 다른 지역·과원 단일관측치라 national-scale 아님, 편차 원인(과원별 시비관행 차이 vs 지역차) 미규명 |
+| 배 | organic | 전기간 | 32~35 g/kg(전북·완주 실측) / 25~35(RDA 과수원 통합 기준) | - | - | **partial** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(전북, 35g/kg)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 25~35, 상호검증됨). **2026-08-04 배 전용 실측 확보**: papers/pear/pear-carbonized-biomass-soil-carbon-lee-2016.md(완주 신고배, 32g/kg — 전북 실측·RDA기준과 모두 정합). 윤성탁 외(2010, 배 전용, papers/pear/yoon-organic-amendment-soil-2010.md 이미 KB 존재)는 KCI paywall로 정량수치 미확보 — 원문 재확보 시 최우선 |
+| 배 | p2o5 | 전기간 | 859~2050 mg/kg(전북·완주 실측, Lancaster법) | - | - | **partial** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(전북, 859mg/kg, RDA 적정 200~300의 2.9~4.3배 과잉) + papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 300~550mg/kg). **2026-08-04 배 전용 실측 확보**: papers/pear/pear-carbonized-biomass-soil-carbon-lee-2016.md(완주 신고배, **2050mg/kg — 전북 실측의 2.4배, 이례적 고값**) — 배 전용 실측 2건이 2배 이상 편차, national-scale 검증 필요성이 오히려 강화됨. ⚠️Lancaster법이라 사과의 Bray-1 기준과 단위체계 상이. **신규 후보(원문 미확보)**: Park, Lim & Lee(2012, 배 전용) |
 | 배 | gdd(적산온도) | 전기간 | 85°C 확정 | - | - | filled | Iteration 2-2 (베이스온도 10°C) |
 | 배 | temp_max(일소_FST) | 전기간 | 회피 47.1°C↑ | - | - | **filled** | Iteration 3-b (McClymont 2016) ⚠️ FST ≠ 대기온 |
-| 배 | rainfall_optimal | 전기간 | 270mm/시즌 | - | - | **partial** | Iteration 3-c (Ye et al. 2019) ⚠️ 중국 황토고원, 한국 재검증 필요 |
+| 배 | rainfall_optimal | 전기간 | 270mm/시즌 | - | - | **partial** | Iteration 3-c (Ye et al. 2019) ⚠️ 중국 황토고원, 한국 재검증 필요. **2026-08-04 재검색**: mm 적정범위 국내논문 미발견(no_result) — 밭작물(배 포함) 가뭄피해 DB 자체가 국내에 미구축(채광석 외 2016, 한국농촌경제연구원 진단)이라는 구조적 원인 확인. KISTI TRKO201200000075(농촌진흥청, 배 안정생산 기술개발) 원문 확보가 유일한 다음 단서 |
+| 배 | temp_night_min | 전기간 | - | - | - | **partial(2026-08-04 최초 전환)** | papers/pear/pear-climate-fruit-sugar-enzyme-cho-2023.md(전남대 박사, 나주 3개년 2018~2020) — 야간기온 17.1~17.6℃(4~10월 평균), 온난한 해일수록 야간온도 높고 성숙·당전환 빨라짐(상관관계). ⚠️통제실험 아님(여러 기상요인 혼재), 착색(안토시아닌) 아닌 "당 축적·성숙시점"과의 관찰적 상관 — 사과 Ryu(2017)식 임계값 아님 |
+| 배 | frost_damage_budburst | 개엽기 | - | - | - | **missing(2026-08-04 재확인)** | 봄철 개엽기 서리피해 임계온도 — 여전히 미착수. 임순희 외(2012)·Lee et al.(2023, Scientia Hortic.) 원문 확보가 최우선(후보는 확보, 원문 미확보) |
+| 배 | frost_damage_fullbloom | 만개기 | - | - | - | **missing(2026-08-04 재확인)** | 봄철 만개기 서리피해 임계온도 — 상동. ⚠️Yim et al.(2014)는 겨울 휴지아 내동성(-21~-33℃대)이라 이 지표와 온도대가 10배 이상 달라 절대 대입 금지(아래 winter_bud_freezing_hardiness로 별도 등록) |
+| 배 | winter_bud_freezing_hardiness(동계 휴지아 내동성, **신규 지표 후보**) | 휴면기(2월) | LT90(90%고사) 6시간노출 -27~-30℃/9시간 -21~-30℃/12시간 -21~-27℃(품종별 차이) | - | - | **filled(2026-08-04 신규)** | papers/pear/pear-winter-bud-freezing-hardiness-yim-2014.md(RDA 배시험장, 10품종 실측, 3중 검증법) — frost_damage_budburst/fullbloom(봄철)과 별개 개념. 내동성 강한 품종: 만풍배·신고·추황배. DB 스키마에 없는 개념, 팀 결정 필요 |
 | 오이 | temp_max(고온피해) | 전기간 | 회피 30°C↑ | - | - | filled | Iteration 2-2 (기온 영향) |
 | 오이 | rainfall_optimal_greenhouse | 전기간 | 봄 225-240mm, 가을 105-120mm | - | - | **partial** | Iteration 3-c (Wang et al. 2025) ⚠️ 온실 환경만, 노지 기준 미정 |
 | 오이 | temp_day(대기온) | 전기간 | - | - | - | **missing(구조확인)** | Iteration 4 — 기존 시드 20~22℃가 실은 "근권 지온" 값이 잘못 들어간 것이라는 의심이 Wang et al.(2018)+이주영 외(2011) 두 독립 문헌으로 확정됨. 대기 낮기온 자체의 적정범위는 여전히 미확보 |
@@ -119,6 +123,9 @@
 | Expression of Genes Affecting Skin Coloration and Sugar Accumulation in 'Hongro' Apple Fruits at Ripening Stages in High Temperatures (Kim 외, 2016) | 사과 | papers/apple/apple-coloring-sugar-gene-expression-hongro-kim-2016.md | 국내 홍로, 항온챔버 25/30/35℃ — 착색·당 유전자 발현이 30~35℃서 크게 억제. **temp_day(coloring) missing→partial 최초 전환** |
 | Relative Contribution Rate on Soil Physico-chemical Properties Related to Fruit Quality of 'Hongro' Apple (Kim 외, 2012) | 사과 | papers/apple/apple-soil-contribution-hongro-kim-2012.md | 국내 홍로 60농가 — 유기물 기여율 0.1~5.6%로 낮음(organic 중요도 재평가), 유효인산-착색 55.9% 신규연결 발견 |
 | Relationships between Soil Physico-chemical Properties and Topography in Jeonbuk Orchard Fields (Ahn 외, 2011) | **사과+배** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md | 전북 110개소, 과종별(사과·배·복숭아·포도·감) 비교표(Table 5) 보유. 사과 EC 0.5(재검토 신호)/유효인산 631. **2026-08-04 배에도 반영**: 배 EC 0.6, 유기물 35(RDA기준과 겹침), 유효인산 859(적정 2.9~4.3배 과잉) — 배 ec/organic/p2o5 최초 partial 전환의 근거 |
+| Freezing Hardiness of Several Pear Cultivars According to Degree and Duration of Low Temperatures (Yim 외, 2014) | 배 | papers/pear/pear-winter-bud-freezing-hardiness-yim-2014.md | 나주 RDA 배시험장, 10품종 겨울 휴지아 인공저온처리(-21~-33℃). LT90 품종별 상이. ⚠️봄철 frost_damage(개엽기/만개기)와 온도대가 완전히 달라 별개 신규지표(winter_bud_freezing_hardiness)로 등록, 원래 gap은 미해결 |
+| Effect of Carbonized Biomass Derived from Pruning on Soil Carbon Pools in Pear Orchard (Lee 외, 2016) | 배 | papers/pear/pear-carbonized-biomass-soil-carbon-lee-2016.md | 완주 33년생 신고배, 전정가지 탄화물(biochar) 시용 실험. 처리전 배경값(EC 1.01/유기물 32/유효인산 2050mg·Lancaster법)이 ec/organic/p2o5 배 전용 2번째 실측점 — 유효인산이 Ahn(2011) 전북치의 2.4배로 편차 확인 |
+| Effects of Growing Climatic Environment on Growth, Soluble Sugar, and Enzyme Activity Changes in Asian Pear Fruits (Cho, 2023) | 배 | papers/pear/pear-climate-fruit-sugar-enzyme-cho-2023.md | 전남대 박사논문, 나주 3개년(2018-2020) 신고·원황·황금배. 주간/야간온도 분리 추적 최초 — 야간기온 17.1~17.6℃, 온난한 해일수록 성숙·당전환 가속(상관관계). temp_night_min 최초 partial 전환 |
 
 ## 4. 커버리지 통계 (Iteration 8 최종, 2026-08-03)
 
@@ -133,10 +140,10 @@
 - 변동 없음: filled 6/6 (100%) — Iteration 5~7에서 soil_change_rule 관련 신규 논문 없음
 
 ### 작물별 커버리지 (filled + partial)
-| 작물 | Iteration 8 | Iteration 9 | 상태 |
+| 작물 | Iteration 9 | Iteration 10 | 상태 |
 |---|---|---|---|
 | 사과 | 15/15 (100%) | 15/15 (100%) | 변동 없음(이번 라운드는 배만 다룸) |
-| 배 | 6/13 (46%) | **9/13 (69%)** | ec·organic·p2o5 3개가 missing→**partial로 최초 전환**(2026-08-04) — 이미 확보돼 있던 apple-topography-soil-jeonbuk-ahn-2011.md(전북 110개소, 과종별 비교표)에 배 데이터가 부수적으로 포함돼 있었음을 재발견, 신규 다운로드 없이 즉시 반영. Kang(2014) 과수원 통합기준(organic 25~35, 배 실측 35와 정확히 겹침)과 상호검증됨. **한계**: 배 전용 연구가 아니라 지역단위(전북) 소표본 부수데이터 — national-scale·배 전용 검증은 여전히 미해결 |
+| 배 | 9/13 (69%) | **10/13 (77%)** | temp_night_min이 missing→**partial 최초 전환**(Cho 2023, 나주 3개년 실측). ec·organic·p2o5는 배 전용 실측 2번째 확보(Lee 2016)로 근거 보강되나 두 실측치 편차(EC 0.6→1.01, 유효인산 859→2050)가 새로 발견돼 여전히 partial. **frost_damage_budburst/fullbloom(봄철 냉해)은 이번에도 미해결** — 확보한 Yim(2014)은 겨울 휴지아 내동성으로 별개 개념임이 확인돼 신규지표(winter_bud_freezing_hardiness)로 분리 등록 |
 | 감자 | 5/13 (38%) | 5/13 (38%) | 변동 없음 |
 | 오이 | 3/13 (23%) | 3/13 (23%) | 변동 없음 |
 | 상추 | 4/13 (31%) | 4/13 (31%) | 변동 없음 |
@@ -148,6 +155,12 @@
 ---
 
 ## 5. 알려진 구조적 이슈 (팀 결정 필요)
+
+### Iteration 10 신규 이슈
+
+- **배 "동계 내동성" vs "봄철 냉해" 혼동 위험 ⭐⭐⭐**: Yim et al.(2014)의 겨울 휴지아 내동성 실험(-21~-33℃대, LT90)을 registry의 `frost_damage_budburst`/`frost_damage_fullbloom`(봄철 개엽기·만개기 서리피해, 사과 기준 -2.2~-9.4℃대)에 잘못 채우면 **실제보다 10배 이상 낮은(안전한) 온도로 오인**하는 심각한 오류가 발생한다. 두 지표는 물리적으로 완전히 다른 현상(겨울 휴면조직의 과냉각 저항 vs 봄철 활동조직의 동해)이다 — 이번에 `winter_bud_freezing_hardiness`로 명확히 분리 등록했으나, 향후 유사 사례(임순희 2012·Lee 2023 원문 확보 시)에서도 "생육단계(휴면기 vs 개엽/만개기)"를 반드시 먼저 확인하는 절차를 검색 워크플로우에 명시할 필요가 있음.
+- **배 유효인산 실측치의 과원간 편차(859 vs 2,050 mg/kg, 2.4배)**: 사과 EC에서 발견된 "지역별 편차로 기존 optimal 재검토 필요" 패턴이 배 유효인산에서도 재현됨. 두 실측 모두 Lancaster법으로 동일해 측정법 문제는 아니며, 과원별 시비관행 차이 또는 지역 토성 차이로 추정되나 원인 미규명 — national-scale 조사가 없으면 "배의 유효인산 실태"를 하나의 숫자로 대표하기 어렵다는 것을 재확인.
+- **배 temp_night_min의 근거 성격이 사과와 다름**: 사과 Ryu(2017)는 통제환경 실험으로 명확한 임계값(LNT/HNT)을 제시했으나, 배 Cho(2023)는 3개년 관측 비교로 "온난한 해=야간온도 높음=성숙 빠름"이라는 상관관계만 제시한다. 두 나라 다른 신뢰도 수준의 partial을 같은 라벨로 표기하면 혼동을 줄 수 있어, DB 반영 시 "관찰적 근거(observational)"와 "통제실험 근거(experimental)"를 구분 표기하는 방안을 검토할 필요가 있음.
 
 ### Iteration 8 신규 이슈
 
@@ -345,3 +358,21 @@ Iteration 8까지 사과에 집중하던 것을 배로 전환. 배 13항목 체�
 5. **Chaves(2017) 방법론의 후지·홍로 적용**: Von Bertalanffy 커브핏을 한국 주력품종에 적용한 국내 연구 탐색(신규 Gap)
 6. **EC national-scale(TRKO202100009605)**: 여전히 PDF 원문 미확보, ScienceON 로그인/기관IP 경유 또는 RDA 직접 문의(4회 연속 이월)
 7. **organic 지표의 registry 내 비중 재검토**: 2개 독립 신호(Merwin 회귀왜곡, Kim 2012 기여율 낮음)가 쌓인 만큼, 팀 차원에서 organic 지표의 가중치·활용방식을 재논의할 시점(검색 아님, 팀 결정 사안)
+
+## 6-6. Iteration 10 완료 요약 (2026-08-04, 배 3편 — temp_night_min 최초 partial + 신규지표 winter_bud_freezing_hardiness + EC/organic/p2o5 배전용 실측 보강)
+
+Iteration 9 준비(§6-5 하단) 항목 중 배 냉해(개엽기·만개기)·temp_night_min·EC/organic/p2o5 배전용 검증을 scout 4개 에이전트로 병렬 재검색하던 중, 사용자가 직접 다운로드한 PDF 3편을 제공해 전부 원문을 확보해 md화했다. 3편 모두 born-digital, `pdftotext -layout`으로 정상 추출됨.
+
+| 논문 | 대상 gap | 결과 |
+|---|---|---|
+| **Yim et al.(2014)** | frost_damage_budburst/fullbloom(원 타겟) | **⚠️타겟 불일치로 기각, 대신 신규지표 filled** — 겨울 휴지아 내동성(-21~-33℃대)으로 확인돼 봄철 냉해와 온도대가 완전히 다름. `winter_bud_freezing_hardiness` 신규 지표로 분리 등록. **원래 타겟(봄철 개엽기/만개기 냉해)은 여전히 미해결** |
+| **Lee et al.(2016)** | ec, organic, p2o5 | **배 전용 실측 2번째 확보** — 완주 신고배(EC 1.01/유기물 32/유효인산 2050mg·Lancaster법). 유효인산이 전북 실측(859)의 2.4배로 편차 확인, national-scale 필요성 재확인. 여전히 partial |
+| **Cho(2023)** | temp_night_min | **최초 partial 전환** — 나주 3개년(2018~2020) 실측, 야간기온 17.1~17.6℃, 온난한 해일수록 성숙·당전환 가속(관찰적 상관관계, 통제실험 아님) |
+
+**총평**: 3편 중 가장 중요한 발견은 역설적으로 "**타겟을 채우지 못했다**"는 것이다 — Yim(2014)은 처음엔 frost_damage 후보로 보였으나 자세히 읽어보니 완전히 다른 생리적 현상(휴면기 내동성)을 다뤄, 원래 gap(봄철 냉해)은 이번에도 미해결로 남았다. 이는 CLAUDE.md §3-4 "추측 금지"·§18-4 "정확성 우선" 원칙이 실제로 작동한 사례로, 논문 제목과 키워드가 일치한다고 해서 곧바로 지표에 대입하면 안 된다는 것을 재확인했다. Cho(2023)로 temp_night_min은 첫 진전을 이뤘으나 사과 Ryu(2017)만큼 강한 근거는 아니다(통제실험 vs 관찰비교). 배 커버리지는 9/13(69%)→10/13(77%)로 상승했으나, **봄철 냉해라는 가장 실용적인 지표는 여전히 손을 대지 못한 상태**다.
+
+### Iteration 11 준비
+1. **배 봄철 냉해(개엽기·만개기) 원문 확보 — 최우선, 4회 연속 이월**: 임순희 외(2012, 원예과학기술지 30(2):102)와 Lee et al.(2023, Scientia Horticulturae 307:111530) 원문 확보. 이 두 편만 확보하면 즉시 filled 전환 가능(Ballard 1971 파생표와 이미 교차검증됨)
+2. **배 유효인산 편차(859 vs 2050mg/kg) 원인 규명**: 3번째 배 전용 실측 확보로 편차의 지역성/과원별 시비관행 차이 판별
+3. **배 winter_bud_freezing_hardiness 스키마 반영 여부**: 팀 결정(검색 아님) — 사과에는 없는 개념이라 배 전용 신규 컬럼 신설 여부 논의 필요
+4. **사과 이월 항목**(§6-4 참고, 여전히 유효): EC optimal 재검토, Bray-1/Lancaster 이중표기, 유효인산-착색 연결 검증 등
