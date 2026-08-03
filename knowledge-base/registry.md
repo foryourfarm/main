@@ -1,6 +1,6 @@
 # 도메인 지식 명세서 (Registry)
-마지막 갱신: 2026-08-03 (Delta: Iteration 8 — 사용자 제공 PDF 8편, 사과 temp_day(착색기) **최초 partial 전환**(registry상 마지막 순수 missing 항목 해소) + gdd.Tbase 재인용 함정 해결(Chaves 2017 원문 확보) + EC/organic/p2o5 구조적 재검토 신호 다수)
-누적 처리 논문 수: 61 (Iteration 8: +8편 — 사과 15/15 항목 filled/partial 도달, 단 "착시" 주의 — 상세 §6-4)
+마지막 갱신: 2026-08-04 (Delta: Iteration 9 — 배 ec/organic/p2o5 3개 **missing→partial 최초 전환**, 신규 다운로드 없이 기존 사과배치 논문(Ahn 2011 전북 110개소)의 배 부수데이터 재발견으로 반영. 배 냉해(개엽기/만개기) 후보 4편 신규 확보, 원문 확보 대기중)
+누적 처리 논문 수: 61 (Iteration 9: 신규 md 파일 추가 없음 — 기존 파일 재조명, 배 6/13→9/13 상세 §6-5)
 
 > **Iteration 4 반영 경위**: 이 13편은 이번 갱신 이전에 이미 `knowledge-base/papers/{cucumber,lettuce,potato}/`에 파일로 커밋돼 있었으나(각 파일 말미에 `Registry Delta` 블록 존재), registry-keeper가 실행되지 않아 이 문서에는 한 번도 집계되지 않은 상태였다. 이번에 각 파일의 Registry Delta를 읽어 소급 반영했다.
 
@@ -31,9 +31,9 @@
 | 배 | temp_day(생육기온) | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | 연평균기온 | 전기간 | O(S1~N1 4단계) | O | - | filled | papers/pear/gis-soil-climate-suitability-2019.md |
 | 배 | ph | 전기간 | 5.8~7.0 | - | - | filled | Yara Korea + 충청북도 농업기술원 (Iteration 2-1) |
-| 배 | ec | 전기간 | - | - | - | missing | - |
-| 배 | organic | 전기간 | - | - | - | missing | - |
-| 배 | p2o5 | 전기간 | - | - | - | missing | - |
+| 배 | ec | 전기간 | 0.6 dS/m(전북 실측, N=110 중 배) / ≤2.0(RDA 과수원 통합 상한) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 전북 110개소 과종별 비교 — 배 실측 0.6dS/m, 1:5법)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(RDA-NAAS, 과수원 통합 상한 2.0). **한계**: 두 논문 모두 "사과" 폴더 파일에 부수적으로 포함된 배 데이터이며, 배 전용 연구가 아님. 지역단위(전북)·소표본이라 national-scale 아님. **신규 후보(원문 미확보)**: Lee & Lee(2011, 경남 25개소, 인용10) — EC 수치 미확인, 원문 필요. Lee et al.(2016, Acta Hortic. 1146:41-48, 배 단독) — 원문 접근 차단(Anubis 봇방어), 재시도 필요 |
+| 배 | organic | 전기간 | 35 g/kg(전북 실측) / 25~35(RDA 과수원 통합 기준) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 배 실측 35g/kg — 5과종 중 최고)+papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 25~35, 배 실측치와 정확히 겹침 — 상호검증됨). **한계**: 상동(배 전용 연구 아님, 지역단위). 윤성탁 외(2010, 배 전용, papers/pear/yoon-organic-amendment-soil-2010.md 이미 KB 존재)는 KCI paywall로 정량수치 미확보 — 원문 재확보 시 최우선 |
+| 배 | p2o5 | 전기간 | 859 mg/kg(전북 실측, Lancaster법) | - | - | **partial(2026-08-04 최초 전환)** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md(Table 5, 배 실측 859mg/kg — RDA 적정 200~300의 2.9~4.3배 과잉) + papers/apple/apple-soil-optimum-range-landuse-kang-2014.md(과수원 통합 300~550mg/kg, 동일 Lancaster법 계열). ⚠️Lancaster법이라 사과의 Bray-1 기준과 동일한 단위체계 혼재 문제 재현. **신규 후보(원문 미확보)**: Park, Lim & Lee(2012, 배 전용, Korean J. Soil Sci. Fert. 45(2)) — 측정법 미확인, 원문 확보 최우선 |
 | 배 | gdd(적산온도) | 전기간 | 85°C 확정 | - | - | filled | Iteration 2-2 (베이스온도 10°C) |
 | 배 | temp_max(일소_FST) | 전기간 | 회피 47.1°C↑ | - | - | **filled** | Iteration 3-b (McClymont 2016) ⚠️ FST ≠ 대기온 |
 | 배 | rainfall_optimal | 전기간 | 270mm/시즌 | - | - | **partial** | Iteration 3-c (Ye et al. 2019) ⚠️ 중국 황토고원, 한국 재검증 필요 |
@@ -118,7 +118,7 @@
 | Temperature Changes Affected Spring Phenology and Fruit Quality of Apples Grown in High-Latitude Region of South Korea (Lee 외, 2023) | 사과 | papers/apple/apple-temperature-phenology-fruit-quality-lee-2023.md | 국내(춘천) 20년 실측, 후지·홍로 — 온도↑→생육가속(홍로>후지), temp_day(fruit_growth/maturity) 3번째 독립근거. 품종별 반응차 신규 확인 |
 | Expression of Genes Affecting Skin Coloration and Sugar Accumulation in 'Hongro' Apple Fruits at Ripening Stages in High Temperatures (Kim 외, 2016) | 사과 | papers/apple/apple-coloring-sugar-gene-expression-hongro-kim-2016.md | 국내 홍로, 항온챔버 25/30/35℃ — 착색·당 유전자 발현이 30~35℃서 크게 억제. **temp_day(coloring) missing→partial 최초 전환** |
 | Relative Contribution Rate on Soil Physico-chemical Properties Related to Fruit Quality of 'Hongro' Apple (Kim 외, 2012) | 사과 | papers/apple/apple-soil-contribution-hongro-kim-2012.md | 국내 홍로 60농가 — 유기물 기여율 0.1~5.6%로 낮음(organic 중요도 재평가), 유효인산-착색 55.9% 신규연결 발견 |
-| Relationships between Soil Physico-chemical Properties and Topography in Jeonbuk Orchard Fields (Ahn 외, 2011) | 사과 | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md | 전북 110개소 중 사과 — EC 0.5dS/m(기존 optimal보다 낮음, 재검토 신호), 유효인산 631mg/kg(적정 2.1~3.2배 과잉, Lancaster법) |
+| Relationships between Soil Physico-chemical Properties and Topography in Jeonbuk Orchard Fields (Ahn 외, 2011) | **사과+배** | papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md | 전북 110개소, 과종별(사과·배·복숭아·포도·감) 비교표(Table 5) 보유. 사과 EC 0.5(재검토 신호)/유효인산 631. **2026-08-04 배에도 반영**: 배 EC 0.6, 유기물 35(RDA기준과 겹침), 유효인산 859(적정 2.9~4.3배 과잉) — 배 ec/organic/p2o5 최초 partial 전환의 근거 |
 
 ## 4. 커버리지 통계 (Iteration 8 최종, 2026-08-03)
 
@@ -133,10 +133,10 @@
 - 변동 없음: filled 6/6 (100%) — Iteration 5~7에서 soil_change_rule 관련 신규 논문 없음
 
 ### 작물별 커버리지 (filled + partial)
-| 작물 | Iteration 7 | Iteration 8 | 상태 |
+| 작물 | Iteration 8 | Iteration 9 | 상태 |
 |---|---|---|---|
-| 사과 | 14/15 (93%) | **15/15 (100%)** | temp_day(coloring, 착색기 낮기온)이 Kim et al.(2016, 국내 홍로 항온챔버)로 missing→partial 전환 — **registry상 마지막 순수 missing 항목 해소, 전항목 filled/partial 도달**. gdd.Tbase는 Chaves(2017) 원 출처 확보로 재인용 함정 해결(신뢰도 상승, 여전히 partial). ec·organic·p2o5_실태·rainfall_by_stage는 신규 근거로 보강됐으나 **전부 partial 유지** — 특히 EC는 전북 실측(0.5)이 기존 optimal(0.8~1.5)보다 낮게 나와 기존 범위 재검토 신호 발생 |
-| 배 | 6/13 (46%) | 6/13 (46%) | 변동 없음(이번 8라운드도 사과만 다룸) |
+| 사과 | 15/15 (100%) | 15/15 (100%) | 변동 없음(이번 라운드는 배만 다룸) |
+| 배 | 6/13 (46%) | **9/13 (69%)** | ec·organic·p2o5 3개가 missing→**partial로 최초 전환**(2026-08-04) — 이미 확보돼 있던 apple-topography-soil-jeonbuk-ahn-2011.md(전북 110개소, 과종별 비교표)에 배 데이터가 부수적으로 포함돼 있었음을 재발견, 신규 다운로드 없이 즉시 반영. Kang(2014) 과수원 통합기준(organic 25~35, 배 실측 35와 정확히 겹침)과 상호검증됨. **한계**: 배 전용 연구가 아니라 지역단위(전북) 소표본 부수데이터 — national-scale·배 전용 검증은 여전히 미해결 |
 | 감자 | 5/13 (38%) | 5/13 (38%) | 변동 없음 |
 | 오이 | 3/13 (23%) | 3/13 (23%) | 변동 없음 |
 | 상추 | 4/13 (31%) | 4/13 (31%) | 변동 없음 |
@@ -318,7 +318,26 @@ Iteration 7 준비(§6-3 하단) 항목 중 착색기 낮기온·gdd.Tbase(Chave
 
 **총평**: 8편 중 registry 상태가 실질적으로 전환된 것은 **temp_day(coloring) missing→partial 1건**이지만, 이로써 사과 15개 체크리스트 항목이 전부 filled/partial에 도달했다(100%, Iteration 7의 93%에서 상승). 그러나 이번 라운드의 더 중요한 성과는 백분율이 아니라 **기존 partial 수치들에 대한 재검토 신호**다 — 전북 실측 EC(0.5)가 기존 optimal(0.8~1.5)보다 낮게 나왔고, 유기물의 실제 중요도가 반증적으로 낮다는 두 번째 독립 신호가 확보됐다. gdd.Tbase는 재인용 함정을 완전히 해결(Chaves 2017 원 출처 확보)했으나 한국 품종 미검증이라는 새 조건이 남았다. **결론: 사과 도메인은 이제 "빈 항목 채우기" 단계를 벗어나 "기존 수치의 신뢰도 재검토" 단계로 넘어가야 한다** — 이는 CLAUDE.md §1 "정확성 우선" 철학과 정확히 부합하는 다음 단계다.
 
-### Iteration 9 준비
+## 6-5. Iteration 9 완료 요약 (2026-08-04, 배 화학성 3개 gap — 신규 다운로드 없이 기존 자료 재조명 + 냉해 후보 4편 발굴)
+
+Iteration 8까지 사과에 집중하던 것을 배로 전환. 배 13항목 체크리스트 중 **완전 미착수 상태였던 ec·organic·p2o5**(row 자체가 missing)를 scout 3개 에이전트로 병렬 탐색한 결과, **셋 다 이미 knowledge-base에 확보돼 있던 사과배치 논문(Ahn et al. 2011, 전북 110개소 과종별 비교표)에 배 데이터가 부수적으로 포함**돼 있었음을 재발견했다 — 신규 PDF 다운로드나 md 파일 생성 없이 registry §1만 갱신해 3개 항목을 즉시 missing→partial 전환했다. 별도로 냉해(개엽기·만개기) 임계온도도 탐색해 4편의 후보를 확보했으나 원문 미확보 상태다.
+
+| 갭 | 결과 |
+|---|---|
+| **ec** | **최초 partial 전환** — Ahn(2011) 배 실측 0.6dS/m + Kang(2014) 과수원 통합상한 2.0. 신규 후보(원문 미확보): Lee & Lee(2011, 경남 25개소, 인용10), Lee et al.(2016, Acta Hortic. 배 단독, 접근차단) |
+| **organic** | **최초 partial 전환** — Ahn(2011) 배 실측 35g/kg + Kang(2014) 과수원 통합기준 25~35(**정확히 겹침, 상호검증**). 배 전용 윤성탁(2010)은 기존 KB 보유하나 paywall로 정량수치 미확보 |
+| **p2o5** | **최초 partial 전환** — Ahn(2011) 배 실측 859mg/kg(Lancaster법, 적정 200~300의 2.9~4.3배 과잉). 신규 후보(원문 미확보): Park, Lim & Lee(2012, 배 전용) |
+| frost_damage(개엽기/만개기) | **미해결, 후보 4편 확보** — Ballard/Proebsting/Tukey(1971, WSU 배전용 고전, 사과 Warrington급 원표 추정)·임순희 외(2012, 국내 RDA 초록)·Lee et al.(2023, Scientia Hort. 인용5, 국내+국제, 만개기 -2.2/-4.4℃)·Ito et al.(2018, 휴면기 LT50, 지표 정의 다름). Lee(2023)와 Ballard(1971) 파생표 수치가 교차검증됨(만개기 -2.2/-4.4℃ 일치) — 원문 확보 시 즉시 filled 가능성 높음 |
+
+**총평**: 이번 라운드의 핵심 교훈은 "새 논문을 찾기 전에 이미 가진 논문을 다시 봐야 한다"는 것이다 — 사과 배치에서 확보한 다과종 비교 논문(Ahn 2011)이 배의 화학성 공백 3개를 동시에 해소하는 근거가 되었다(배 6/13→9/13, 46%→69%). 다만 이 데이터는 배 전용 연구가 아니라 **전북 지역 소표본의 부수적 비교값**이라는 한계가 뚜렷하다 — national-scale·배 전용 검증은 여전히 미해결이며, Kang(2014)과의 수렴(organic 25~35)은 신뢰도를 높이지만 EC(0.6)·유효인산(859)은 아직 단일 지역 관찰치에 불과하다. 냉해는 신규 탐색 성과가 뚜렷해 Ballard(1971)·Lee(2023) 원문만 확보하면 사과처럼 filled 전환이 유력하다.
+
+### Iteration 10 준비
+1. **배 냉해(개엽기·만개기) 원문 확보 — 최우선**: Ballard/Proebsting/Tukey(1971, WSU Extension Circular) 스캔본 OCR 재시도 또는 poppler 설치, Lee et al.(2023, Scientia Hortic. DOI 10.1016/j.scienta.2022.111530) 정식 원문 확보. 두 문헌이 만개기 수치에서 이미 교차검증돼 있어 확보 즉시 filled 전환 유력
+2. **배 EC/organic/p2o5 배 전용 연구 원문 확보**: Lee & Lee(2011, 경남), Park·Lim·Lee(2012, 배전용 P2O5), Lee et al.(2016, Acta Hortic. 배단독 EC — 접근 차단 재시도), 윤성탁(2010, KCI paywall 우회)
+3. **배 EC/organic/p2o5의 national-scale 검증**: 사과와 동일한 구조적 문제(전북 지역 소표본 한계) — TRKO202100009605(5차 농업환경자원변동평가)에 배 세부항이 있는지 확인 필요(사과 EC national-scale 이슈와 동일 경로로 해결 가능)
+4. **사과 이월 항목**: 아래 목록(§6-4에서 이월, 여전히 유효) 계속 진행
+
+### 사과 이월 항목 (§6-4에서 이월, 여전히 유효)
 1. **사과 EC optimal(0.8~1.5) 재검토**: 전북 실측(0.5)과 기존 6개 주산지 실측(0.8~1.5)의 격차 원인 규명 — 추가 지역 실측 확보 또는 기존 optimal 범위 조정 검토(팀 결정 선행 필요, 검색만으로는 해결 안 됨)
 2. **유효인산 Bray-1/Lancaster 측정법 이중표기**: registry §1 p2o5 관련 행에 두 측정법 수치를 명시적으로 구분 표기하는 작업(문서 정리, 검색 아님)
 3. **유효인산-착색 55.9% 연결 검증**: 인산 수준별 착색 반응을 직접 다룬 국내외 문헌 탐색(신규 Gap)

@@ -3,7 +3,36 @@
 > 우선순위 순서대로 나열. registry-keeper가 매 사이클 끝에 재정렬한다.
 > scout이 키워드 하나를 소비하면 이 목록에서 제거하고 search-log.md로 이동시킨다.
 
-## Iteration 9 최우선 Gap (Iteration 8 후 발굴/이월, 2026-08-03)
+## Iteration 10 최우선 Gap (Iteration 9 후 발굴/이월, 2026-08-04)
+
+0. **배 냉해(개엽기·만개기) 원문 확보 — 최우선** — Ballard/Proebsting/Tukey(1971, WSU Extension Circular C0370, 스캔본) OCR 재시도 또는 poppler 설치. Lee et al.(2023, Scientia Hortic. DOI 10.1016/j.scienta.2022.111530) 정식 원문 확보. 두 문헌의 만개기 수치(-2.2/-4.4℃)가 이미 교차검증돼 있어 원문만 확보하면 filled 전환 유력
+1. **배 EC/organic/p2o5 배 전용 연구 원문 확보** — Lee & Lee(2011, 경남 25개소, EC), Park·Lim·Lee(2012, 배전용 P2O5), Lee et al.(2016, Acta Hortic. 배단독 EC, 접근차단 재시도), 윤성탁(2010, KCI paywall 우회, organic)
+2. **배 EC/organic/p2o5 national-scale 검증** — TRKO202100009605(5차 농업환경자원변동평가)에 배 세부항 존재 여부 확인(사과 EC 이슈와 동일 경로)
+3. **사과 EC optimal(0.8~1.5) 재검토** (검색보다 팀 결정 선행) — 전북 실측(0.5)이 기존 optimal보다 낮음
+4. **유효인산 Bray-1/Lancaster 이중표기 정리** (검색 아님, 문서작업) — 사과·배 공통 문제로 확대 확인됨(배도 Lancaster법 859mg/kg vs Bray-1 미비교)
+5. **유효인산-착색 55.9% 연결 검증** — 사과 Kim(2012) 발견, 인산-착색 반응 문헌 탐색
+6. **temp_day(coloring) 포장 실측 검증** — Kim(2016) 항온챔버 결과의 포장 재확인
+7. **Chaves(2017) 방법론의 후지·홍로 적용** — Von Bertalanffy 커브핏 국내 품종 실측
+8. **사과 EC national-scale(TRKO202100009605) PDF** — 4회 연속 이월
+9. **organic 지표 registry 내 비중 재검토** (팀 결정)
+10. **forcing_requirement_bloom·chilling_requirement·temp_night_min(coloring) 신규 지표 스키마 결정** (팀 결정)
+11. **5작물 공통 토양 화학성 공백** — 오이·감자는 처방기준 없음, 상추는 협소구간만(배는 이번에 partial 전환)
+12. **배 대기온 고온 피해 임계값** (scout-4b, 이월)
+13. **한국 실측 강수 임계값** — 절대 mm구간 여전히 미해결(scout-4a, 이월)
+14. **토양질감별 과습 임계값** / **ETc 절대값 환산** — 차순위 이월
+
+> 관련 문서: `knowledge-base/registry.md`(§6-5 Iteration 9 완료 요약)
+
+## Iteration 9 결과 (2026-08-04, 참고 — 재검색 불필요)
+
+> 배 ec/organic/p2o5(완전 미착수 3개)를 scout으로 탐색. **신규 다운로드 없이 기존 사과배치 논문(Ahn 2011)의 배 부수데이터를 재발견해 즉시 반영** — md 파일 신규 생성 없음, registry.md만 갱신.
+
+- ~~배 ec~~ → **최초 partial 전환**(Ahn 2011 배실측 0.6dS/m + Kang 2014 상한 2.0). 배 전용 신규후보(Lee&Lee 2011, Lee 2016) 원문 미확보로 Iteration 10 #1 이월
+- ~~배 organic~~ → **최초 partial 전환**(Ahn 2011 배실측 35g/kg, Kang 2014 기준과 정확히 겹침 — 상호검증). 윤성탁(2010) 정량수치 미확보로 이월
+- ~~배 p2o5~~ → **최초 partial 전환**(Ahn 2011 배실측 859mg/kg Lancaster법, 적정 2.9~4.3배 과잉). Park·Lim·Lee(2012) 원문 미확보로 이월
+- ~~배 frost_damage(개엽기/만개기)~~ → **미해결이나 후보 4편 확보**(Ballard 1971, 임순희 2012, Lee 2023, Ito 2018) — Lee(2023)와 Ballard(1971) 파생표가 이미 교차검증(만개기 -2.2/-4.4℃), Iteration 10 #0 최우선으로 이월
+
+## Iteration 9 최우선 Gap (Iteration 8 후 발굴/이월, 2026-08-03) [해결됨, 참고용]
 
 > **사용자 지정 조건(Iteration 7부터 유지)**: 미해결 gap은 ①국내논문 여부 무관 ②스캔본 지양 ③정확성 보장. **Iteration 8부터 추가**: 신규 논문 탐색보다 기존 partial 수치의 재검토가 우선순위로 부상.
 

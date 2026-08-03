@@ -2,6 +2,24 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 9 (2026-08-04) — 배 ec/organic/p2o5 최초 partial 전환 (신규 다운로드 없이 기존 자료 재조명) + 냉해 후보 4편 발굴
+
+> 배 13항목 체크리스트 중 완전 미착수 상태였던 ec·organic·p2o5를 scout 3개 에이전트로 병렬 탐색. **핵심 발견**: 셋 다 이미 확보돼 있던 사과배치 논문(Ahn et al. 2011, 전북 110개소 과종별 비교표)에 배 데이터가 부수적으로 포함돼 있었음 — 신규 PDF 없이 registry.md만 갱신해 반영(md 파일 신규 생성 없음). 별도로 냉해(frost_damage) scout 1개 추가 실행. 상세 판정 근거는 `registry.md` §6-5.
+
+### 채택(기존 자료 재조명, 신규 md 없음)
+- **Ahn, Lee & Ha(2011)**(이미 papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md로 확보됨) — Table 5의 배 데이터를 배 registry에 반영: EC 0.6dS/m, 유기물 35g/kg(Kang 2014 국가기준 25~35와 정확히 겹침), 유효인산 859mg/kg(Lancaster법, 적정 200~300의 2.9~4.3배 과잉)
+- **Kang et al.(2014)**(이미 papers/apple/apple-soil-optimum-range-landuse-kang-2014.md로 확보됨) — 과수원 통합기준(EC≤2.0, 유기물 25~35, 유효인산 300~550)을 배에도 동일 적용
+
+### 신규 후보(원문 미확보, 다음 확보 대상)
+- **ec**: Lee & Lee(2011), Korean J. Soil Sci. Fert. 44(3):492-497, 인용10, 경남 25개소(초록상 EC 미확인, 원문 필요) / Lee et al.(2016), Acta Hortic. 1146:41-48, 배 단독(EC 포함 추정, actahort.org 접근 차단)
+- **organic**: 윤성탁 외(2010), 한국유기농업학회지 18(4), 배 전용(이미 KB 파일 존재하나 KCI paywall로 정량수치 미확보)
+- **p2o5**: Park, Lim & Lee(2012), Korean J. Soil Sci. Fert. 45(2), 배 전용(측정법 미확인, 원문 필요)
+- **frost_damage(개엽기/만개기)**: Ballard, Proebsting & Tukey(1971), WSU Extension Circular C0370, 배 전용 고전(스캔본, OCR 실패) / 임순희 외(2012), 원예과학기술지 30(2):102, 국내 RDA 초록 / **Lee, Ryu, Jeong, Cho, Lee & Han(2023)**, Scientia Horticulturae 307:111530, 인용5, 국내(원예특작과학원)+국제저널 — 만개기 -2.2℃(10%)/-4.4℃(90%), Ballard(1971) 파생표와 교차검증됨 / Ito et al.(2018), Tree Physiology 38(6):825-837, 인용16, 일본 — 휴면기 LT50(지표 정의 다름, 참고용)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **배 ec/organic/p2o5의 national-scale·배 전용 검증**: 현재 근거는 전북 지역 소표본(N=110 중 배)의 부수 데이터뿐 — 배 전용 연구 원문 확보가 다음 단계
+- **배 frost_damage**: 후보는 확보했으나 전부 원문 미확보(Ballard 1971은 스캔본이라 OCR 필요)
+
 ## Iteration 8 (2026-08-03) — 사용자 직접 제공 PDF 8편 원문 확보 (사과 temp_day(coloring) 최초 partial 전환 + gdd 재인용함정 해결 + EC/organic 재검토 신호)
 
 > Iteration 7에서 남은 미해결 3개(착색기 낮기온·gdd.Tbase·EC national-scale)를 scout 7개 에이전트로 재검색하던 중, 사용자가 직접 다운로드한 PDF 8편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(Kang 2014만 한글 프로세 CMap 손실 있었으나 핵심 Table 1은 보존). 상세 판정 근거는 `registry.md` §6-4.
