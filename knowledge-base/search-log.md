@@ -2,6 +2,20 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 6 (2026-08-03) — 사용자 직접 제공 PDF 4편 원문 확보 (사과 EC/rainfall/gdd/fruit_growth)
+
+> Iteration 5에서 "원문 미확보"로 caution/blocked 처리됐던 항목 중 일부를 사용자가 직접 PDF로 다운로드해 제공, 전부 원문 확보·md화했다. poppler(pdftoppm) 미설치로 Read 도구의 기본 PDF 렌더링이 실패해 `pdftotext`(born-digital) 또는 PyMuPDF 이미지 렌더링(CMap 손실 PDF)으로 대체 추출.
+
+### 채택(approve/filled, 원문 확보 완료)
+- **Warrington, Fulton, Halligan & de Silva(1999)**, JASHS 124(5):468-477, 인용155 — fruit_growth/maturity 온도-생장속도 선형관계. Iteration 5에서 "국내논문 0편으로 보류" 목록에 있던 해외후보를 사용자가 직접 선택해 채택(국내우선 원칙의 의도적 예외)
+- **김미리·김승규(2014)**, 한국농림기상학회지 16(4):274-284, DOI 10.5532/KJAFM.2014.16.4.274, 인용10 — rainfall_by_stage 보강. Iteration 5의 "단일계수만 확인" caution 해소, 8개 계수+3모형비교 확보
+- **이재범·김종윤(2023)**, 한국원예학회 학술발표요지 — ec 측정법(reference_only). Iteration 5의 "승인됐으나 원문 미확보" 상태 해소
+- **김수옥·윤진일(2010)**, 2010년도 한국기상학회 봄학술대회논문집 pp.377-378 — Iteration 5에서 access_blocked였던 논문을 원문 확보(PyMuPDF 이미지판독). **GDD가 아니라 Chill Day 모형(냉각요구시간)으로 확인** — gdd.Tbase는 여전히 미해결, 대신 chilling_requirement 2번째 근거 + 신규지표 forcing_requirement_bloom 발견
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 gdd.Tbase**: Iteration 4~6 합계 국내 후보 5편(Lee 2015, 김진희 2019, 김수옥·윤진일 2010 + 재검증 시도분) 전부 GDD가 아닌 근접개념(냉각요구시간·냉해위험도)으로 확인 — 학술논문 검색 경로는 소득 없음, RDA 회색문헌 경로로 전환 권고(registry.md §6-2 Iteration 7 준비)
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 원문 미확보
+
 ## Iteration 5 (2026-08-02) — 사과 6개 갭 병렬 조사 (착색기/fruit_growth·maturity/EC/organic/rainfall/gdd)
 
 > Aira MCP 미연결로 전 에이전트가 Semantic Scholar/CrossRef/OpenAlex/RISS 공개 API 대체 수행. 상세 판정 근거는 `registry.md` §6-1.
