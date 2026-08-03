@@ -215,7 +215,18 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
 def _is_valid(indicator: str, value: float) -> bool:
     if indicator == "ph":
         return 0 <= value <= 14
-    if indicator in {"rainfall_monthly", "rainfall_daily", "p2o5", "organic"}:
+    # ec·k·ca·mg는 물리적으로 음수가 될 수 없다. 0024·0028로 채점 대상이 되면서
+    # 다른 토양 지표와 같은 하한 검증이 필요해졌다(§12 경계에서 방어).
+    if indicator in {
+        "rainfall_monthly",
+        "rainfall_daily",
+        "p2o5",
+        "organic",
+        "ec",
+        "k",
+        "ca",
+        "mg",
+    }:
         return value >= 0
     return True
 

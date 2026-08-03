@@ -25,6 +25,7 @@ DISPERSION = ROOT / "outcomes" / "memory" / "indicator_dispersion.json"
 VERSIONS = ROOT / "backend" / "alembic" / "versions"
 MIGRATION = VERSIONS / "0023_rda_handbook_soil_bands.py"
 MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
+MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -35,6 +36,7 @@ INDICATOR_ALIAS = {
     "k": "k",
     "ca": "ca",
     "mg": "mg",
+    "ec": "ec",
 }
 
 # outcomes 작물 파일 → 백엔드 crop_id (0003 시드 기준: 1 사과 / 2 배 / 3 오이 / 4 감자 / 5 상추)
@@ -77,11 +79,14 @@ class TestSoilBandContract(unittest.TestCase):
         cls.backend.update(
             {(row[0], row[1]): tuple(row[2:6]) for row in cations._BANDS}
         )
+        # 0028은 EC 하나만 다뤄서 행에 indicator 컬럼이 없다 — 키를 여기서 붙인다.
+        ec = _load_module("m0028", MIGRATION_EC)
+        cls.backend.update({(row[0], "ec"): tuple(row[1:5]) for row in ec._BANDS})
         cls.backend.update(_EXTRA_BACKEND_BANDS)
 
     def test_migration_files_exist(self):
         # 파일명이 바뀌면 위 로드가 조용히 실패해 검증이 공허해진다.
-        for path in (MIGRATION, MIGRATION_CATIONS):
+        for path in (MIGRATION, MIGRATION_CATIONS, MIGRATION_EC):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")
 
@@ -94,9 +99,19 @@ class TestSoilBandContract(unittest.TestCase):
                 band = overrides.get(outcome_name)
                 if band is None:
                     continue  # 그 작물이 재정의하지 않은 지표는 공유 밴드를 쓴다
-                expected = tuple(float(band[k]) for k in BAND_KEYS)
                 got = self.backend.get((crop_id, backend_name))
                 with self.subTest(crop=filename, indicator=backend_name):
+                    # outcomes가 경계를 null로 열어둘 수 있다(무한 밴드). 백엔드 컬럼은
+                    # NOT NULL 전제라 그대로 옮길 수 없으므로 판단을 강제한다 —
+                    # 예전엔 여기서 float(None) TypeError로 죽어 원인이 안 보였다.
+                    unbounded = [k for k in BAND_KEYS if band[k] is None]
+                    self.assertFalse(
+                        unbounded,
+                        f"{filename} {outcome_name}: outcomes가 {unbounded}를 null로 열었다 "
+                        f"(백엔드는 {got}) — 채점에서 그 방향 감점을 없앤다는 뜻이다. "
+                        "의도면 백엔드도 같이 열고, 아니면 outcomes를 되돌릴 것",
+                    )
+                    expected = tuple(float(band[k]) for k in BAND_KEYS)
                     self.assertIsNotNone(
                         got,
                         f"{filename} {outcome_name}이 outcomes에는 있는데 마이그레이션에 없다 "
