@@ -192,18 +192,24 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
 
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
-    lo, hi = float(guide.optimal_min), float(guide.optimal_max)
+    # 단측 밴드(outcomes/scripts/ml/scoring.py band_score()와 같은 계약, 2026-08-03):
+    # optimal_min/optimal_max 중 하나가 None이면 그 방향엔 감점을 두지 않는다. 문헌이
+    # 한쪽 경계만 주는 지표(예: 사과 치환성 Ca "5~6cmol/kg 이상")를 위한 것 — 없는 상한을
+    # 휴리스틱으로 만들면 정상 토양을 근거 없이 감점하게 된다(추측 금지, CLAUDE.md §2).
+    lo = None if guide.optimal_min is None else float(guide.optimal_min)
+    hi = None if guide.optimal_max is None else float(guide.optimal_max)
     # 지침에 감쇠폭이 있으면 위험구간 척도로 쓴다(없으면 _risk_score가 완충폭으로 폴백).
     risk_width = None if guide.risk_width is None else float(guide.risk_width)
-    if lo <= value <= hi:
+    if (lo is None or lo <= value) and (hi is None or value <= hi):
         return 100.0, "optimal"
-    if value < lo:
+    if lo is not None and value < lo:
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
         if value >= edge:
             return _allowed_score((value - edge) / (lo - edge)), "allowed"
         return _risk_score(edge - value, lo - edge, risk_width), "risk"
+    # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
@@ -268,7 +274,11 @@ def calculate_suitability(
             breakdown[indicator] = {"value": value, "status": "invalid"}
             risk_flags.append(f"{indicator}:invalid")
             continue
-        if guide.optimal_min is None or guide.optimal_max is None:
+        # 단측 밴드(2026-08-03)에서 optimal_min·optimal_max 중 하나만 None인 건 정상
+        # 계약이다 — 둘 다 없을 때만 채점 불가(outcomes/scripts/ml/scoring.py band_score()와
+        # 같은 기준). 예전엔 하나만 없어도 여기서 걸러 사과 Ca 같은 단측 지표를 통째로
+        # 스킵시켰다.
+        if guide.optimal_min is None and guide.optimal_max is None:
             breakdown[indicator] = {"value": value, "status": "invalid_guide"}
             risk_flags.append(f"{indicator}:invalid_guide")
             continue
