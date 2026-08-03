@@ -26,6 +26,7 @@ VERSIONS = ROOT / "backend" / "alembic" / "versions"
 MIGRATION = VERSIONS / "0023_rda_handbook_soil_bands.py"
 MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
 MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
+MIGRATION_LETTUCE_ORGANIC = VERSIONS / "0029_lettuce_organic_matter_guide.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -82,11 +83,19 @@ class TestSoilBandContract(unittest.TestCase):
         # 0028은 EC 하나만 다뤄서 행에 indicator 컬럼이 없다 — 키를 여기서 붙인다.
         ec = _load_module("m0028", MIGRATION_EC)
         cls.backend.update({(row[0], "ec"): tuple(row[1:5]) for row in ec._BANDS})
+        # 0029도 (crop=5, organic) 단일 행이라 상수를 그대로 튜플로 조립한다.
+        lettuce_organic = _load_module("m0029", MIGRATION_LETTUCE_ORGANIC)
+        cls.backend[(5, "organic")] = (
+            lettuce_organic._OPTIMAL_MIN,
+            lettuce_organic._OPTIMAL_MAX,
+            lettuce_organic._ALLOWED_MIN,
+            lettuce_organic._ALLOWED_MAX,
+        )
         cls.backend.update(_EXTRA_BACKEND_BANDS)
 
     def test_migration_files_exist(self):
         # 파일명이 바뀌면 위 로드가 조용히 실패해 검증이 공허해진다.
-        for path in (MIGRATION, MIGRATION_CATIONS, MIGRATION_EC):
+        for path in (MIGRATION, MIGRATION_CATIONS, MIGRATION_EC, MIGRATION_LETTUCE_ORGANIC):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")
 
