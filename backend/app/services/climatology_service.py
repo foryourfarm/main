@@ -80,8 +80,10 @@ MIN_LAPSE_DELTA_M = 20.0
 # 가져간다 — 같은 칸이면 그게 맞는 동작이다.
 MIN_DISTANCE_KM = 0.001
 
-# 대체 대상 수치 필드. temp_night_min_normal·sunlight_normal은 2026-07-30 현재 DB 전 행이
-# NULL이지만(적재 소스에 없음) 나중에 채워질 수 있어 코드는 5개를 모두 다룬다.
+# 대체 대상 수치 필드. 5개를 모두 다룬다 — 채워지는 경로가 필드마다 다르다(2026-08-03 확인):
+# temp_night_min_normal은 AWS 배선(PR #68·#69)으로 채워졌고, sunlight_normal은 지금도 전 행
+# NULL이지만 그건 결손이 아니라 설계다(일조는 solar_radiation_normal에서 읽을 때 환산 —
+# 저장하면 보정계수가 바뀔 때 값이 낡는다). 실측 일조가 생기면 우선 필드로 쓰인다.
 NORMAL_FIELDS = (
     "temp_avg_normal",
     "temp_night_min_normal",
