@@ -18,7 +18,10 @@ from statistics import mean
 
 import httpx
 
-BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+# https 고정(2026-08-03). data.go.kr이 평문 HTTP 응답을 중단해 `http://`는 연결이
+# 걸린 채 타임아웃(15초)까지 매달린다 — 실측: http 25초 무응답 / https 0.08초 응답.
+# 실패해도 캐시를 쓰지 않는 구조라(get_forecast_rows) 매 요청이 이 지연을 새로 먹었다.
+BASE_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
 
 KST = timezone(timedelta(hours=9))
 

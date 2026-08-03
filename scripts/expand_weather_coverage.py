@@ -44,7 +44,7 @@ WEATHER_CSV = ROOT / "data" / "03_weather_monthly_modified.csv"
 BJD_TO_REGION = ROOT / "docs" / "seed" / "bjd_to_region.csv"
 REGION_SEED = ROOT / "docs" / "seed" / "region_seed.csv"
 
-WEATHER_BASE = "http://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/V3/GnrlWeather"
+WEATHER_BASE = "https://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/V3/GnrlWeather"
 YEARS = [2021, 2022, 2023, 2024, 2025]
 TIMEOUT = 15.0
 

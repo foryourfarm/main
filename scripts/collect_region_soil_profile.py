@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SEED_DIR = ROOT / "docs" / "seed"
 ENV_PATH = ROOT / ".env"
 
-BASE_URL = "http://apis.data.go.kr/1390802/SoilEnviron/SoilCharacSctnn/V2/getSoilCharacterSctnn"
+BASE_URL = "https://apis.data.go.kr/1390802/SoilEnviron/SoilCharacSctnn/V2/getSoilCharacterSctnn"
 
 # CLAUDE.md §12: 명세서의 초당 최대 트랜잭션(30 tps) 그대로 사용
 TPS = 30
