@@ -32,9 +32,13 @@ _log = logging.getLogger(__name__)
 # 네트워크 실패와 구분해야 한다 — 전자는 데이터 한계, 후자는 우리 장애다(§18-4).
 NO_DATA_CODE = "301"
 
-# 조회 표본 수 상한. 흙토람은 페이지 단위로 주며, 읍면동 하나의 대표값을 잡는 데
-# 이 정도면 충분하다(더 늘리면 호출 비용만 커진다).
+# 한 페이지에 받는 표본 수. 흙토람이 허용하는 최대치다.
 PAGE_SIZE = 100
+
+# 페이지 수 상한 = 표본 2,000건. 실측 최대는 227건(고창읍 5279025031)이라 넉넉하지만,
+# 상한이 없으면 병적으로 많은 리 하나가 밭 등록 한 번에 수백 콜을 낸다(§18-1).
+# ponytail: 고정 상한. 실제로 2,000건을 넘는 리가 나오면 그때 Total_Count 기반으로 바꾼다.
+MAX_PAGES = 20
 
 SOURCE_PREFIX = "흙토람 토양검정"
 
@@ -131,6 +135,45 @@ def summarize(exams: list[SoilExam], field_type: str) -> dict[str, object]:
     }
 
 
+def _fetch_all_pages(code: str) -> list[SoilExam]:
+    """한 법정동코드의 검정 표본 **전체**. 짧은 페이지가 오면 끝이다.
+
+    **종전엔 1페이지만 읽어 잘리고 있었다** — 실측(2026-08-03): 고창읍 5279025031이 227건,
+    5279025035가 162건, 부여 점상리 4476042021이 141건, 4476042027이 200건 이상. 첫 100건만
+    평균하면 두 가지가 틀어진다:
+
+    ⓐ 흙토람이 어떤 순서로 주는지 모르니 **편향 여부조차 알 수 없다**(연도순인지 지번순인지
+      명세서에 없다). 지역 기준값이 "첫 100건 평균"이라는 사실 자체가 근거 없는 근사다.
+    ⓑ **뒤 페이지에만 있는 경지구분 표본을 통째로 놓친다.** 1페이지가 논으로만 채워지면 그
+      리는 "과수 표본 없음"으로 잘못 판정되고, 과수 밭이 토양 지표를 전부 잃는다 —
+      §18-4가 금지하는 "데이터 한계인 척하는 우리 결함"이다.
+
+    `Total_Count`가 응답 body에 있지만(실측: 227) 읽지 않는다 — 짧은 페이지로 끝을 아는 것이
+    `fetch_items`에 body 필드 노출을 추가하는 것보다 코드가 적고, 마지막 페이지가 딱
+    PAGE_SIZE로 끝나도 다음 페이지가 `code=200`·0건으로 와서 정상 종료된다(실측 확인).
+    """
+    out: list[SoilExam] = []
+    for page in range(1, MAX_PAGES + 1):
+        try:
+            exams = get_soil_exam_list(code, page_no=page, page_size=PAGE_SIZE)
+        except (PublicApiError, httpx.HTTPError):
+            if page == 1:
+                raise  # 첫 페이지 실패는 호출부가 "우리 장애 vs 기록 없음"으로 가른다
+            # 뒤 페이지 실패로 **이미 받은 표본을 버리지 않는다**(§12). 표본이 줄 뿐이고,
+            # 0건으로 되돌리면 있는 데이터를 두고 "기록 없음"이라 말하게 된다.
+            _log.warning(
+                "흙토람 %d페이지 실패 bjd=%s — 받은 %d건으로 진행", page, code, len(out), exc_info=True
+            )
+            return out
+        out += exams
+        if len(exams) < PAGE_SIZE:
+            return out
+    _log.warning(
+        "흙토람 표본이 상한 %d건을 넘었다 bjd=%s — 이후 페이지는 버린다", MAX_PAGES * PAGE_SIZE, code
+    )
+    return out
+
+
 def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None, bool]:
     """(표본, 실제 조회에 쓴 코드, 조회 실패 여부). 신규 코드가 비면 통합 전 코드로 1회 재시도한다.
 
@@ -159,7 +202,7 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None, bool]:
     fetch_failed = False
     for code in candidates:
         try:
-            exams = get_soil_exam_list(code, page_no=1, page_size=PAGE_SIZE)
+            exams = _fetch_all_pages(code)
         except PublicApiError as exc:
             # 상대가 답을 준 경우. 301(기록 없음)은 사실이고, 나머지 코드는 우리 잘못일
             # 수 있으니(파라미터 오류 201 등) 실패로 센다.

@@ -61,7 +61,13 @@ class Settings(BaseSettings):
     # 필드명을 .env 키 이름과 그대로 대응시켜 어떤 키가 어디 쓰이는지 헷갈리지 않게 한다.
     chemical_status_api: str = ""  # 농경지화학성 통계정보 V2
     chemistry_api: str = ""  # 토양검정 화학성 상세정보 V2
-    soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2
+    soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2 (15098809, 심토토성·자갈·경사 3종)
+    # 토양도 기반 토양특성 **상세**정보 V3 (15144225) — `soil_api`와 **다른 데이터셋이라 키가
+    # 따로다**(승인 세트가 달라 서로의 키로 부르면 실패한다). 이름이 비슷해 헷갈리기 쉬우니
+    # 위 단면정보 V2와 나란히 둔다. 27종(배수등급·유효토심·표토토성·**과수적성등급·제약인자** 등)
+    # 을 PNU 단위로 주며 **화학성은 없다**(명세서 원문 확인 — nexttodo §토양 데이터원 재조사).
+    # 라이선스 제4유형(상업적 이용금지) — 토양검정도 동일하나 착수 전 확인 필요.
+    soil_detail_api: str = ""  # [확인 필요] 연동 클라이언트 미구현
     weather_api: str = ""  # 농업기상 기본 관측데이터(과거 실측)
     # 농업기상 예비 키. 쿼터가 **엔드포인트별로** 관리돼 특정 엔드포인트만 소진되는 일이
     # 있다(실측: getWeatherYearMonList3는 429인데 getWeatherMonDayList3는 정상).
@@ -90,6 +96,10 @@ class Settings(BaseSettings):
     # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
 
     fertilizer_api: str = ""  # 작물별 비료 표준사용량 처방 정보 — [확인 필요] 연동 클라이언트 미구현
+    # 비료사용처방 **체험** 정보 V2 — 위 fertilizer_api(표준사용량, 작물코드만 입력)와 다른
+    # 데이터셋이다. 이건 화학성 값(pH·유기물·유효인산 등)을 입력으로 받아 시비처방을 낸다 —
+    # 그래서 토양 결측 밭에는 못 쓰고 화학성 있는 밭 전용이다(nexttodo §미연동 API 3종).
+    fertilizer_trial_api: str = ""  # [확인 필요] 연동 클라이언트 미구현
     crop_code_api: str = ""  # 작물코드 목록 정보 — [확인 필요] 연동 클라이언트 미구현
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.

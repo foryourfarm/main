@@ -291,6 +291,11 @@ backend/.venv/bin/python scripts/load_districts.py   # 20,275행(읍면동 5,066
 backend/.venv/bin/python scripts/audit_seeds.py      # 나머지 시드가 비었는지 먼저 센다
 ```
 
+`audit_seeds.py`는 **테이블 행수와 컬럼 값 유무를 같이 센다.** 행수만으로는 부족하다 —
+`weather_climatology`가 3,060행 있어도 `temp_night_min_normal`이 전 행 NULL이면 그 지표는
+채점되지 않는데 행수 검사로는 "OK"로 보인다(2026-08-03에 실제로 그랬다). 컬럼이 전 행
+NULL이면 **어느 스크립트를 돌려야 하는지까지 출력**한다.
+
 `user_farm.bjd_code`가 `district`를 FK로 건다. 리 행이 없는 상태로 백엔드가 뜨면
 유저가 리를 고르는 순간 등록이 실패한다. 멱등(upsert)이라 여러 번 돌려도 안전하다.
 **20,275행이 아니라 5,066행이 나오면 리 시드가 빠진 것이므로 멈춘다.**
@@ -305,9 +310,22 @@ backend/.venv/bin/python scripts/audit_seeds.py      # 나머지 시드가 비�
 | `load_weather_outlook.py` | **매월**(23일 전후 발표) — 스케줄러가 자동으로 돈다, `docs/outlook-scheduler.md` | 장기 탭에 "3개월전망이 적재되지 않아 보정 없이 평년치만 사용" |
 | `load_region_grid.py` | 1회(256행 고정) | 단기 탭 전멸 + 평년치 KNN 거리계산 불가 |
 | `load_weather_climatology.py` | 소스 CSV 바뀔 때 | 장기 탭 12칸 "데이터 부족" |
+| `load_altitudes.py` | 1회(구역 256 / 법정동 20,275) | 기온 감률 보정(0.65℃/100m)이 전부 미적용. **아래 AWS보다 먼저** — AWS가 고도 필터(±100m)를 쓴다 |
+| `load_aws_climatology.py` | 1회 | **야간 최저기온이 전 행 NULL** — 문제정의서가 지목한 A씨 실패 원인을 채점 못 한다. 평년치 커버리지도 116/256에 머문다 |
 | `load_observation_points.py` | 1회(752행) | 관측지점 폴백 경로 없음 |
 | `load_solar_radiation_normal.py` | 1회 | 일조 지표가 계속 빈다 |
 | `embed_corpus.py` | 코퍼스 바뀔 때 | 챗봇 근거 0건 → 전부 "확실치 않음" 폴백. **Ollama가 떠 있어야 한다** |
+
+> **⚠️ `load_altitudes.py`·`load_aws_climatology.py`는 2026-08-03까지 이 표에 없었다.**
+> 그래서 아무도 안 돌렸고, 프로덕션은 **야간 최저기온이 0행**인 채로 운영됐다 — 제품의
+> 핵심 차별점(A씨 실패 원인 = 봄철 야간 저온)이 한 번도 채점된 적이 없었다. 같은 이유로
+> 고도도 0행이라 감률 보정이 통째로 죽어 있었다. `done.md`는 "0행 → 1,668행"을 완료로
+> 적어놨는데 그건 로컬/dev 얘기였다. **표에 없으면 아무도 돌리지 않는다** — 새 ETL을
+> 만들면 여기부터 추가할 것.
+
+`load_aws_climatology.py`는 처음 실행 시 기상청 API에서 약 180콜(요소 3종 × 60개월,
+약 383MB)을 받아 `data/aws_daily_cache/`에 캐시한다. 몇 분 걸리고 중간에 끊겨도 재실행하면
+이어받는다. 캐시는 리포에 커밋하지 않는다(용량). `--dry-run`으로 집계만 먼저 볼 수 있다.
 
 `load_weather_outlook.py`만 주기적이다 — 매월 발표를 안 받으면 **에러 없이 조용히** 낡은
 예보로 남는다. 그래서 Cloud Scheduler가 매일 `POST /api/v1/admin/weather-outlooks`를
