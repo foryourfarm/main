@@ -3,7 +3,7 @@
 **엔드포인트 출처**: `Sample-code.py`(제공된 샘플 코드). 기술명세서가 없어 엔드포인트를
 추측했다가 404를 맞았는데, 실제 경로는 `WeatherObsrInfo/V3/` 하위가 **아니라** 최상위다:
 
-    http://apis.data.go.kr/1390802/AgriWeather/getObsrSpotList
+    https://apis.data.go.kr/1390802/AgriWeather/getObsrSpotList
 
 인증: `serviceKey` (config.weather_observatory_api — 관측데이터 키와 다른 키다).
 
@@ -28,7 +28,7 @@ from pydantic import BaseModel, field_validator
 from app.core.config import settings
 from app.infra.public_api.base import PublicApiError
 
-BASE_URL = "http://apis.data.go.kr/1390802/AgriWeather/getObsrSpotList"
+BASE_URL = "https://apis.data.go.kr/1390802/AgriWeather/getObsrSpotList"
 
 MAX_RETRIES = 3
 PAGE_SIZE = 500  # 전체 218개라 1페이지로 충분하다(지점별 반복 호출 금지 — §18-1)

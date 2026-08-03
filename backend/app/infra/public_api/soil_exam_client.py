@@ -12,7 +12,7 @@ from pydantic import BaseModel, field_validator
 from app.core.config import settings
 from app.infra.public_api.base import fetch_items
 
-BASE_URL = "http://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2"
+BASE_URL = "https://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2"
 
 # 경지구분 코드표 (기술명세서 3.1)
 FIELD_TYPE = {

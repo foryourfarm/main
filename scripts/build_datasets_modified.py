@@ -81,7 +81,7 @@ def build_treatment_reference():
 # ---------------------------------------------------------------------------
 # 2) 01_soil_chemistry.csv — 농경지화학성 통계(면적구간) → 가중평균 근사
 # ---------------------------------------------------------------------------
-STAT_BASE = "http://apis.data.go.kr/1390802/SoilEnviron/SoilExamStat/V2"
+STAT_BASE = "https://apis.data.go.kr/1390802/SoilEnviron/SoilExamStat/V2"
 
 # (필드접미사, 대표값) — 구간 중앙값 근사. 개방형 구간(이하/이상)은 인접 구간 폭으로 추정.
 PH_BINS_NORMAL = [  # 논/밭/과수 공통
@@ -171,8 +171,8 @@ def build_soil_chemistry(regions):
 # ---------------------------------------------------------------------------
 # 3) 02_soil_physical.csv — 토양검정 목록(PNU 텍스트주소 확보) → PNU 역산 → 토양특성단면 조회
 # ---------------------------------------------------------------------------
-EXAM_BASE = "http://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2"
-CHARAC_BASE = "http://apis.data.go.kr/1390802/SoilEnviron/SoilCharacSctnn/V2"
+EXAM_BASE = "https://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2"
+CHARAC_BASE = "https://apis.data.go.kr/1390802/SoilEnviron/SoilCharacSctnn/V2"
 
 
 def load_children_codes():
@@ -289,7 +289,7 @@ def build_soil_physical(regions):
 # ---------------------------------------------------------------------------
 # 4) 03_weather_monthly.csv — 농업기상 월별(최근 5년), 관측지점=선정지역 자체
 # ---------------------------------------------------------------------------
-WEATHER_BASE = "http://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/V3/GnrlWeather"
+WEATHER_BASE = "https://apis.data.go.kr/1390802/AgriWeather/WeatherObsrInfo/V3/GnrlWeather"
 YEARS = [2021, 2022, 2023, 2024, 2025]
 
 
