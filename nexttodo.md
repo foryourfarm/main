@@ -538,10 +538,33 @@ breakdown만 `coverage_limitation`에 넘긴다. 범인은 프론트였다:
   - `soil_change_rule` 0행 오탐 제거 — shadow 전용이라 0행이 정상이다. 진짜 문제와
     섞여 신호가 흐려지고 있었다.
 
-**⬜ 2단계 — 프로덕션 실측 + 결과 기록 (다음)**
+**✅ 2단계 — 프로덕션 실측 (완료, 2026-08-03)**
 
-배포 후 `audit_seeds.py`를 프로덕션에 돌려 컬럼 단위 현황을 남긴다. 오늘 채운 것들이
-실제로 잡히는지, 아직 비어 있는 컬럼이 더 없는지 확인한다.
+`audit_seeds.py`를 프로덕션에 돌린 결과 — **전 행 NULL인 컬럼은 하나도 없다.**
+그날 채운 ETL 3개(AWS·일사량·고도)가 전부 반영됐다.
+
+    weather_climatology.temp_avg_normal          2,976/3,060   결측 84행 (7구역)
+    weather_climatology.temp_night_min_normal    1,668/3,060   결측 1,392행 (116구역)
+    weather_climatology.rainfall_normal          3,036/3,060   결측 24행 (2구역)
+    weather_climatology.solar_radiation_normal   3,046/3,060   결측 14행
+    region.altitude_m                                256/256   OK
+    district.altitude_m                        20,275/20,275   OK
+
+**결측이 전부 설명된다** — 사유를 `_EXPECTED_PARTIAL`에 적어 다음 사람이 다시 의심하지
+않게 했다. 이보다 커지면 그때는 진짜 신호다.
+
+  - `temp_night_min` 1,392 = 116구역×12 — **농업기상 소스에 야간최저 항목 자체가 없다.**
+    AWS가 채운 139구역만 값이 있다. 구조적으로 정상.
+  - `temp_avg` 7구역(계룡·곡성·신안·영광·영동·영암·증평)·`rainfall` 2구역(곡성·증평)
+    — 관측소 공백 지역.
+  - `solar_radiation` 울릉 12개월·강화 2개월 — 일사 관측소가 177개뿐이라 커버리지가 좁다.
+
+**[확인 필요] 알게 된 것 하나**: `load_aws_climatology`의 "농업기상 1순위 보호"가
+**구역 단위 스킵**이라(`source != SOURCE`인 행이 하나라도 있으면 그 구역 전체 제외),
+**농업기상 행은 있는데 `temp_avg`가 빈 7개 구역을 AWS가 채울 수 있는데도 건너뛴다.**
+docstring의 "덮어쓰지 않는다"는 맞지만 "빈 칸도 안 채운다"까지 의도한 것인지는 불명확하다.
+읽기 시점 KNN 대체가 담당하고 한계 문구도 뜨므로 **지금 고칠 일은 아니다** — 컬럼 단위
+스킵으로 바꾸면 7구역이 실측으로 바뀌지만, 그건 별도 판단이 필요하다(§3-2).
 
 **⬜ 3단계 — README §④ 시드 표에 누락 ETL 추가**
 

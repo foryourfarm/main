@@ -105,6 +105,25 @@ COLUMN_CHECKS = [
     ),
 ]
 
+# 부분 결측이 **구조적으로 정상**인 컬럼 — 이유를 안 적으면 볼 때마다 다시 의심하게 된다.
+# 2026-08-03 실측으로 확인한 값이며, 결측이 이보다 커지면 그때는 진짜 신호다.
+_EXPECTED_PARTIAL = {
+    "weather_climatology.temp_night_min_normal": (
+        "농업기상 소스에 야간최저 항목이 없다 — AWS가 채운 구역만 값이 있다. "
+        "2026-08-03 기준 1,392행(=116구역×12) 결측이 정상이다."
+    ),
+    "weather_climatology.temp_avg_normal": (
+        "관측소 공백 구역(계룡·곡성·신안·영광·영동·영암·증평 7곳). "
+        "load_aws_climatology는 '농업기상 1순위 보호'로 **구역 단위** 스킵이라 "
+        "빈 칸도 안 채운다 — 읽기 시점 KNN 대체가 담당한다."
+    ),
+    "weather_climatology.rainfall_normal": "관측소 공백 구역(곡성·증평 2곳). 위와 같은 이유.",
+    "weather_climatology.solar_radiation_normal": (
+        "일사 관측소가 없는 구역(울릉 12개월·강화 2개월). 일사는 지점이 177개뿐이라 "
+        "기온·강수보다 커버리지가 좁다."
+    ),
+}
+
 # 전 행 NULL이어도 정상인 컬럼 — 이유를 적어 두지 않으면 다음 사람이 "결손"으로 오해한다.
 _BY_DESIGN_NULL = {
     "weather_climatology.sunlight_normal": (
@@ -149,8 +168,12 @@ def main() -> None:
                 status = f"전 행 NULL — {breaks}"
                 problems.append(f"{label}: 전 행 NULL — {breaks} → {filled_by} 실행 필요")
             elif filled < total:
-                # 부분 결측은 정상일 수 있다(관측망 커버리지 차이) — 세워두되 실패로 치지 않는다.
+                # 부분 결측은 관측망 커버리지 차이라 정상일 수 있다 — 실패로 치지 않는다.
+                # 알려진 사유가 있으면 함께 찍는다. 사유 없는 결측만 눈에 띄게 하려는 것이다.
+                note = _EXPECTED_PARTIAL.get(label)
                 status = f"부분 결측 {total - filled:,}행"
+                if note:
+                    status += f" — 예상됨: {note}"
             else:
                 status = "OK"
             print(f"{label:<44}{ratio:>16}   {status}")
