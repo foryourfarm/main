@@ -3,22 +3,36 @@
 > 우선순위 순서대로 나열. registry-keeper가 매 사이클 끝에 재정렬한다.
 > scout이 키워드 하나를 소비하면 이 목록에서 제거하고 search-log.md로 이동시킨다.
 
-## Iteration 8 최우선 Gap (Iteration 7 후 발굴/이월, 2026-08-03)
+## Iteration 9 최우선 Gap (Iteration 8 후 발굴/이월, 2026-08-03)
 
-> **사용자 지정 조건(Iteration 7부터 완화)**: 착색기 등 미해결 gap은 이제 ①국내논문 여부 무관 ②스캔본 지양 ③정확성 보장.
+> **사용자 지정 조건(Iteration 7부터 유지)**: 미해결 gap은 ①국내논문 여부 무관 ②스캔본 지양 ③정확성 보장. **Iteration 8부터 추가**: 신규 논문 탐색보다 기존 partial 수치의 재검토가 우선순위로 부상.
 
-0. **사과 착색기(coloring) `temp_day`(낮기온) — 여전히 missing** — Ryu et al.(2017, 국내 RDA 실측)로 `temp_night_min`(야간)은 filled됐으나, 낮기온 자체는 다루지 않음. "착색기엔 낮기온이 핵심변수가 아닐 수 있다"는 가능성 자체도 열려있어, 재검색 전에 팀이 이 지표를 계속 추적할지부터 확인 필요
-1. **Chaves et al.(2017), Acta Hortic. 1160:335-340 원문 확보 — 최우선 격상** — Cepeda(2021)가 재인용한 Tbase=7.22℃의 최초 도출 논문. 원문을 직접 읽어야 gdd.Tbase를 filled/partial로 전환할 수 있는지 판단 가능
-2. **Ryu(2017) 관측창(만개후 70~131일) ↔ 시드 착색기 정의(day_of_year 233~293) 정합성 확인** (검색 아님, 만개일 추정 로직 검토 + 팀 결정)
-3. **forcing_requirement_bloom·chilling_requirement·temp_night_min(coloring) 신규 지표 스키마 결정** (검색 아님, 팀 결정) — DB 스키마에 이 지표들 자체가 없음. temp_night_min이 이번에 추가돼 총 3개
-4. **사과 EC national-scale 원문 확보** — TRKO202100009605(RDA 5차사업 보고서) 메타데이터는 확인됐으나 원문 다운로드가 JS세션에 막힘. **다음은 학술검색이 아니라 NTIS 재검색/RDA 국립농업과학원 직접 문의**가 필요(scout 재실행 불필요, 4회 연속 이월)
-5. **Merwin, Stiles & van Es(1994), JASHS 119:216-222 원문 확보** — 같은 실험의 토양물리성/유기물 컴패니언 논문, organic 지표 추가 보강 가치
-6. **5작물 공통 토양 화학성(pH/EC/유기물/P2O5) 공백** — 배는 전부 missing, 오이·감자는 처방기준 없음, 상추는 협소구간만
-7. **배 대기온 고온 피해 임계값** — FST 47.1°C는 과실표면온도. 재배자가 측정 가능한 대기온 기준값 필요 (scout-4b, 이월)
-8. **한국 실측 강수 임계값 (지역·토양질감별)** — 배·오이 전부 중국/외국 자료. 사과는 김미리·김승규(2014)로 방향성만 확보, 절대 mm구간은 여전히 미해결 (scout-4a, 이월)
-9. **토양질감별 과습 임계값** / **ETc 절대값 환산** — 차순위 이월
+0. **사과 EC optimal(0.8~1.5) 재검토 — 검색보다 팀 결정 선행** — 전북 실측(Ahn 2011, 0.5 dS/m)이 기존 optimal 하한(0.8)보다 낮게 나옴. 기존 optimal은 6개 주산지(hongro N=60) 기반 — 지역편향인지 재검토 필요. 추가 지역 실측 탐색은 이 팀 결정 이후 진행
+1. **유효인산 Bray-1/Lancaster 이중표기 정리** (검색 아님, 문서작업) — Kang(2014)·Kim(2012)·Ahn(2011) 3편 모두 200~900mg/kg대(Lancaster법 추정)로, registry 기존 Bray-1(30~50mg/kg)과 10배 이상 차이. registry §1 p2o5 행에 측정법 명시 필요
+2. **유효인산-착색 55.9% 연결 검증** — Kim et al.(2012)에서 발견된 신규 연결고리. 인산 수준별 착색 반응을 직접 다룬 국내외 문헌 탐색
+3. **temp_day(coloring) 포장 실측 검증** — Kim(2016)의 항온챔버(적출과실) 결과를 포장 대기온 실측으로 재확인하는 국내 후속 연구 탐색
+4. **Chaves(2017) 방법론의 후지·홍로 적용** — Von Bertalanffy 커브핏을 한국 주력품종 만개~수확 과실직경 성장에 적용한 국내 연구 탐색
+5. **사과 EC national-scale(TRKO202100009605) PDF 원문** — ScienceON 초록/목차까지만 접근, PDF는 여전히 막힘. NTIS 재검색/RDA 국립농업과학원 직접 문의 필요(scout 재실행 불필요, 4회 연속 이월)
+6. **organic 지표 registry 내 비중 재검토** (검색 아님, 팀 결정) — Merwin(1994) 회귀왜곡 + Kim(2012) 기여율 낮음(0.1~5.6%), 2개 독립신호 축적
+7. **forcing_requirement_bloom·chilling_requirement·temp_night_min(coloring) 신규 지표 스키마 결정** (검색 아님, 팀 결정) — 여전히 미결정, 총 3개
+8. **5작물 공통 토양 화학성(pH/EC/유기물/P2O5) 공백** — 배는 전부 missing, 오이·감자는 처방기준 없음, 상추는 협소구간만
+9. **배 대기온 고온 피해 임계값** — FST 47.1°C는 과실표면온도. 재배자가 측정 가능한 대기온 기준값 필요 (scout-4b, 이월)
+10. **한국 실측 강수 임계값 (지역·토양질감별)** — 배·오이 전부 중국/외국 자료. 절대 mm구간은 여전히 미해결(scout-4a, 이월). Treder(2022)의 "유효강수" 개념을 한국 데이터로 재산출하는 것도 후보
+11. **토양질감별 과습 임계값** / **ETc 절대값 환산** — 차순위 이월
 
-> 관련 문서: `docs/guide-seed-known-issues.md`(P1/F-2), `docs/temperature-scoring.md`(§4), `knowledge-base/registry.md`(§6-3 Iteration 7 완료 요약)
+> 관련 문서: `docs/guide-seed-known-issues.md`(P1/F-2), `docs/temperature-scoring.md`(§4), `knowledge-base/registry.md`(§6-4 Iteration 8 완료 요약)
+
+## Iteration 8 결과 (2026-08-03, 참고 — 재검색 불필요)
+
+> 사용자가 직접 PDF 8편(Kang 2014, Treder 2022, Kim CWSI 2019, Chaves 2017, Lee 2023, Kim coloring 2016, Kim soil-contribution 2012, Ahn 2011)을 다운로드해 제공, 전부 원문 확보·md화 완료.
+
+- ~~사과 착색기(coloring) temp_day(낮기온)~~ → **최초 partial 전환**(Kim et al. 2016, 국내 홍로 항온챔버) — registry상 유일했던 순수 missing 항목 해소. 포장 실측 검증은 Iteration 9 #3으로 이월
+- ~~사과 gdd Tbase (Chaves 2017 원문 확보)~~ → **재인용 함정 최종 해결** — 직접도출 확인, 단 한국 품종 미검증이라 partial 유지. 후지·홍로 적용은 Iteration 9 #4로 이월
+- ~~사과 EC national-scale~~ → **부분 진전**(ScienceON 초록/목차 접근), PDF는 여전히 막혀 Iteration 9 #5로 이월. 대신 국가기준(Kang 2014)·지역실측(Ahn 2011) 확보로 EC optimal 자체의 재검토 필요성 발견(Iteration 9 #0)
+- ~~사과 organic~~ → Kim(2012)에서 중요도 반증 신호 추가 확보, Iteration 9 #6(팀 결정)으로 이월
+- ~~사과 temp_day(fruit_growth/maturity)~~ → **독립근거 3번째 확보**(Lee 2023, 국내 20년), 여전히 partial
+- ~~사과 rainfall_by_stage~~ → **방법론 보강**(Treder 2022 유효강수 개념 / Kim CWSI 2019는 reference_only), mm구간은 여전히 미해결
+- **신규 발견(검색 대상 아님)**: 유효인산 Bray-1/Lancaster 측정법 혼재(Iteration 9 #1), 유효인산-착색 55.9% 연결(Iteration 9 #2)
 
 ## Iteration 7 결과 (2026-08-03, 참고 — 재검색 불필요)
 

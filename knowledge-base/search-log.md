@@ -2,6 +2,25 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 8 (2026-08-03) — 사용자 직접 제공 PDF 8편 원문 확보 (사과 temp_day(coloring) 최초 partial 전환 + gdd 재인용함정 해결 + EC/organic 재검토 신호)
+
+> Iteration 7에서 남은 미해결 3개(착색기 낮기온·gdd.Tbase·EC national-scale)를 scout 7개 에이전트로 재검색하던 중, 사용자가 직접 다운로드한 PDF 8편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(Kang 2014만 한글 프로세 CMap 손실 있었으나 핵심 Table 1은 보존). 상세 판정 근거는 `registry.md` §6-4.
+
+### 채택(approve/filled·partial, 원문 확보 완료)
+- **Kim, Ahn & Yun(2016)**, Protected Horticulture and Plant Factory 25(1):9-15, DOI 10.12791/KSBEC.2016.25.1.9, 인용1 — **국내(영남대) 실측**. 항온챔버 25℃(양호) vs 30~35℃(착색·당 유전자 발현 억제) — **temp_day(coloring) missing→partial 최초 전환**
+- **Chaves, Salazar, Schmidt, Dasgupta & Hoogenboom(2017)**, Acta Hortic. 1160:335-340, DOI 10.17660/ActaHortic.2017.1160.48 — gdd.Tbase 재인용 함정 최종 해결. Tbase=7.22/5.55/6.11℃(품종별)가 재인용 아닌 워싱턴주 11지점×4개년 실측 직접도출임을 확인
+- **Kang, Kim, Kong, Chae, Sonn, Lee, Kim & Lee(2014)**, 학회 발표 PB-07, RDA-NAAS — ec 국가기준(EC≤2.0, 기존 allowed_max 출처 확인) + Bray-1/Lancaster 유효인산 측정법 혼재 문제 노출
+- **Ahn, Lee & Ha(2011)**, Korean J. Soil Sci. Fert. 44(5):859-865, 인용6 — 전북 110개소 중 사과 실측. EC 0.5dS/m(기존 optimal보다 낮음, 재검토 신호), 유효인산 631mg/kg(적정 2.1~3.2배 과잉)
+- **Kim, Park, Han, Cho, Choi, Lim & Yun(2012)**, J. Bio-Environ. Control 21(2):102-107 — 홍로 60농가. 유기물 기여율 0.1~5.6%로 낮음(organic 중요도 재평가), 유효인산-착색 55.9% 신규연결 발견
+- **Lee, Park, Jeong, Kim & Heo(2023)**, Horticulturae 9(7):794, DOI 10.3390/horticulturae9070794, 인용19 — temp_day(fruit_growth/maturity) 독립근거 3번째(국내 20년 실측, 후지·홍로 품종별 반응차 확인)
+- **Treder, Klamkowski, Tryngiel-Gać & Wójcik(2022)**, J. Water Land Development 53(IV-VI):51-57, DOI 10.24425/jwld.2022.140779 — rainfall_by_stage 방법론(유효강수 개념, 총강수mm≠실제흡수량)
+- **Kim, Choi, Cho, Yun, Park, Kim, Jeon & Lee(2019)**, J. Korean Soc. Agric. Eng. 61(5):23-31, DOI 10.5389/KSAE.2019.61.5.023 — CWSI/관개(reference_only, 자연강수 아닌 인공관개 스킴이라 rainfall_by_stage 갭 미해결)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 PDF 원문 미확보(ScienceON 초록/목차까지만 접근)
+- **사과 EC optimal(0.8~1.5) 자체의 재검토 필요성**: 전북 실측(0.5)이 기존 optimal보다 낮음 — 신규 논문 탐색보다 팀의 기존 수치 재검토가 선행되어야 함
+- **사과 gdd.Tbase의 한국 품종 적용**: Chaves(2017)는 미국 품종 한정, 후지·홍로 값은 여전히 미확보
+
 ## Iteration 7 (2026-08-03) — 사용자 직접 제공 PDF 7편 원문 확보 (사과 착색기 최초 filled + 6개 gap 보강)
 
 > 사용자가 미해결 1개(착색기, **국내논문 여부 무관** 조건)+부분해결 6개(fruit_growth/maturity·EC·organic·p2o5_실태·rainfall·gdd)를 scout 6개 에이전트로 재검색하던 중, 직접 다운로드한 PDF 7편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(CMap 손실 없음). 상세 판정 근거는 `registry.md` §6-3.
