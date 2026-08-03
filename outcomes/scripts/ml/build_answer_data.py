@@ -47,6 +47,8 @@ def band_row(variable, rule, unit, source, scope):
     }
 
 
+# 단위는 컬럼에 고정한다(CLAUDE.md §4). k/ca/mg는 치환성 양이온으로 cmol/kg —
+# 종전엔 매핑이 없어 상추 override 3행이 "-"로 나갔다(2026-08-02 정정).
 def month_label(months):
     """연속 구간이면 `04-10`, 비연속(예: 상추 봄·가을 작기)이면 개별 월을 나열한다.
     `months[0]-months[-1]`만 쓰면 [4,5,9,10]이 '04-10'으로 보여 6~8월도 채점한 것처럼 읽힌다."""
@@ -55,7 +57,10 @@ def month_label(months):
     return ".".join(f"{m:02d}" for m in months)
 
 
-SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg"}
+SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg",
+              "k": "cmol/kg", "ca": "cmol/kg", "mg": "cmol/kg", "ec": "dS/m"}
+# 물리성(2026-08-03). 등급코드가 아니라 등급 상한 %로 환산한 값의 밴드다(_shared physical_code_maps).
+PHYSICAL_UNITS = {"slope_pct": "%", "gravel_pct": "%"}
 
 
 def main():
@@ -63,8 +68,10 @@ def main():
     crops = load_crops()
     rows = []
 
-    for var, rule in shared["soil_rules"].items():
-        rows.append(band_row(var, rule, SOIL_UNITS.get(var, "-"), rule["source"], "soil"))
+    # 2026-08-03: 작물 무관 공유 soil_rules 블록이 사라졌다(출처 미확인으로 삭제). 라벨 정의도
+    # 전부 작물별 문헌 밴드에서만 나온다 — 어느 문헌 기준인지 말할 수 없는 행을 싣지 않는다.
+    assert "soil_rules" not in shared, \
+        "_shared.json에 soil_rules가 되살아났다 — 공유 밴드는 2026-08-03에 삭제됐다"
 
     for crop_code, crop in crops.items():
         name = crop["name"]
@@ -87,8 +94,14 @@ def main():
         for var, rule in crop.get("soil_overrides", {}).items():
             rows.append(band_row(
                 f"soil_{var}_{crop_code}",
-                rule, SOIL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 작물전용 override, {shared['knowledge_version']})",
-                f"crop:{crop_code}:{name}:soil_override",
+                rule, SOIL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 작물전용 밴드, {shared['knowledge_version']})",
+                f"crop:{crop_code}:{name}:soil",
+            ))
+        for var, rule in crop.get("physical_overrides", {}).items():
+            rows.append(band_row(
+                f"physical_{var}_{crop_code}",
+                rule, PHYSICAL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 물리성 밴드, {shared['knowledge_version']})",
+                f"crop:{crop_code}:{name}:physical",
             ))
 
     df = pd.DataFrame(rows)
@@ -98,8 +111,9 @@ def main():
     assert df["method"].notna().all() and (df["method"].str.strip() != "").all(), "method 비어있는 밴드 존재"
 
     df.to_csv(OUT, index=False, encoding="utf-8")
-    print(f"{OUT.name}: {len(df)} rows (soil={len(shared['soil_rules'])}, "
-          f"crops={len(crops)}, knowledge_version={shared['knowledge_version']})")
+    print(f"{OUT.name}: {len(df)} rows (crops={len(crops)}, "
+          f"knowledge_version={shared['knowledge_version']})")
+    print(f"  scope별: {df['scope'].str.rsplit(':', n=1).str[-1].value_counts().to_dict()}")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,12 @@ ANCHOR = {
             {"indicator": "ph", "optimal_min": 6.0, "optimal_max": 6.5,
              "allowed_min": 5.5, "allowed_max": 6.8,
              "source": "memory/registry.md §1; RDA 비료사용처방, 홍로품종 과실품질"},
+            # ⚠️ 채점 배선 금지(2026-08-02). 이 밴드는 **Bray-1 추출법** 기준이고, 우리 토양
+            # 데이터(`data/01_soil_chemistry_modified.csv`의 `available_p`)는 중앙값 419.7
+            # mg/kg·범위 62~1289로 **약 10배 다른 스케일**이다(추출법 계열이 다름 —
+            # knowledge-base/registry.md §5 "측정법 불일치가 지표값을 6배까지 벌린다" 참고).
+            # 이 값을 `_shared.json`/`soil_overrides`로 옮기거나 band_score에 넘기면 전 지역이
+            # 상한 밖으로 떨어진다. 흙토람 반환값의 추출법이 확인될 때까지 기록용으로만 둔다.
             {"indicator": "p2o5", "optimal_min": 30.0, "optimal_max": 50.0,
              "allowed_min": 20.0, "allowed_max": 60.0, "unit": "mg/kg (Bray-1)",
              "source": "memory/registry.md §1; RDA 비료사용처방"},

@@ -8,8 +8,8 @@ from app.services.suitability_service import calculate_suitability
 
 def guide(
     indicator: str,
-    optimal_min: str,
-    optimal_max: str,
+    optimal_min: str | None,
+    optimal_max: str | None,
     allowed_min: str | None = None,
     allowed_max: str | None = None,
     weight: str = "1",
@@ -19,8 +19,8 @@ def guide(
         crop_id=1,
         growth_stage="test",
         indicator=indicator,
-        optimal_min=Decimal(optimal_min),
-        optimal_max=Decimal(optimal_max),
+        optimal_min=Decimal(optimal_min) if optimal_min else None,
+        optimal_max=Decimal(optimal_max) if optimal_max else None,
         allowed_min=Decimal(allowed_min) if allowed_min else None,
         allowed_max=Decimal(allowed_max) if allowed_max else None,
         weight=Decimal(weight),
@@ -125,6 +125,20 @@ class TestSuitabilityService(unittest.TestCase):
         self.assertIsNone(result["score"])
         self.assertIsNone(result["grade"])
         self.assertEqual(result["risk_flags"], ["ph:invalid"])
+
+    def test_one_sided_band_scores_full_above_open_optimal_max(self):
+        """단측 밴드(사과 치환성 Ca "5~6cmol/kg 이상" 등, 2026-08-03): optimal_max가 없으면
+        그 방향은 상한이 없다는 뜻이라 값이 아무리 커도 100점이어야 한다 — 예전엔
+        optimal_max=None을 "지침 없음"으로 오인해 invalid_guide로 스킵시켰다."""
+        result = calculate_suitability([guide("ca", "5", None, "4.5", None)], {"ca": 14.42})
+        self.assertEqual(result["score"], 100.0)
+        self.assertEqual(result["risk_flags"], [])
+
+    def test_one_sided_band_still_scores_the_open_side(self):
+        """상한이 없어도 하한 방향은 정상적으로 채점돼야 한다."""
+        result = calculate_suitability([guide("ca", "5", None, "4.5", None)], {"ca": 4.0})
+        self.assertEqual(result["risk_flags"], ["ca:outside_allowed"])
+        self.assertLess(result["score"], 100.0)
 
 
 if __name__ == "__main__":

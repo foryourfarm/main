@@ -25,6 +25,9 @@ DISPERSION = ROOT / "outcomes" / "memory" / "indicator_dispersion.json"
 VERSIONS = ROOT / "backend" / "alembic" / "versions"
 MIGRATION = VERSIONS / "0023_rda_handbook_soil_bands.py"
 MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
+MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
+MIGRATION_LETTUCE_ORGANIC = VERSIONS / "0029_lettuce_organic_matter_guide.py"
+MIGRATION_APPLE_CA = VERSIONS / "0030_apple_ca_one_sided_band.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -35,6 +38,7 @@ INDICATOR_ALIAS = {
     "k": "k",
     "ca": "ca",
     "mg": "mg",
+    "ec": "ec",
 }
 
 # outcomes 작물 파일 → 백엔드 crop_id (0003 시드 기준: 1 사과 / 2 배 / 3 오이 / 4 감자 / 5 상추)
@@ -77,11 +81,33 @@ class TestSoilBandContract(unittest.TestCase):
         cls.backend.update(
             {(row[0], row[1]): tuple(row[2:6]) for row in cations._BANDS}
         )
+        # 0028은 EC 하나만 다뤄서 행에 indicator 컬럼이 없다 — 키를 여기서 붙인다.
+        ec = _load_module("m0028", MIGRATION_EC)
+        cls.backend.update({(row[0], "ec"): tuple(row[1:5]) for row in ec._BANDS})
+        # 0029도 (crop=5, organic) 단일 행이라 상수를 그대로 튜플로 조립한다.
+        lettuce_organic = _load_module("m0029", MIGRATION_LETTUCE_ORGANIC)
+        cls.backend[(5, "organic")] = (
+            lettuce_organic._OPTIMAL_MIN,
+            lettuce_organic._OPTIMAL_MAX,
+            lettuce_organic._ALLOWED_MIN,
+            lettuce_organic._ALLOWED_MAX,
+        )
         cls.backend.update(_EXTRA_BACKEND_BANDS)
+        # 0030은 (1, "ca")의 optimal_max·allowed_max만 UPDATE로 NULL로 바꾼다(단측 밴드,
+        # 사과 치환성 Ca "5~6cmol/kg 이상"). UPDATE라 상수 import가 안 되니 0024가 심어 둔
+        # 최소값은 그대로 두고 최대값 두 칸만 여기서 덮는다(존재는 test_migration_files_exist가 확인).
+        apple_ca_min, _, apple_ca_allowed_min, _ = cls.backend[(1, "ca")]
+        cls.backend[(1, "ca")] = (apple_ca_min, None, apple_ca_allowed_min, None)
 
     def test_migration_files_exist(self):
         # 파일명이 바뀌면 위 로드가 조용히 실패해 검증이 공허해진다.
-        for path in (MIGRATION, MIGRATION_CATIONS):
+        for path in (
+            MIGRATION,
+            MIGRATION_CATIONS,
+            MIGRATION_EC,
+            MIGRATION_LETTUCE_ORGANIC,
+            MIGRATION_APPLE_CA,
+        ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")
 
@@ -94,9 +120,15 @@ class TestSoilBandContract(unittest.TestCase):
                 band = overrides.get(outcome_name)
                 if band is None:
                     continue  # 그 작물이 재정의하지 않은 지표는 공유 밴드를 쓴다
-                expected = tuple(float(band[k]) for k in BAND_KEYS)
                 got = self.backend.get((crop_id, backend_name))
                 with self.subTest(crop=filename, indicator=backend_name):
+                    # 단측 밴드(2026-08-03): outcomes가 optimal_max 등을 null로 열어
+                    # "그 방향엔 감점 없음"을 표현할 수 있다(band_score() 계약). null 여부
+                    # 자체가 아니라 백엔드와 null 위치가 같은지가 계약이라 None을 그대로
+                    # 비교한다 — 한쪽만 null이면 assertEqual이 잡는다.
+                    expected = tuple(
+                        None if band[k] is None else float(band[k]) for k in BAND_KEYS
+                    )
                     self.assertIsNotNone(
                         got,
                         f"{filename} {outcome_name}이 outcomes에는 있는데 마이그레이션에 없다 "
