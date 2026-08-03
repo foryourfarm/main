@@ -5,6 +5,9 @@
 import unittest
 from decimal import Decimal
 
+import httpx
+
+from app.infra.public_api.base import PublicApiError
 from app.infra.public_api.soil_exam_client import SoilExam
 from app.models import DistrictSoil
 from app.services import district_soil_service
@@ -160,7 +163,8 @@ class TestGetOrFetchRefresh(unittest.TestCase):
 
         def _fake_fetch(bjd_code: str):
             self.fetch_calls += 1
-            return [_exam("4", 6.1, 14.7, p=182.4, ec=1.35, k=0.9, ca=6.0, mg=2.0)], bjd_code
+            # 3번째 값은 조회 실패 여부 — 성공 경로라 False.
+            return [_exam("4", 6.1, 14.7, p=182.4, ec=1.35, k=0.9, ca=6.0, mg=2.0)], bjd_code, False
 
         district_soil_service._fetch_exams = _fake_fetch
 
@@ -259,6 +263,54 @@ class TestIsLeafBjd(unittest.TestCase):
         self.assertTrue(is_leaf_bjd("9999999900"))
 
 
+class TestFetchExamsSwallowsNetworkErrors(unittest.TestCase):
+    """`_fetch_exams`가 네트워크 예외를 실제로 잡는지.
+
+    **종전엔 못 잡았다.** `except (PublicApiError, OSError)`로 적혀 있었는데 httpx 예외는
+    `OSError` 하위가 아니라 `httpx.HTTPError` 계열이다. 그래서 타임아웃·401·5xx가 그대로
+    위로 튀어 **밭 등록이 500으로 죽었다** — §12 "산출이 예외로 죽지 않게 한다" 위반.
+    2026-08-03 data.go.kr이 평문 http를 중단했을 때 실제로 이 경로를 탔다.
+    """
+
+    def setUp(self):
+        self._real = district_soil_service.get_soil_exam_list
+
+    def tearDown(self):
+        district_soil_service.get_soil_exam_list = self._real
+
+    def _raise(self, exc: Exception):
+        def _stub(*args, **kwargs):
+            raise exc
+
+        district_soil_service.get_soil_exam_list = _stub
+
+    def test_timeout_does_not_propagate(self):
+        self._raise(httpx.ConnectTimeout("타임아웃"))
+        exams, code, failed = district_soil_service._fetch_exams("1215010100")
+        self.assertEqual(exams, [])
+        self.assertIsNone(code)
+        self.assertTrue(failed, "네트워크 실패인데 fetch_failed가 False다")
+
+    def test_http_status_error_does_not_propagate(self):
+        self._raise(httpx.HTTPStatusError("401", request=None, response=None))
+        exams, code, failed = district_soil_service._fetch_exams("1215010100")
+        self.assertEqual(exams, [])
+        self.assertTrue(failed)
+
+    def test_no_data_301_is_not_a_failure(self):
+        """301은 상대가 '기록 없다'고 답한 것 — 조회는 성공했으므로 우리 장애가 아니다."""
+        self._raise(PublicApiError(district_soil_service.NO_DATA_CODE, "요청 데이터 없음"))
+        exams, code, failed = district_soil_service._fetch_exams("1215010100")
+        self.assertEqual(exams, [])
+        self.assertFalse(failed, "301을 장애로 셌다 — 데이터 한계를 우리 잘못이라 말하게 된다")
+
+    def test_other_api_error_counts_as_failure(self):
+        """201(파라미터 오류) 등은 우리 잘못일 수 있으니 '기록 없음'이라 단정하지 않는다."""
+        self._raise(PublicApiError("201", "파라미터 오류"))
+        _, _, failed = district_soil_service._fetch_exams("1215010100")
+        self.assertTrue(failed)
+
+
 class TestSourceLabel(unittest.TestCase):
     """출처 문구는 화면 footer까지 그대로 나간다 — 유저와의 약속이므로 고정한다(§18-4)."""
 
@@ -282,7 +334,30 @@ class TestSourceLabel(unittest.TestCase):
     def test_leaf_with_no_samples_says_so_plainly(self):
         """리 없는 도시 동에 표본이 진짜 없는 경우 — 리 안내를 붙이면 거짓말이 된다."""
         label = source_label("1215010100", None, "4")
-        self.assertIn("조회 실패", label)
+        self.assertIn("기록 없음", label)
+        self.assertNotIn("리를 선택", label)
+        # 우리 장애가 아니므로 "가져오지 못했습니다"라고 말하면 안 된다.
+        self.assertNotIn("가져오지 못", label)
+
+    def test_fetch_failure_is_not_reported_as_missing_data(self):
+        """네트워크·API 실패를 '표본 없음'이라 말하면 우리 장애를 지역 데이터 한계로
+        둔갑시킨다 — 없는 사실을 단정하는 §18-4 위반이다(2026-08-03 data.go.kr http 중단)."""
+        label = source_label("1215010100", None, "4", fetch_failed=True)
+        self.assertIn("가져오지 못", label)
+        self.assertNotIn("기록 없음", label)
+        # 유저가 다음 행동을 알 수 있어야 한다 — 기다리면 되는 상황이다.
+        self.assertIn("다시 시도", label)
+
+    def test_failure_and_no_data_never_share_wording(self):
+        """두 문구가 같아지면 구분이 무의미해진다 — 회귀 방지."""
+        no_data = source_label("1215010100", None, "4", fetch_failed=False)
+        failed = source_label("1215010100", None, "4", fetch_failed=True)
+        self.assertNotEqual(no_data, failed)
+
+    def test_non_leaf_failure_prefers_failure_wording(self):
+        """리 안내는 '조회는 됐는데 기록이 없다'는 전제 위에 선다 — 못 받은 상황엔 맞지 않는다."""
+        label = source_label("5279034000", None, "3", fetch_failed=True)
+        self.assertIn("가져오지 못", label)
         self.assertNotIn("리를 선택", label)
 
     def test_never_claims_a_unit_it_did_not_query(self):
