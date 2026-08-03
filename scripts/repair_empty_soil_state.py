@@ -96,16 +96,44 @@ def _refresh_all_cache(db) -> tuple[int, list[str]]:
 
     print(f"district_soil 캐시 {len(rows)}건 전량 재조회")
     still_empty: list[str] = []
+    kept: list[str] = []
     for row in rows:
         # 재조회 전 값을 붙잡아 둔다 — refresh가 같은 객체를 제자리 갱신하므로 미리 떠야 한다.
         before = {f: getattr(row, f) for f in ALL_FIELDS}
         before_n = row.sample_count
+        before_source = row.source
         # refresh=True — 캐시가 있어도 다시 부른다. 같은 fetch에서 온 값으로 행 전체가
         # 갱신되므로 지표 간 출처가 섞이지 않는다(양이온만 새 표본에서 오는 상황 방지).
         fresh = get_or_fetch(db, row.bjd_code, row.field_type, refresh=True)
+        tag = f"{row.bjd_code} 경지{row.field_type}"
+
+        # **값이 있던 행을 빈 결과로 덮지 않는다.** 되돌린다.
+        #
+        # 종전엔 덮었고, 프로덕션 드라이런에서 실제로 드러났다(2026-08-03):
+        #
+        #     1213033000 경지2: 표본 401→0건  ph 6.54→null …
+        #     4157025000 경지4: 표본  77→0건
+        #
+        # 원인은 두 가지이고 **둘 다 덮으면 안 되는 경우다**:
+        # ⓐ 코드가 `000`으로 끝나는 **읍·면**이다. 흙토람은 리를 가진 읍·면의 기록을 리 코드로만
+        #   갖고 있어 면 코드로 물으면 데이터가 있어도 301이 온다(`_fetch_exams` docstring).
+        #   그 행들은 리 단위 전환 전 **지금은 삭제된 이웃 리 폴백**이 채운 값이다(401건이라는
+        #   수가 증거 — 한 페이지 100건으로는 불가능하다). 재조회로는 영구히 못 채운다.
+        # ⓑ API 키 누락·네트워크 장애. 일시적인데 값을 날려버린다.
+        #
+        # 읍·면 행을 정리할지는 **별도 제품 판단**이고 복구 스크립트가 조용히 할 일이 아니다 —
+        # 읽기 시점에 `effective_source`가 이미 "리를 선택하면 조회됩니다"로 안내한다.
+        # 어느 쪽이든 "있는 데이터를 지우지 않는다"가 맞다(§12, §18-4).
+        if fresh.sample_count == 0 and before_n > 0:
+            for field, value in before.items():
+                setattr(fresh, field, value)
+            fresh.sample_count = before_n
+            fresh.source = before_source
+            kept.append(tag)
+            print(f"  {tag}: 재조회가 0건 → **옛 값 유지** (표본 {before_n}건 그대로)")
+            continue
 
         changed = [f for f in ALL_FIELDS if _differs(before[f], getattr(fresh, f))]
-        tag = f"{row.bjd_code} 경지{row.field_type}"
         if before_n != fresh.sample_count or changed:
             diffs = " ".join(
                 f"{f} {_fmt(before[f])}→{_fmt(getattr(fresh, f))}" for f in changed
@@ -116,6 +144,13 @@ def _refresh_all_cache(db) -> tuple[int, list[str]]:
 
         if _all_missing(fresh, CATION_FIELDS):
             still_empty.append(f"{row.bjd_code}/{row.field_type}")
+
+    if kept:
+        print(
+            f"\n재조회가 0건이라 옛 값을 유지한 캐시 {len(kept)}건: {kept}"
+            "\n  → 대부분 읍·면 코드다(끝 3자리 000). 흙토람이 면 코드로는 301을 주므로"
+            "\n    재조회로 채울 수 없다. 리 단위로 등록된 밭은 영향받지 않는다."
+        )
     return len(rows), still_empty
 
 
