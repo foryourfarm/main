@@ -1,4 +1,4 @@
-"""시드 적재 점검 — 배포 후 "조용히 비어 있는 테이블"을 화면에 증상이 뜨기 전에 잡는다.
+"""시드 적재 점검 — 배포 후 "조용히 비어 있는 테이블·컬럼"을 화면에 증상이 뜨기 전에 잡는다.
 
 **왜 필요한가**: 2026-08-01 프로덕션 갱신 배포에서 3개월전망(`weather_outlook`)이 비어 있는
 것을 장기 탭 한계 문구("기상청 3개월전망이 적재되지 않아…")를 눈으로 읽고서야 알았다.
@@ -6,6 +6,16 @@ PR #28~29로 만든 tercile 보정이 그때까지 프로덕션에서 무효였�
 `load_districts.py`만 돌리기 때문인데, 나머지 시드는 **없어도 예외가 나지 않고**
 "데이터 부족"·"보정 없음"으로 조용히 degrade하도록 설계돼 있어(§12, §18-5) 증상이 늦게 뜬다.
 그 설계는 옳지만, 그래서 적재 여부는 따로 세어봐야 한다.
+
+**컬럼 단위 검사를 왜 더했나(2026-08-03)**: 행수만 세다가 더 큰 것을 놓쳤다. 프로덕션
+`weather_climatology`는 1,392행으로 "OK"였는데 **`temp_night_min_normal`이 전 행 NULL**이었다
+— 문제정의서가 A씨 실패 원인으로 지목했고 예선 PPT 7장의 차별점인 야간 저온이 그날까지
+**한 번도 채점된 적이 없었다.** 같은 날 `solar_radiation_normal`·`region/district.altitude_m`도
+전부 0행으로 드러났다. 원인은 배포 런북에 그 ETL들이 빠진 것이고, 행수 검사로는 안 보였다.
+
+**이 파일이 곧 "어느 스크립트가 무엇을 채우는가" 지도다.** 별도 문서로 두면 코드와
+어긋난다 — 아래 COLUMN_CHECKS의 세 번째 필드가 그 매핑이고, 비어 있으면 그 스크립트를
+돌리라는 뜻이다.
 
 읽기 전용이다 — count와 몇 개 집계만 돌린다.
 
@@ -53,8 +63,55 @@ CHECKS = [
     (Crop, "crop", 5, "작물 마스터"),
     (CropGrowthGuide, "crop_growth_guide", None, "생육 지침 없음 → 채점 불가"),
     (CropGrowthStage, "crop_growth_stage", None, "생육 단계 없음 → 단계 판정 불가"),
-    (SoilChangeRule, "soil_change_rule", None, "토양변화 계수 없음"),
 ]
+
+# `soil_change_rule`은 검사 대상이 아니다 — **0행이 정상이다.** 토양변화는 shadow 전용이라
+# 읽는 코드가 0건이고(`short_term_service.py` SOIL_LIMITATION 주석), 그래도 "문제 1건"으로
+#세는 바람에 진짜 문제와 섞여 신호가 흐려졌다. 그 기능이 유저 경로에 붙는 날 되살린다.
+_UNUSED_TABLES = {SoilChangeRule: "shadow 전용 — 읽는 코드 0건이라 0행이 정상"}
+
+# (모델, 컬럼, 채우는 스크립트, 비었을 때 무엇이 깨지는지)
+#
+# **행수가 아니라 값이 있는 행수를 센다.** 테이블에 행이 있어도 특정 컬럼이 전 행 NULL이면
+# 그 지표는 채점되지 않는데, 행수 검사로는 "OK"로 보인다(2026-08-03에 실제로 그랬다).
+COLUMN_CHECKS = [
+    (
+        WeatherClimatology, "temp_avg_normal",
+        "load_weather_climatology.py (농업기상) + load_aws_climatology.py (AWS)",
+        "장기 탭 기온 채점 불가",
+    ),
+    (
+        WeatherClimatology, "temp_night_min_normal",
+        "load_aws_climatology.py — **이것만 채운다**",
+        "야간 저온 채점 불가 (문제정의서가 지목한 A씨 실패 원인)",
+    ),
+    (
+        WeatherClimatology, "rainfall_normal",
+        "load_weather_climatology.py + load_aws_climatology.py",
+        "강수 지표 결측",
+    ),
+    (
+        WeatherClimatology, "solar_radiation_normal",
+        "load_solar_radiation_normal.py",
+        "일조 지표가 계속 빈다 (일조는 이 값에서 환산한다)",
+    ),
+    (
+        Region, "altitude_m", "load_altitudes.py",
+        "구역 대표 고도 없음 → 평년치 KNN 고도 필터 무효",
+    ),
+    (
+        District, "altitude_m", "load_altitudes.py",
+        "밭 고도 없음 → 기온 감률 보정(0.65℃/100m) 전부 미적용",
+    ),
+]
+
+# 전 행 NULL이어도 정상인 컬럼 — 이유를 적어 두지 않으면 다음 사람이 "결손"으로 오해한다.
+_BY_DESIGN_NULL = {
+    "weather_climatology.sunlight_normal": (
+        "설계상 비어 있다 — 일조는 저장하지 않고 solar_radiation_normal에서 읽을 때 "
+        "환산한다(보정계수가 바뀌면 저장값이 낡기 때문). 실측 일조가 생기면 쓰는 우선 필드."
+    ),
+}
 
 
 def main() -> None:
@@ -74,6 +131,34 @@ def main() -> None:
             else:
                 status = "OK"
             print(f"{label:<26}{count:>9,}   {status}")
+
+        # 컬럼 단위 — 행은 있는데 값이 전부 NULL인 것을 잡는다.
+        print(f"\n{'컬럼':<44}{'값있음/전체':>16}   상태")
+        print("-" * 88)
+        for model, column, filled_by, breaks in COLUMN_CHECKS:
+            table = model.__tablename__
+            total = db.scalar(select(func.count()).select_from(model)) or 0
+            filled = db.scalar(
+                select(func.count()).select_from(model).where(getattr(model, column).isnot(None))
+            ) or 0
+            label = f"{table}.{column}"
+            ratio = f"{filled:,}/{total:,}"
+            if total == 0:
+                status = "테이블 자체가 빔(위 참고)"
+            elif filled == 0:
+                status = f"전 행 NULL — {breaks}"
+                problems.append(f"{label}: 전 행 NULL — {breaks} → {filled_by} 실행 필요")
+            elif filled < total:
+                # 부분 결측은 정상일 수 있다(관측망 커버리지 차이) — 세워두되 실패로 치지 않는다.
+                status = f"부분 결측 {total - filled:,}행"
+            else:
+                status = "OK"
+            print(f"{label:<44}{ratio:>16}   {status}")
+
+        for name, why in _BY_DESIGN_NULL.items():
+            print(f"{name:<44}{'(검사 안 함)':>16}   {why}")
+        for model, why in _UNUSED_TABLES.items():
+            print(f"{model.__tablename__:<44}{'(검사 안 함)':>16}   {why}")
 
         print("\n[세부]")
 

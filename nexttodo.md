@@ -522,18 +522,33 @@ breakdown만 `coverage_limitation`에 넘긴다. 범인은 프론트였다:
 **근본 원인은 배포 런북에 ETL 단계가 빠진 것이다.** `README.md` §④ 시드 표에
 `load_aws_climatology.py`·`load_altitudes.py`가 아예 없다. 없으면 아무도 안 돌린다.
 
-#### 해야 할 일
+#### 해야 할 일 — 4단계 (진행 중)
 
-1. **전수 대조표를 만든다** — "이 테이블/컬럼은 어느 스크립트가 채우는가 / 프로덕션 현재
-   행수 / 기대 행수 / 비었을 때 증상". `audit_seeds.py`가 테이블 행수는 세지만
-   **컬럼 단위 결측은 못 본다**(weather_climatology가 1,392행 있어도 야간최저가 전 행
-   NULL이면 OK로 나왔다 — 실제로 그랬다).
-2. **`audit_seeds.py`를 컬럼 단위로 확장** — 위 사고를 그 스크립트가 잡았어야 했다.
-   `soil_change_rule` 0행을 "문제"로 세는 오탐도 같이 정리한다(shadow 전용이라 읽는 코드가
-   0건 — `short_term_service.py:45` 참고).
-3. **README §④ 시드 표에 누락 ETL 추가** — `load_aws_climatology.py`,
-   `load_altitudes.py`, `load_solar_radiation_normal.py`. 주기·비었을 때 증상까지.
-4. **유저 밭 토양 결측 16개 중 7개 재점검** — 아래 별도 항목.
+**✅ 1단계 — 대조표 + `audit_seeds.py` 컬럼 단위 확장 (완료, 2026-08-03)**
+
+당초 1·2단계를 나눴는데 **합쳤다.** 대조표를 별도 문서로 두면 코드와 어긋나기 때문이다
+— 오늘만 그 부류(기록과 현실의 괴리)를 네 번 봤다. 지도를 `scripts/audit_seeds.py`의
+`COLUMN_CHECKS` 세 번째 필드에 넣어 **문서가 곧 실행되는 검사**가 되게 했다.
+
+  - 컬럼 검사 6건 추가 — 행은 있는데 값이 전 행 NULL인 것을 잡는다.
+    `temp_night_min_normal`(← `load_aws_climatology.py` **만** 채운다)·
+    `solar_radiation_normal`·`region/district.altitude_m`·`temp_avg_normal`·`rainfall_normal`
+  - `sunlight_normal`은 **검사 대상에서 뺐다** — 전 행 NULL이 설계다(읽을 때 환산).
+    이유를 출력에 실어 다음 사람이 결손으로 오해하지 않게 했다.
+  - `soil_change_rule` 0행 오탐 제거 — shadow 전용이라 0행이 정상이다. 진짜 문제와
+    섞여 신호가 흐려지고 있었다.
+
+**⬜ 2단계 — 프로덕션 실측 + 결과 기록 (다음)**
+
+배포 후 `audit_seeds.py`를 프로덕션에 돌려 컬럼 단위 현황을 남긴다. 오늘 채운 것들이
+실제로 잡히는지, 아직 비어 있는 컬럼이 더 없는지 확인한다.
+
+**⬜ 3단계 — README §④ 시드 표에 누락 ETL 추가**
+
+`load_aws_climatology.py`·`load_altitudes.py`·`load_solar_radiation_normal.py`가 표에
+없어서 아무도 안 돌렸다 — **이번 사고의 근본 원인이다.** 주기·비었을 때 증상까지 적는다.
+
+**⬜ 4단계 — 유저 밭 토양 결측 16개 중 7개 재점검** (아래 별도 항목)
 
 #### 유저 밭 토양 결측 현황 (2026-08-03 실측, 밭 16개)
 
