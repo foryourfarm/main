@@ -74,6 +74,68 @@ class TestErrorLogging(unittest.TestCase):
         )
 
 
+class TestSecretRedaction(unittest.TestCase):
+    """로그에 인증키가 실리지 않는지 (§17).
+
+    **실제로 샜다.** 2026-08-03 로깅을 켜자 Cloud Logging에 흙토람 호출 URL이 통째로
+    적재됐고 거기 64자 `serviceKey`가 평문으로 들어 있었다. 원인은 루트 로거를 INFO로
+    열면서 httpx의 요청 로그(URL 전문)가 같이 켜진 것이다.
+
+    공공데이터포털은 인증키를 **쿼리스트링으로** 받는다 — 즉 이 프로젝트에서는 URL 자체가
+    비밀이다. 레벨을 낮추는 것만으로는 부족하다: 예외 메시지에도 URL이 들어가고
+    (`Client error '401' for url '…?serviceKey=…'`) 그게 트레이스백을 타고 나간다.
+    그래서 **출력 직전에** 지운다.
+    """
+
+    # 실제 유출된 형태 그대로(키 값만 가짜로 바꿈).
+    LEAKED = (
+        "HTTP Request: GET https://apis.data.go.kr/1390802/SoilEnviron/SoilExam/V2/"
+        "getSoilExamList?serviceKey=deadbeef0123456789abcdef&STDG_CD=5279025037 \"HTTP/1.1 200 OK\""
+    )
+
+    def test_service_key_is_masked(self):
+        from app.core.log_config import redact
+
+        out = redact(self.LEAKED)
+        self.assertNotIn("deadbeef0123456789abcdef", out)
+        self.assertIn("serviceKey=***", out)
+        # 어느 API였는지는 진단에 필요하므로 남는다.
+        self.assertIn("SoilExam", out)
+        self.assertIn("STDG_CD=5279025037", out)
+
+    def test_auth_key_is_masked(self):
+        """기상청 apihub는 `authKey`를 쓴다 — 이름이 다르다고 새면 안 된다."""
+        from app.core.log_config import redact
+
+        out = redact("GET https://apihub.kma.go.kr/api/typ01/url/x.php?obs=ta_max&authKey=SEKRET123")
+        self.assertNotIn("SEKRET123", out)
+        self.assertIn("authKey=***", out)
+
+    def test_masking_survives_traceback_path(self):
+        """예외 메시지에 실린 URL이 트레이스백을 타고 나가는 경로 — 레벨 조정으로는 못 막는다."""
+        import json
+        import sys
+
+        from app.core.log_config import CloudLoggingFormatter
+
+        try:
+            raise RuntimeError(f"Client error '401' for url '{self.LEAKED}'")
+        except RuntimeError:
+            record = logging.LogRecord(
+                "app.test", logging.ERROR, __file__, 1, "호출 실패", None, sys.exc_info()
+            )
+        out = json.loads(CloudLoggingFormatter().format(record))
+        self.assertNotIn("deadbeef0123456789abcdef", out["message"])
+
+    def test_httpx_request_logging_is_disabled(self):
+        """애초에 URL을 찍지 않게 한다 — 마스킹은 2차 방어다."""
+        from app.core.log_config import setup_logging
+
+        setup_logging()
+        self.assertGreaterEqual(logging.getLogger("httpx").level, logging.WARNING)
+        self.assertGreaterEqual(logging.getLogger("httpcore").level, logging.WARNING)
+
+
 class TestLogFormatter(unittest.TestCase):
     def test_cloud_formatter_emits_severity_and_traceback(self):
         """Cloud Logging은 `severity` 필드를 심각도로 읽는다 — 없으면 필터가 안 걸린다."""

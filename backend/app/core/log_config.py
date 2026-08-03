@@ -20,6 +20,7 @@ Cloud Logging이 그 값을 그대로 심각도로 읽는다.
 import json
 import logging
 import os
+import re
 import sys
 from typing import Any
 
@@ -31,6 +32,20 @@ _SEVERITY = {
     "ERROR": "ERROR",
     "CRITICAL": "CRITICAL",
 }
+
+# 쿼리스트링에 인증키를 실어보내는 공공 API들 때문에 **URL이 곧 비밀**이다(§17).
+# 공공데이터포털은 `serviceKey`, 기상청 apihub는 `authKey`를 쓴다.
+#
+# **레벨을 낮추는 것만으로는 못 막는다.** httpx의 INFO 요청 로그를 껐어도 예외 메시지에
+# URL이 그대로 들어간다("Client error '401' for url 'https://…?serviceKey=…'"). 그게
+# `exc_info=True` 트레이스백을 타고 로그로 나간다. 그래서 **출력 직전에 한 번** 지운다 —
+# 호출부마다 조심하게 하지 않고 한 곳에서 막는다.
+_SECRET_QUERY = re.compile(r"(?i)\b(serviceKey|authKey|apikey|api_key)=([^&\s'\"<>]+)")
+
+
+def redact(text: str) -> str:
+    """로그로 나가는 문자열에서 인증키를 지운다. 키 이름은 남긴다(어느 API인지는 진단에 필요)."""
+    return _SECRET_QUERY.sub(r"\1=***", text)
 
 
 class CloudLoggingFormatter(logging.Formatter):
@@ -46,12 +61,21 @@ class CloudLoggingFormatter(logging.Formatter):
         # 펼쳐 보여주므로 별도 필드보다 이쪽이 읽기 쉽다.
         if record.exc_info:
             payload["message"] += "\n" + self.formatException(record.exc_info)
+        payload["message"] = redact(payload["message"])
         # 핸들러가 실어 보낸 요청 컨텍스트(있을 때만).
         for key in ("http_method", "http_path", "http_status"):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = value
         return json.dumps(payload, ensure_ascii=False)
+
+
+class PlainFormatter(logging.Formatter):
+    """로컬 개발용 평문. **마스킹은 여기에도 필요하다** — 로컬 로그를 붙여넣다 키가 새는
+    사고가 실제로 이 세션에서 있었다(운영 로그였지만 경로는 같다)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact(super().format(record))
 
 
 def setup_logging() -> None:
@@ -69,7 +93,17 @@ def setup_logging() -> None:
     if os.getenv("K_SERVICE"):
         handler.setFormatter(CloudLoggingFormatter())
     else:
-        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        handler.setFormatter(PlainFormatter("%(levelname)s %(name)s: %(message)s"))
 
     root.addHandler(handler)
     root.setLevel(logging.INFO)
+
+    # **API 키가 로그에 새는 것을 막는다(§17).** httpx는 INFO에서 요청 URL을 통째로 찍는데,
+    # 공공데이터포털은 인증키를 쿼리스트링(`?serviceKey=…`)으로 받는다. 그래서 루트를
+    # INFO로 열면 실제 키가 평문으로 Cloud Logging에 적재된다 — 2026-08-03 실측으로 확인,
+    # 흙토람 호출 URL에 64자 키가 그대로 찍혔다.
+    #
+    # 호출 성패는 각 클라이언트가 자기 로그로 남기므로(§district_soil_service 등) httpx의
+    # 원본 URL 로그는 없어도 진단에 지장이 없다. httpcore는 더 저수준이라 같이 올린다.
+    for noisy in ("httpx", "httpcore"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
