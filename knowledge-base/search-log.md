@@ -2,6 +2,26 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 7 (2026-08-03) — 사용자 직접 제공 PDF 7편 원문 확보 (사과 착색기 최초 filled + 6개 gap 보강)
+
+> 사용자가 미해결 1개(착색기, **국내논문 여부 무관** 조건)+부분해결 6개(fruit_growth/maturity·EC·organic·p2o5_실태·rainfall·gdd)를 scout 6개 에이전트로 재검색하던 중, 직접 다운로드한 PDF 7편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(CMap 손실 없음). 상세 판정 근거는 `registry.md` §6-3.
+
+### 채택(approve/filled·partial, 원문 확보 완료)
+- **Ryu, Han, Jeong, Kwon, Han, Do, Choi & Lee(2017)**, Eur. J. Hortic. Sci. 82(5):232-238, DOI 10.17660/eJHS.2017/82.5.2, 인용16 — **국내(RDA 국립원예특작과학원, 완주) 실측**. 착색기 야간온도 LNT 20.1~23.4℃(촉진) vs HNT 26.1~29.4℃(억제) — **temp_night_min(coloring) 최초 filled**
+- **Sharpley, Kleinman, Flaten & Buda(2013)**, J. Environ. Qual. 42(5):1308-1326, DOI 10.2134/jeq2013.03.0098, 인용1040 — p2o5_실태 "legacy P" 구조적 설명(시비중단 후 7~27년간 유의한 감소 없음)
+- **Sugiura, Ogawa, Fukuda & Moriguchi(2013)**, Scientific Reports 3:2418, DOI 10.1038/srep02418, 인용143 — fruit_growth/maturity 온도. 일본 40년 포장실측, Warrington(1999) 독립 재확인
+- **Gasparatos, Roussos, Christofilopoulou & Haidouti(2011)**, J. Soil Sci. Plant Nutr. 11(4):105-117, DOI 10.4067/S0718-95162011000400008, 인용47 — ec 교차검증(그리스, 측정법 1:1 불일치로 직접대입 불가)
+- **Zanotelli, Montagnani, Andreotti & Tagliavini(2019)**, Agric. Water Manag. 226:105756, DOI 10.1016/j.agwat.2019.105756, 인용54 — rainfall_by_stage 방법론(이탈리아 Kc계수, 단위체계 달라 직접대체 불가)
+- **Merwin & Stiles(1994)**, J. Amer. Soc. Hort. Sci. 119(2):209-215, DOI 10.21273/jashs.119.2.209, 인용138 — organic 전용연구 최초 확보(관리방식 메커니즘, "적정구간" 아님)
+
+### 기각(reject, 재인용 함정)
+- **Cepeda, Vélez-Sánchez & Balaguera-López(2021)**, Rev. Colomb. Cienc. Hortic. 15(2):e12508, DOI 10.17584/rcch.2021v15i2.12508 — gdd(Tbase) 후보로 검토했으나 Tbase=7.22℃가 Chaves et al.(2017) 재인용치임이 확인돼 **독립근거로 불채택**. gdd.Tbase는 여전히 missing. Chaves(2017) 원문 확보가 Iteration 8 최우선 과제로 격상
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 temp_day(coloring, 낮기온)**: Ryu(2017)는 야간온도만 다뤄 낮기온 자체는 여전히 missing
+- **사과 gdd.Tbase**: Cepeda(2021)도 재인용 체인이라 불채택 — Chaves(2017) 원문 확보 필요
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 원문 미확보
+
 ## Iteration 6 (2026-08-03) — 사용자 직접 제공 PDF 4편 원문 확보 (사과 EC/rainfall/gdd/fruit_growth)
 
 > Iteration 5에서 "원문 미확보"로 caution/blocked 처리됐던 항목 중 일부를 사용자가 직접 PDF로 다운로드해 제공, 전부 원문 확보·md화했다. poppler(pdftoppm) 미설치로 Read 도구의 기본 PDF 렌더링이 실패해 `pdftotext`(born-digital) 또는 PyMuPDF 이미지 렌더링(CMap 손실 PDF)으로 대체 추출.

@@ -3,20 +3,34 @@
 > 우선순위 순서대로 나열. registry-keeper가 매 사이클 끝에 재정렬한다.
 > scout이 키워드 하나를 소비하면 이 목록에서 제거하고 search-log.md로 이동시킨다.
 
-## Iteration 7 최우선 Gap (Iteration 6 후 발굴/이월, 2026-08-03)
+## Iteration 8 최우선 Gap (Iteration 7 후 발굴/이월, 2026-08-03)
 
-> **사용자 지정 조건**: ①국내논문 우선 ②스캔본 지양 ③정확성 보장.
+> **사용자 지정 조건(Iteration 7부터 완화)**: 착색기 등 미해결 gap은 이제 ①국내논문 여부 무관 ②스캔본 지양 ③정확성 보장.
 
-0. **[보류, 국내논문 0편] 사과 착색기(coloring) `temp_day`/`temp_night_min`** — Iteration 5에서 scout 실행, 국내 문헌 인용수 기준 통과작 없어 보류 유지. 재개하려면: (a) 인용수 기준 완화(국내 학회 초록집 허용) 또는 (b) RDA 사과연구소 회색문헌으로 전환 — 사용자 확인 필요. 여전히 registry상 missing
-1. **사과 gdd Tbase — 학술논문 경로 소득 없음, 회색문헌으로 전환** — Iteration 4~6 합계 국내 후보 5편(Lee 2015, 김진희 2019, 김수옥·윤진일 2010 등) 전부 GDD 아닌 근접개념(냉각요구시간·냉해위험도)으로 확인됨. **다음은 RDA 사과연구소/국립원예특작과학원의 적산온도 기반 재배력·수확기예측 기술서(회색문헌) 확인**이 더 유망(scout 재실행보다 직접 문의 권장)
-2. **forcing_requirement_bloom·chilling_requirement 신규 지표 스키마 결정** (검색 아님, 팀 결정) — DB 스키마에 이 지표들 자체가 없음
-3. **사과 EC national-scale 원문 확보** — TRKO202100009605(RDA 5차사업 보고서) 메타데이터는 확인됐으나 원문 다운로드가 JS세션에 막힘. **다음은 학술검색이 아니라 NTIS 재검색/RDA 국립농업과학원 직접 문의**가 필요(scout 재실행 불필요)
-4. **5작물 공통 토양 화학성(pH/EC/유기물/P2O5) 공백** — 배는 전부 missing, 오이·감자는 처방기준 없음, 상추는 협소구간만
-5. **배 대기온 고온 피해 임계값** — FST 47.1°C는 과실표면온도. 재배자가 측정 가능한 대기온 기준값 필요 (scout-4b, 이월)
-6. **한국 실측 강수 임계값 (지역·토양질감별)** — 배·오이 전부 중국/외국 자료. 사과는 김미리·김승규(2014)로 방향성만 확보, 절대 mm구간은 여전히 미해결 (scout-4a, 이월)
-7. **토양질감별 과습 임계값** / **ETc 절대값 환산** — 차순위 이월
+0. **사과 착색기(coloring) `temp_day`(낮기온) — 여전히 missing** — Ryu et al.(2017, 국내 RDA 실측)로 `temp_night_min`(야간)은 filled됐으나, 낮기온 자체는 다루지 않음. "착색기엔 낮기온이 핵심변수가 아닐 수 있다"는 가능성 자체도 열려있어, 재검색 전에 팀이 이 지표를 계속 추적할지부터 확인 필요
+1. **Chaves et al.(2017), Acta Hortic. 1160:335-340 원문 확보 — 최우선 격상** — Cepeda(2021)가 재인용한 Tbase=7.22℃의 최초 도출 논문. 원문을 직접 읽어야 gdd.Tbase를 filled/partial로 전환할 수 있는지 판단 가능
+2. **Ryu(2017) 관측창(만개후 70~131일) ↔ 시드 착색기 정의(day_of_year 233~293) 정합성 확인** (검색 아님, 만개일 추정 로직 검토 + 팀 결정)
+3. **forcing_requirement_bloom·chilling_requirement·temp_night_min(coloring) 신규 지표 스키마 결정** (검색 아님, 팀 결정) — DB 스키마에 이 지표들 자체가 없음. temp_night_min이 이번에 추가돼 총 3개
+4. **사과 EC national-scale 원문 확보** — TRKO202100009605(RDA 5차사업 보고서) 메타데이터는 확인됐으나 원문 다운로드가 JS세션에 막힘. **다음은 학술검색이 아니라 NTIS 재검색/RDA 국립농업과학원 직접 문의**가 필요(scout 재실행 불필요, 4회 연속 이월)
+5. **Merwin, Stiles & van Es(1994), JASHS 119:216-222 원문 확보** — 같은 실험의 토양물리성/유기물 컴패니언 논문, organic 지표 추가 보강 가치
+6. **5작물 공통 토양 화학성(pH/EC/유기물/P2O5) 공백** — 배는 전부 missing, 오이·감자는 처방기준 없음, 상추는 협소구간만
+7. **배 대기온 고온 피해 임계값** — FST 47.1°C는 과실표면온도. 재배자가 측정 가능한 대기온 기준값 필요 (scout-4b, 이월)
+8. **한국 실측 강수 임계값 (지역·토양질감별)** — 배·오이 전부 중국/외국 자료. 사과는 김미리·김승규(2014)로 방향성만 확보, 절대 mm구간은 여전히 미해결 (scout-4a, 이월)
+9. **토양질감별 과습 임계값** / **ETc 절대값 환산** — 차순위 이월
 
-> 관련 문서: `docs/guide-seed-known-issues.md`(P1/F-2), `docs/temperature-scoring.md`(§4), `knowledge-base/registry.md`(§6-2 Iteration 6 완료 요약)
+> 관련 문서: `docs/guide-seed-known-issues.md`(P1/F-2), `docs/temperature-scoring.md`(§4), `knowledge-base/registry.md`(§6-3 Iteration 7 완료 요약)
+
+## Iteration 7 결과 (2026-08-03, 참고 — 재검색 불필요)
+
+> 사용자가 직접 PDF 7편(Sharpley 2013, Sugiura 2013, Gasparatos 2011, Zanotelli 2019, Ryu 2017, Merwin&Stiles 1994, Cepeda 2021)을 다운로드해 제공, 전부 원문 확보·md화 완료.
+
+- ~~사과 착색기(coloring) temp_night_min~~ → **최초 filled**(Ryu 2017, 국내 RDA 완주 실측) — 이번 배치의 핵심 성과. temp_day(낮기온)는 여전히 missing, Iteration 8 #0으로 이월
+- ~~사과 fruit_growth/maturity 온도~~ → **독립근거 2번째 확보**(Sugiura 2013, 일본 40년 포장실측), 여전히 partial
+- ~~사과 ec~~ → **교차검증 추가**(Gasparatos 2011, 그리스, 측정법 불일치로 직접대입 불가), national-scale은 여전히 미해결
+- ~~사과 organic~~ → **전용연구 최초 확보**(Merwin&Stiles 1994, 미국, 관리방식 메커니즘), 여전히 partial
+- ~~사과 p2o5_실태~~ → **구조적 설명 보강**(Sharpley 2013, legacy P 개념), optimal_range 수치는 변화 없음
+- ~~사과 rainfall_by_stage~~ → **방법론 보강**(Zanotelli 2019, 이탈리아 Kc계수), 여전히 partial
+- ~~사과 gdd Tbase~~ → **기각**(Cepeda 2021, Tbase가 Chaves 2017 재인용치로 확인돼 불채택) — Chaves(2017) 원문 확보로 Iteration 8 #1 이월
 
 ## Iteration 6 결과 (2026-08-03, 참고 — 재검색 불필요)
 
