@@ -311,6 +311,78 @@ class TestFetchExamsSwallowsNetworkErrors(unittest.TestCase):
         self.assertTrue(failed)
 
 
+class TestFetchAllPages(unittest.TestCase):
+    """표본을 100건에서 자르지 않는지.
+
+    **종전엔 잘랐다.** 1페이지만 읽어서 고창읍 5279025031(227건)이 100건으로 보였다. 두 가지
+    결함이 있었다 — 지역 기준값이 "첫 100건 평균"이 되고(순서를 모르니 편향도 모른다), 뒤
+    페이지에만 있는 경지구분 표본을 놓쳐 그 리가 "과수 표본 없음"으로 **잘못** 판정됐다.
+    """
+
+    def setUp(self):
+        self._real = district_soil_service.get_soil_exam_list
+
+    def tearDown(self):
+        district_soil_service.get_soil_exam_list = self._real
+
+    def _serve(self, pages: list[list[str]]):
+        """pages[i] = i+1페이지가 줄 경지구분 코드들. 범위를 넘으면 0건(실제 API와 같다)."""
+        self.calls = []
+
+        def _stub(code, page_no=1, page_size=100):
+            self.calls.append(page_no)
+            rows = pages[page_no - 1] if page_no <= len(pages) else []
+            return [_exam(field_type_code=ft, ph=6.0, om=20.0) for ft in rows]
+
+        district_soil_service.get_soil_exam_list = _stub
+
+    def test_collects_every_page_until_a_short_one(self):
+        self._serve([["1"] * 100, ["1"] * 100, ["1"] * 27])
+        self.assertEqual(len(district_soil_service._fetch_all_pages("5279025031")), 227)
+        self.assertEqual(self.calls, [1, 2, 3])
+
+    def test_full_last_page_terminates_on_the_empty_next_one(self):
+        """딱 200건이면 3페이지가 0건으로 온다 — 실제 API 동작(실측)."""
+        self._serve([["1"] * 100, ["1"] * 100])
+        self.assertEqual(len(district_soil_service._fetch_all_pages("4476042027")), 200)
+        self.assertEqual(self.calls, [1, 2, 3])
+
+    def test_field_type_only_on_a_later_page_is_not_lost(self):
+        """이게 유저에게 보이던 증상이다 — 과수가 2페이지에 있으면 종전엔 결측이 됐다."""
+        self._serve([["1"] * 100, ["4"] * 5])
+        exams = district_soil_service._fetch_all_pages("5279025031")
+        self.assertEqual(district_soil_service.summarize(exams, "4")["sample_count"], 5)
+
+    def test_page_cap_is_enforced(self):
+        """상한이 없으면 병적인 리 하나가 밭 등록 한 번에 수백 콜을 낸다(§18-1)."""
+        self._serve([["1"] * 100] * (district_soil_service.MAX_PAGES + 5))
+        district_soil_service._fetch_all_pages("1215010100")
+        self.assertEqual(len(self.calls), district_soil_service.MAX_PAGES)
+
+    def test_later_page_failure_keeps_what_was_already_fetched(self):
+        """§12 — 뒤 페이지가 죽어도 받은 표본을 버리지 않는다. 0건으로 되돌리면 있는
+        데이터를 두고 '기록 없음'이라 말하게 된다."""
+
+        def _stub(code, page_no=1, page_size=100):
+            if page_no == 1:
+                return [_exam(field_type_code="2", ph=6.0, om=20.0)] * 100
+            raise httpx.ConnectTimeout("2페이지에서 끊김")
+
+        district_soil_service.get_soil_exam_list = _stub
+        self.assertEqual(len(district_soil_service._fetch_all_pages("1215010100")), 100)
+
+    def test_first_page_failure_still_propagates(self):
+        """첫 페이지 실패는 위로 올려야 한다 — `_fetch_exams`가 '우리 장애 vs 기록 없음'을
+        가르는 유일한 신호다(그걸 삼키면 통합전 코드 재시도도 사라진다)."""
+
+        def _stub(code, page_no=1, page_size=100):
+            raise httpx.ConnectTimeout("1페이지부터 끊김")
+
+        district_soil_service.get_soil_exam_list = _stub
+        with self.assertRaises(httpx.HTTPError):
+            district_soil_service._fetch_all_pages("1215010100")
+
+
 class TestSourceLabel(unittest.TestCase):
     """출처 문구는 화면 footer까지 그대로 나간다 — 유저와의 약속이므로 고정한다(§18-4)."""
 
