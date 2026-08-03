@@ -61,15 +61,24 @@ def _risk_score(overshoot, buffer, risk_width=None):
 
 
 def band_score(value, rule):
-    """문헌 밴드 대비 편차 점수(0~100). 결측·규칙없음은 NaN — 강제 대체 금지."""
+    """문헌 밴드 대비 편차 점수(0~100). 결측·규칙없음은 NaN — 강제 대체 금지.
+
+    단측 밴드(2026-08-02): `optimal_min`/`optimal_max` 중 하나가 None이면 그 방향엔
+    감점을 두지 않는다. 문헌이 한쪽 경계만 주는 지표를 위한 것이다 — 예: RDA 사과 교본
+    표5-21 치환성 Ca "5~6 cmol/kg **이상**"은 상한 붕괴점을 주지 않는다. 없는 상한을
+    휴리스틱으로 만들면 정상 토양을 근거 없이 감점하게 된다(추측 금지).
+    이건 절벽(이진 채점) 도입이 아니다 — 그 방향에 절벽도 taper도 두지 않는 것이다.
+    """
     if value is None or rule is None or pd.isna(value):
         return np.nan
     lo, hi = rule["optimal_min"], rule["optimal_max"]
+    if lo is None and hi is None:
+        raise ValueError("optimal_min·optimal_max가 둘 다 없는 규칙은 채점할 수 없다")
     alo, ahi = rule.get("allowed_min"), rule.get("allowed_max")
     risk_width = rule.get("risk_width")
-    if lo <= value <= hi:
+    if (lo is None or lo <= value) and (hi is None or value <= hi):
         return 100.0
-    if value < lo:
+    if lo is not None and value < lo:
         if alo is None:
             return 0.0
         if value >= alo:

@@ -36,6 +36,17 @@ def soil_rule(rule: dict, indicator: str) -> dict:
     return _with_width(rule, load()["soil"].get(indicator, {}).get("risk_width"))
 
 
+def physical_rule(rule: dict, indicator: str) -> dict:
+    """물리성 지표 규칙 + risk_width(2026-08-03). `indicator`는 slope_pct/gravel_pct.
+
+    화학 지표와 달리 원시값이 등급코드를 %로 환산한 것이라 값이 3~6개 수준으로만 이산적이다 —
+    MAD가 0이 되어 risk_width가 0으로 나오는 경우가 실제로 생긴다. 그럴 땐 주입하지 않고
+    scoring.py의 완충폭 폴백에 맡긴다(조용히 값을 만들어내지 않는다).
+    """
+    width = load().get("physical", {}).get(indicator, {}).get("risk_width")
+    return _with_width(rule, width or None)
+
+
 @lru_cache(maxsize=1)
 def _climate_offset() -> float:
     """문헌 밴드(평년 기준)와 관측(최근 연도 기준)의 척도 차이 보정값.

@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA = ROOT.parent / "data"
+DATA = ROOT / "data"
 OUT = ROOT / "memory" / "indicator_dispersion.json"
 
 SCRIPTS_ML = Path(__file__).resolve().parent
@@ -53,6 +53,10 @@ SOIL_MAP = {
     "mg": ("mg", "mg"),
 }
 
+# EC(2026-08-03)는 01_soil_chemistry가 아니라 별도 집계 파일에서 온다 — 채점과 같은 컬럼
+# (ec_median)을 써야 감쇠폭이 실제 채점 입력의 산포도가 된다.
+EC_SRC = DATA / "ml" / "soil_ec_by_region.csv"
+
 
 def dispersion(values: pd.Series) -> dict:
     """전국 산포도. sd와 robust(MAD 기반)를 둘 다 기록하고 risk_width는 robust로 낸다."""
@@ -67,6 +71,26 @@ def dispersion(values: pd.Series) -> dict:
         "robust_sd": round(robust_sd, 4),
         "risk_width": round(RISK_SD_MULTIPLIER * robust_sd, 4),
     }
+
+
+def physical_representatives() -> dict:
+    """등급코드 → 대표 %(등급 상한) 환산값의 전국 분포. 매핑은 _shared.json이 단일 소스다.
+
+    2026-08-03 도입. 화학 지표와 달리 값이 3~6개로만 이산적이라 MAD=0이 나올 수 있다 —
+    그 경우 risk_width도 0이 되고 dispersion.physical_rule이 주입을 건너뛰어 완충폭으로
+    폴백한다(0을 감쇠폭으로 쓰면 허용경계 밖이 전부 0점이 되므로 조용히 넘기면 안 된다).
+    """
+    shared = json.loads(
+        (ROOT / "memory" / "crop_rules" / "_shared.json").read_text(encoding="utf-8")
+    )
+    maps = shared["physical_code_maps"]
+    phys = pd.read_csv(DATA / "02_soil_physical_modified.csv", dtype={"region_code": str})
+    out = {}
+    for indicator, col in maps["source_column"].items():
+        code_to_pct = {int(k): v for k, v in maps[indicator].items()}
+        rep = phys[col].map(lambda c: code_to_pct.get(int(c)) if pd.notna(c) else None)
+        out[indicator] = dispersion(pd.Series(rep, dtype="float64")) | {"source_column": col}
+    return out
 
 
 def main():
@@ -84,6 +108,10 @@ def main():
         soil_out[rule_key] = d
         backend_out[backend_name] = d["risk_width"]
 
+    ec = pd.read_csv(EC_SRC, dtype={"region_code": str}).drop_duplicates("region_code")
+    soil_out["ec"] = dispersion(pd.to_numeric(ec["ec_median"], errors="coerce"))
+    backend_out["ec"] = soil_out["ec"]["risk_width"]
+
     # 기온은 작물별 앵커월이 달라 산포도도 달라진다 — 작물별로 낸다.
     temp_out = {}
     for crop_code, anchor in CROP_ANCHORS.items():
@@ -100,9 +128,13 @@ def main():
     monthly_precip = weather.groupby(["region_code", "month"])["precipitation"].sum()
     rainfall = dispersion(monthly_precip.groupby("region_code").mean())
 
+    physical = physical_representatives()
+
     payload = {
         "generated_from": [
             "data/01_soil_chemistry_modified.csv",
+            "data/02_soil_physical_modified.csv (2026-08-03 물리성 축 도입)",
+            "data/ml/soil_ec_by_region.csv (2026-08-03 EC 축 도입, ec_median 컬럼)",
             f"data/03_weather_monthly_modified.csv (year={SCORE_YEAR})",
         ],
         "method": "risk_width = RISK_SD_MULTIPLIER x robust_sd, robust_sd = 1.4826 x MAD. "
@@ -111,6 +143,10 @@ def main():
         "limitation": "multiplier는 문헌 근거가 아니라 명시적 휴리스틱이다 — 실제 감수 곡선 "
                       "문헌 확보 시 교체 대상 [확인 필요].",
         "soil": soil_out,
+        "physical": physical,
+        "physical_note": "등급코드를 등급 상한 %로 환산한 값의 전국 산포도(_shared.json physical_code_maps). "
+                         "값이 이산적이라 robust_sd가 0이 될 수 있고, 그러면 risk_width도 0이라 "
+                         "dispersion.physical_rule이 주입을 건너뛰고 완충폭으로 폴백한다.",
         "temp_by_crop": temp_out,
         "rainfall_monthly": rainfall,
         "backend_indicator_risk_width": backend_out
@@ -124,6 +160,9 @@ def main():
     print(f"{OUT.name} 생성")
     for key, d in soil_out.items():
         print(f"  {key}: n={d['n']} sd={d['sd']} robust_sd={d['robust_sd']} risk_width={d['risk_width']}")
+    for key, d in physical.items():
+        print(f"  {key}: n={d['n']} median={d['median']} robust_sd={d['robust_sd']} "
+              f"risk_width={d['risk_width']}{' (0 → 완충폭 폴백)' if not d['risk_width'] else ''}")
     for crop_code, d in temp_out.items():
         print(f"  temp[{crop_code}]: robust_sd={d['robust_sd']} risk_width={d['risk_width']}")
     print(f"  rainfall_monthly: risk_width={rainfall['risk_width']}")
