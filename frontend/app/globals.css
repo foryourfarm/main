@@ -1,35 +1,96 @@
-/* 팔레트·타이포는 ui-ux-design_draft(Design01) 초안을 따른다.
-   폰트는 @import(렌더 블로킹)가 아니라 layout.tsx의 next/font로 받아 아래 변수에 주입한다. */
+/* 디자인 토큰 단일 소스 (FrontEnd.md §7-1) — 다크 기본 + 이삭 골드 포인트.
+   테마는 html[data-theme]가 정한다: 기본(dark)은 :root, [data-theme="light"]가 오버라이드.
+   초기값 결정(저장값 → OS prefers-color-scheme → dark)은 layout.tsx의 인라인 스크립트(lib/theme.ts)
+   — 첫 페인트 전에 실행돼 FOUC가 없다(next/dist/docs preventing-flash-before-hydration 패턴).
+   폰트는 @import(렌더 블로킹)가 아니라 layout.tsx의 next/font로 받아 아래 변수에 주입한다.
+
+   변수 의미(기존 화면 관례를 유지):
+   --bg 페이지 배경 / --surface 카드·입력 표면 / --card 보더·구분선(역사적 이름) */
 
 :root {
-  --primary: #2d5016;
-  --secondary: #d4af37;
-  --tertiary: #8b6f47;
-  --success: #a4d65e;
-  --warning: #e8a76b;
-  --error: #c54245;
-  --bg-main: #fafaf7;
-  --bg-card: #e8e6e1;
-  --text-primary: #1a1815;
-  --text-secondary: #4a4643;
-  --border: #d0cec9;
+  /* 중립 토대 — 다크 기준(웜 니어블랙) */
+  --bg: #171310;
+  --surface: #221d17;
+  --surface-2: #2c251c;
+  --card: #3b3226;
+  --text: #f2ecdf;
+  --muted: #a89b85;
 
-  --dark-bg: #1a1815;
-  --dark-text: #f5f3f0;
+  /* 메인 포인트 — 이삭 골드. 골드 배경 위 텍스트는 반드시 --on-primary(§7-1 흰 텍스트 금지). */
+  --primary: #f59e0b;
+  --primary-hover: #fbbf24;
+  --on-primary: #1c1508;
 
-  /* 기존 화면(page.module.css 등)이 쓰던 이름 — 팔레트로 이어둔다(깨짐 방지). */
-  --background: var(--bg-main);
-  --foreground: var(--text-primary);
+  /* 시맨틱 — warning은 골드와 충돌하므로 앰버 금지, 주황-적색 계열(§7-1) */
+  --good: #7fd08a;
+  --good-wash: #232b1e;
+  --warn: #f0824f;
+  --warn-strong: #e8590c;
+  --warn-wash: #37281a;
+  --bad: #f27e72;
+  --bad-strong: #dc3b30;
+  --bad-wash: #362020;
+
+  /* 등급 — 색+라벨 병기 원칙(§10), 색만으로 구분 금지 */
+  --grade-s: #f59e0b;
+  --grade-a: #7fd08a;
+  --grade-b: #93c0e8;
+  --grade-c: #f0824f;
+
+  /* 형태 — comUI 스케일 */
+  --r-xl: 34px;
+  --r-lg: 26px;
+  --r-md: 18px;
+  --r-sm: 12px;
+  --shadow-1: 0 2px 0 rgba(0, 0, 0, 0.18), 0 14px 30px -18px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 4px 0 rgba(0, 0, 0, 0.22), 0 26px 44px -22px rgba(0, 0, 0, 0.6);
+
+  /* 타이포 (§6-8 확정: 본문 18px / 보조 16px) */
+  --fs-body: 18px;
+  --fs-sub: 16px;
+
+  /* 구 이름 별칭 — 기존 모듈 CSS가 아직 참조한다. Phase 3 정리 대상. */
+  --bg-main: var(--bg);
+  --bg-card: var(--card);
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
+  --success: var(--good);
+  --warning: var(--warn);
+  --error: var(--bad);
+  --dark-bg: var(--bg);
+  --background: var(--bg);
+  --foreground: var(--text);
 }
 
-/* 다크모드는 OS 설정이 아니라 Header 토글이 body에 거는 클래스로 정한다
-   — 유저가 명시적으로 끄고 켤 수 있어야 하므로. */
-body.dark-mode {
-  --bg-main: var(--dark-bg);
-  --text-primary: var(--dark-text);
-  --bg-card: #2a2823;
-  --text-secondary: #b5b1ac;
-  --border: #3a3a35;
+[data-theme="light"] {
+  --bg: #faf7f0;
+  --surface: #ffffff;
+  --surface-2: #f3edde;
+  --card: #e7e0d2;
+  --text: #2b241a;
+  --muted: #6e6350;
+
+  /* 라이트 배경 위 골드 #F59E0B은 대비 미달 — AA(4.5:1) 통과하는 딥 골드로 낮춘다(§7-1). */
+  --primary: #b45309;
+  --primary-hover: #92400e;
+  --on-primary: #ffffff;
+
+  --good: #2e7d32;
+  --good-wash: #f2f5ef;
+  --warn: #c2410c;
+  --warn-strong: #e8590c;
+  --warn-wash: #fdf8ef;
+  --bad: #c62828;
+  --bad-strong: #b3261e;
+  --bad-wash: #fdf4f4;
+
+  --grade-s: #b45309;
+  --grade-a: #2e7d32;
+  --grade-b: #33678a;
+  --grade-c: #c2410c;
+
+  --shadow-1: 0 2px 0 rgba(122, 74, 46, 0.06), 0 14px 30px -18px rgba(122, 74, 46, 0.34);
+  --shadow-2: 0 4px 0 rgba(122, 74, 46, 0.08), 0 26px 44px -22px rgba(122, 74, 46, 0.42);
 }
 
 * {
@@ -60,9 +121,11 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--text-primary);
-  background: var(--bg-main);
+  color: var(--text);
+  background: var(--bg);
   font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background 0.3s ease, color 0.3s ease;
@@ -73,6 +136,60 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* 모바일: Navigation이 하단 고정 탭이 되므로(§9) 본문 끝이 탭에 가리지 않게 공간을 예약한다.
+   값은 Navigation.module.css의 .navItem min-height(56px)와 짝 — 탭 높이 + safe area + 여유. */
+@media (max-width: 767px) {
+  .appMain {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
+
+/* comUI 제목 계층 — 둥근 디스플레이 서체(Jua), 좁은 자간·행간. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.28;
+}
+
+/* comUI .num — 점수·게이지·수치 전용 라운드 숫자. */
+.num {
+  font-family: var(--font-num), var(--font-heading), sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* comUI 컨테이너 폭 — 탑바·본문 공통 1240px. */
+.wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 26px 26px 80px;
+}
+
+/* comUI 12열 비대칭 벤토 그리드. 카드가 .sp{n}으로 열 폭을 정한다. */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 18px;
+}
+
+.sp3 { grid-column: span 3; }
+.sp4 { grid-column: span 4; }
+.sp5 { grid-column: span 5; }
+.sp6 { grid-column: span 6; }
+.sp7 { grid-column: span 7; }
+.sp8 { grid-column: span 8; }
+.sp12 { grid-column: span 12; }
+
+@media (max-width: 1080px) {
+  .sp3, .sp4, .sp5, .sp6, .sp7, .sp8 {
+    grid-column: span 12;
+  }
 }
 
 a {

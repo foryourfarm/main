@@ -4,6 +4,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { LAUNCHER_ICON } from "@/lib/pet";
+
 import ChatPanel from "./ChatPanel";
 import styles from "./ChatDock.module.css";
 
@@ -43,10 +45,12 @@ export default function ChatDock() {
         type="button"
         className={styles.launcher}
         onClick={() => setOpen(true)}
-        aria-label="텃밭이에게 상담하기"
+        aria-label="농사 상담 열기"
       >
+        {/* 펫 단계와 무관한 앱 아이콘이다 — 어느 펫인지·몇 레벨인지는 패널을 열면
+            PetQuestBar가 서버 값으로 보여준다. 게스트도 이 버튼으로 상담에 들어간다. */}
         <Image
-          src="/assets/chatbot_icon.png"
+          src={LAUNCHER_ICON}
           alt=""
           width={56}
           height={56}

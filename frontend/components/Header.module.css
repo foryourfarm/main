@@ -1,70 +1,185 @@
-.header {
-  background: linear-gradient(135deg, var(--primary) 0%, #1f3d0f 100%);
-  color: white;
-  padding: 20px 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.1);
+/* comUI 탑바(§8) — sticky + blur + 1240px 컨테이너.
+   §7-1: 골드 배경 위 텍스트는 --on-primary(near-black)만 허용. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: 1.5px solid var(--card);
 }
 
-.logo {
-  font-family: var(--font-heading);
-  font-size: 24px;
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 14px 26px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brandIcon {
+  color: var(--primary);
+  flex: none;
+}
+
+.brandText {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.brandText small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* 알약 내비 — comUI .navpill. 데스크톱 전용. */
+.navpill {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  border-radius: 999px;
+}
+
+.pillItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sub);
   font-weight: 700;
+  color: var(--muted);
+  padding: 9px 18px;
+  border-radius: 999px;
+  transition: color 0.18s ease, background 0.18s ease;
 }
 
-.headerRight {
+.pillItem:hover {
+  color: var(--text);
+}
+
+.pillActive,
+.pillActive:hover {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.userChip {
   display: flex;
   align-items: center;
-  gap: 24px;
-}
-
-.userInfo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.userName {
-  font-size: 14px;
+  gap: 9px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  font-size: var(--fs-sub);
   font-weight: 700;
+  white-space: nowrap;
+  flex: none;
+}
+
+.userChip b {
+  color: var(--primary);
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .textButton {
-  font-size: 13px;
-  color: white;
-  opacity: 0.9;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
   text-decoration: underline;
+  white-space: nowrap;
 }
 
 .textButton:hover {
-  opacity: 1;
+  color: var(--text);
 }
 
-.darkToggle {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
+/* 원형 아이콘 버튼 — comUI .iconbtn. */
+.iconBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card);
+  background: var(--surface);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.darkToggle:hover {
-  background: rgba(255, 255, 255, 0.3);
+.iconBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
 }
 
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
+@media (prefers-reduced-motion: reduce) {
+  .iconBtn:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 767px) {
+  /* 모바일: 내비는 하단 탭(Navigation)이 담당 — 알약 숨김, 부제 생략.
+     390px 한 줄 예산: 브랜드+칩+토글이 줄바꿈 없이 들어가야 한다 — 아바타 숨김·축소. */
+  .navpill {
+    display: none;
   }
 
-  .headerRight {
-    width: 100%;
-    justify-content: center;
+  .brandText {
+    font-size: 18px;
+  }
+
+  .brandText small {
+    display: none;
+  }
+
+  .inner {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .userChip {
+    margin-left: auto;
+    font-size: 14px;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .avatar {
+    display: none;
+  }
+
+  .textButton {
+    font-size: 13px;
   }
 }

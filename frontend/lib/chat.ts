@@ -17,7 +17,19 @@ const sessionKey = (userId: number) => `chat_session:${userId}`;
 export function chatSessionId(userId: number): string {
   const saved = localStorage.getItem(sessionKey(userId));
   if (saved !== null) return saved;
-  return switchChatSession(userId, crypto.randomUUID());
+  return switchChatSession(userId, randomUUID());
+}
+
+/** crypto.randomUUID는 보안 컨텍스트(HTTPS·localhost) 전용이라 LAN IP(http)로 열면 없다 —
+ * 그 환경에선 getRandomValues 기반 v4로 폴백한다(스레드 키 용도라 충돌 확률만 낮으면 충분).
+ * 새 대화 버튼도 같은 함수를 써야 한다 — 직접 crypto.randomUUID를 부르면 폰 실기에서 죽는다. */
+export function randomUUID(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 /** 보고 있는 스레드 교체(새 대화 = 새 uuid). 서버 호출이 없다 — 첫 답변이 저장되는 순간

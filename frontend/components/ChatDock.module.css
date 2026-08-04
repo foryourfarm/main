@@ -71,14 +71,18 @@
   background: #e8e6e1;
 }
 
+/* 모바일(하단 탭 구간): 탭(56px+safe area, globals는 64px 예약)과 겹치지 않게 위로 띄운다(§9). */
+@media (max-width: 767px) {
+  .launcher {
+    right: 12px;
+    bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+  }
+}
+
 /* 모바일에서는 화면을 거의 다 쓴다 — 420px 서랍이 좁아 대화가 안 읽힌다. */
 @media (max-width: 480px) {
   .drawer {
     width: 100vw;
-  }
-  .launcher {
-    right: 12px;
-    bottom: 12px;
   }
 }
 

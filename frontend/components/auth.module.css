@@ -1,69 +1,149 @@
-/* 색상: Correction_Re_Draft.md §3.1 팔레트(챗봇과 통일) */
+/* 인증·폼 공용 스타일 — comUI 톤(카드 22px+ 패딩·1.5px 보더·r-lg 라운드, 알약 버튼, 절제된 그림자).
+   색상은 전역 토큰(globals.css :root) — 로컬 재정의 금지. CTA는 골드 배경 + --on-primary(§7-1 흰 텍스트 금지). */
+
 .wrap {
-  --primary: #2d5016;
-  --card: #e8e6e1;
-  --bg: #fafaf7;
-  --text: #4a4643;
-  --error: #c54245;
   min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  color: var(--text);
-  padding: 20px;
+  padding: 40px 20px 80px;
+}
+
+/* comUI .card — 인증 카드는 중앙 정렬 + max-width 440px. */
+.card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-lg);
+  padding: 32px 28px;
+  box-shadow: var(--shadow-1);
+}
+
+/* 온보딩처럼 폼이 긴 화면용 넓은 카드. */
+.cardWide {
+  max-width: 620px;
+}
+
+/* 페이지/카드 제목 — §10 H1 28~32px(모바일)·32~40px(데스크톱) 사이 절충. */
+.title {
+  font-size: clamp(28px, 3vw, 34px);
+  margin: 0 0 6px;
+}
+
+.lead {
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  margin: 0 0 24px;
+  line-height: 1.6;
 }
 
 .form {
-  width: 100%;
-  max-width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
-.form h1 {
-  font-size: 22px;
-  color: var(--primary);
-  margin: 0 0 4px;
-}
+
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
+
 .field label {
-  font-size: 13px;
+  font-size: var(--fs-sub);
   font-weight: 700;
 }
-.field input {
-  border: 1px solid var(--card);
-  border-radius: 10px;
-  padding: 10px 12px;
+
+.field input,
+.field select {
+  min-height: 48px; /* 터치 영역 48px(§9) */
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-sm);
+  padding: 11px 16px;
   font: inherit;
+  font-size: var(--fs-sub);
   color: var(--text);
-  background: #fff;
+  background: var(--surface-2);
 }
-.field input:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-}
-.submit {
-  border: none;
-  border-radius: 10px;
-  padding: 12px;
-  background: var(--primary);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-}
-.submit:disabled {
-  opacity: 0.5;
+
+.field input:disabled,
+.field select:disabled {
+  background: var(--bg);
+  color: var(--muted);
   cursor: not-allowed;
 }
-.error {
-  color: var(--error);
-  font-size: 13px;
+
+.hint {
   margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.error {
+  margin: 0;
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  color: var(--bad);
+}
+
+/* 주 CTA — 골드 알약. hover는 색만 바꾼다(scale 금지). */
+.submit {
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--on-primary);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.submit:disabled {
+  background: var(--card);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* 보조 알약 버튼(취소·수정 등). */
+.secondaryBtn {
+  min-height: 44px;
+  border: 1.5px solid var(--card);
+  border-radius: 999px;
+  padding: 9px 20px;
+  font: inherit;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.18s ease;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.secondaryBtn:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.dangerBtn {
+  composes: secondaryBtn;
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.dangerBtn:hover:not(:disabled) {
+  border-color: var(--bad-strong);
 }
 
 /* 건너뛰기 — 주 동작(submit)과 확실히 구분되게 테두리 없는 보조 버튼으로 둔다. */
@@ -78,55 +158,176 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
 .skip:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .skip:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* "또는" 구분선 — 좌우 선은 장식이라 aria-hidden 없이도 스크린리더가 텍스트만 읽는다. */
+/* 소셜 로그인 구분선(§6-13) — 좌우 선은 장식이고 텍스트만 읽히면 된다. */
 .divider {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 2px 0;
-  font-size: 12px;
-  opacity: 0.6;
+  gap: 12px;
+  margin: 22px 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
 }
+
 .divider::before,
 .divider::after {
   content: "";
   flex: 1;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.4;
+  height: 1.5px;
+  background: var(--card);
 }
 
 /* 카카오 브랜드 색(고정값) — 우리 팔레트 변수를 쓰지 않는다. 이 버튼은 카카오 가이드가 정한
-   외형이어야 알아보기 쉽고, 다크모드에서도 브랜드 색은 그대로 유지한다. */
+   외형이어야 알아보기 쉽고, 다크모드에서도 브랜드 색은 그대로 유지한다.
+   형태(알약·높이)만 .submit에 맞춰 나란히 놓았을 때 튀지 않게 한다. */
 .kakao {
+  /* 폼 밖(카드 직속)이라 .form의 stretch를 못 받는다 — submit과 같은 폭을 직접 준다. */
+  width: 100%;
+  min-height: 48px;
   border: none;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 999px;
+  padding: 12px 24px;
   background: #fee500;
   color: #191600;
   font: inherit;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
 }
+
 .kakao:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
 .alt {
-  font-size: 13px;
+  margin: 0;
+  font-size: var(--fs-sub);
   text-align: center;
 }
+
 .alt a {
   color: var(--primary);
   font-weight: 700;
 }
 
+/* 온보딩 단계 묶음 — fieldset로 단계감을 준다(전역 리셋이 기본 스타일을 지우므로 명시). */
+.step {
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-md);
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.stepLegend {
+  padding: 0 8px;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* 골드 알약 링크(CTA와 같은 형태) — 빈 상태의 "첫 밭 등록하기" 등. */
+.ctaLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 17px;
+  font-weight: 700;
+  transition: background 0.18s ease;
+}
+
+.ctaLink:hover {
+  background: var(--primary-hover);
+}
+
+/* 보조 알약 링크 — "+ 밭 추가 등록" 등. */
+.addLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--card);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+
+.addLink:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ── 설정 화면(밭 목록 카드) ─────────────────────────────── */
+
+.cards {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.rowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.farmName {
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+
+.farmMeta {
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.rowActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sourcesCard {
+  margin-top: 28px;
+}
+
+.sourceList {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  line-height: 1.8;
+}

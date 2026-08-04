@@ -1,31 +1,22 @@
+/* 데스크톱에서는 Header의 알약 내비가 대신하므로 숨긴다 — 모바일 하단 탭 전용(§9). */
 .nav {
-  display: flex;
-  background: var(--bg-main);
-  border-bottom: 2px solid var(--bg-card);
-  padding: 0 32px;
-}
-
-body.dark-mode .nav {
-  background: var(--dark-bg);
-  border-bottom-color: #3A3A35;
+  display: none;
 }
 
 .navItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 16px 24px;
   background: none;
   border: none;
   cursor: pointer;
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: var(--fs-sub);
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
-  display: inline-block;
-}
-
-body.dark-mode .navItem {
-  color: #AAA;
 }
 
 .navItem:hover {
@@ -37,9 +28,36 @@ body.dark-mode .navItem {
   border-bottom-color: var(--primary);
 }
 
-@media (max-width: 768px) {
+/* 모바일: 하단 고정 탭(FrontEnd.md §9) — 같은 마크업, 배치만 바꾼다.
+   높이 계산은 globals.css의 --bottom-nav-h와 짝이다(본문 padding-bottom 예약). */
+@media (max-width: 767px) {
   .nav {
-    padding: 0 16px;
-    overflow-x: auto;
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    border-bottom: none;
+    border-top: 1px solid var(--card);
+    background: var(--surface);
+  }
+
+  .navItem {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    /* 터치 영역 48px 이상(§9) */
+    min-height: 56px;
+    padding: 8px 4px;
+    font-size: 13px;
+    border-bottom: none;
+  }
+
+  .navItem.active {
+    border-bottom: none;
   }
 }

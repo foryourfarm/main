@@ -32,41 +32,54 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.wrap}>
-      <form className={styles.form} onSubmit={onSubmit}>
-        <h1>로그인</h1>
-        <div className={styles.field}>
-          <label htmlFor="email">이메일</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="password">비밀번호</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        {error && <p className={styles.error}>{error}</p>}
-        <button className={styles.submit} type="submit" disabled={busy}>
-          {busy ? "로그인 중…" : "로그인"}
-        </button>
-
+    // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
+    <div className={styles.wrap}>
+      <section className={styles.card}>
+        <h1 className={styles.title}>로그인</h1>
+        <p className={styles.lead}>내 밭의 오늘을 읽는 농사 동반자</p>
+        <form className={styles.form} onSubmit={onSubmit}>
+          <div className={styles.field}>
+            <label htmlFor="email">이메일</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-describedby={error !== "" ? "login-error" : undefined}
+            />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="password">비밀번호</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-describedby={error !== "" ? "login-error" : undefined}
+            />
+          </div>
+          {error && (
+            <p id="login-error" role="alert" className={styles.error}>
+              {error}
+            </p>
+          )}
+          <button className={styles.submit} type="submit" disabled={busy}>
+            {busy ? "로그인 중…" : "로그인"}
+          </button>
+        </form>
+        {/* 카카오 키가 없으면 구분선까지 통째로 감춘다 — 아래에 아무것도 없는 "또는"만
+            남지 않게. 준비되면 이 블록이 divider + 버튼을 함께 렌더한다. */}
         {isKakaoEnabled && (
           <>
-            <p className={styles.divider}>또는</p>
-            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서 form
-                안이지만 submit이 되지 않게 type="button"이고, state를 남긴 뒤 이동한다. */}
+            <div className={styles.divider} aria-hidden="true">
+              또는
+            </div>
+            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서
+                submit이 아닌 type="button"이고, state를 남긴 뒤 이동한다. */}
             <button
               type="button"
               className={styles.kakao}
@@ -79,11 +92,10 @@ export default function LoginPage() {
             </button>
           </>
         )}
-
         <p className={styles.alt}>
           계정이 없으신가요? <Link href="/signup">회원가입</Link>
         </p>
-      </form>
-    </main>
+      </section>
+    </div>
   );
 }

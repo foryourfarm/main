@@ -1,14 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { CalendarRange, TriangleAlert } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { gradeTone } from "@/components/GradeBadge";
+import GradeBadge from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
+import { Card, CardHeader } from "@/components/ui/Card";
+import Gauge from "@/components/ui/Gauge";
 import styles from "@/components/farm.module.css";
 import { fetchLongTermAdvice, fetchMonthlyOutlook } from "@/lib/farm";
 import type { FarmMonthlyOutlook, LongTermAdvice, MonthlyOutlookEntry } from "@/types/farm";
-import { describeRiskFlag, stageLabel, statusLabel } from "@/types/farm";
+import { describeRiskFlag, stageLabel } from "@/types/farm";
+
+/* 게이지 원호색 — 등급 라벨(GradeBadge)과 항상 병기되므로 색은 보조 신호다(§10). */
+const GRADE_COLOR: Record<string, string> = {
+  S: "var(--grade-s)",
+  A: "var(--grade-a)",
+  B: "var(--grade-b)",
+  C: "var(--grade-c)",
+};
 
 /** 창이 해를 넘기면 "11월 · 12월 · 1월"이 되어 1월이 앞선 달로 읽힌다. 연도가 바뀌는
  *  칸에만 연도를 붙여 순서를 드러낸다(모든 칸에 붙이면 시끄럽다). */
@@ -18,18 +29,27 @@ function cellLabel(entry: MonthlyOutlookEntry, previous: MonthlyOutlookEntry | u
     : `${entry.month}월`;
 }
 
-function MonthCell({ entry, label }: { entry: MonthlyOutlookEntry; label: string }) {
-  const tone = gradeTone(entry.grade);
+function MonthCell({
+  entry,
+  label,
+  best,
+}: {
+  entry: MonthlyOutlookEntry;
+  label: string;
+  best: boolean;
+}) {
   return (
-    <div className={styles.cell}>
-      <div className={styles.cellMonth}>{label}</div>
-      <div className={`${styles.cellScore} ${tone}`}>{entry.score ?? "—"}</div>
-      <div className={`${styles.cellGrade} ${tone}`}>
-        {entry.grade ?? statusLabel(entry.status)}
-      </div>
-      <div className={styles.cellStage}>{stageLabel(entry.growth_stage, entry.status)}</div>
+    <div className={`${styles.mo} ${best ? styles.moBest : ""}`}>
+      <div className={styles.moName}>{label}</div>
+      <Gauge
+        value={entry.score}
+        size={88}
+        color={entry.grade !== null ? GRADE_COLOR[entry.grade] : "var(--muted)"}
+      />
+      <GradeBadge grade={entry.grade} status={entry.status} />
+      <div className={styles.moStage}>{stageLabel(entry.growth_stage, entry.status)}</div>
       {/* 어느 칸이 전망 반영인지 구분해 보여준다 — 나머지는 평년치만 쓴 칸이다. */}
-      {entry.outlook_applied && <div className={styles.cellOutlook}>전망 반영</div>}
+      {entry.outlook_applied && <div className={styles.moTag}>전망 반영</div>}
     </div>
   );
 }
@@ -78,20 +98,32 @@ function RiskSummary({ months }: { months: MonthlyOutlookEntry[] }) {
   );
   if (risky.length === 0) return null;
   return (
-    <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>주의가 필요한 시기</h2>
-      <ul className={styles.riskList}>
-        {risky.map((m) => (
-          <li key={`${m.year}-${m.month}`}>
-            <strong>{m.month}월</strong> ({stageLabel(m.growth_stage, m.status)}) —{" "}
+    <Card className={styles.sectionCard}>
+      <CardHeader
+        icon={<TriangleAlert size={16} />}
+        title="주의가 필요한 시기"
+        tag={`${risky.length}개 구간`}
+      />
+      {risky.map((m) => (
+        <div className={styles.alert} key={`${m.year}-${m.month}`}>
+          <span className={styles.moBadge}>
+            {m.month}월<small>{stageLabel(m.growth_stage, m.status)}</small>
+          </span>
+          <div className={styles.why}>
             {m.risk_flags
               .filter((f) => f.endsWith(":outside_allowed"))
-              .map(describeRiskFlag)
-              .join(", ")}
-          </li>
-        ))}
-      </ul>
-    </section>
+              .map((f) => (
+                <strong key={f}>{describeRiskFlag(f)}</strong>
+              ))
+              // eslint 없이 구분자 넣기 — strong 사이 " · "
+              .reduce<ReactNode[]>(
+                (acc, el, i) => (i === 0 ? [el] : [...acc, " · ", el]),
+                [],
+              )}
+          </div>
+        </div>
+      ))}
+    </Card>
   );
 }
 
@@ -110,6 +142,12 @@ export default function LongTermPanel({ farmId }: { farmId: number }) {
 
   const first = data.months[0];
   const last = data.months[data.months.length - 1];
+  // comUI .mo.best — 창에서 점수가 가장 높은 달에만 색 장식(라벨은 GradeBadge가 병기).
+  const best = data.months.reduce<MonthlyOutlookEntry | null>(
+    (acc, m) =>
+      m.score === null ? acc : acc === null || (acc.score ?? -1) < m.score ? m : acc,
+    null,
+  );
   // 창 범위는 백엔드가 따로 안 내려준다 — months가 순서 배열이라 양 끝에서 나온다.
   const range =
     first === undefined
@@ -125,12 +163,24 @@ export default function LongTermPanel({ farmId }: { farmId: number }) {
       </p>
       {/* 단기 탭도 `.sub` 아래·데이터 그리드 위에 추천 카드를 둔다 — 두 탭을 같은 리듬으로. */}
       <AdviceCard farmId={farmId} />
-      <div className={styles.heatmap}>
-        {data.months.map((m, i) => (
-          // 창이 해를 넘기면 month만으로는 키가 겹칠 수 있다(12개월 초과 시).
-          <MonthCell key={`${m.year}-${m.month}`} entry={m} label={cellLabel(m, data.months[i - 1])} />
-        ))}
-      </div>
+      <Card className={styles.sectionCard}>
+        <CardHeader
+          icon={<CalendarRange size={16} />}
+          title="월별 예상 적합도"
+          tag={`${data.months.length}개월`}
+        />
+        <div className={styles.months}>
+          {data.months.map((m, i) => (
+            // 창이 해를 넘기면 month만으로는 키가 겹칠 수 있다(12개월 초과 시).
+            <MonthCell
+              key={`${m.year}-${m.month}`}
+              entry={m}
+              label={cellLabel(m, data.months[i - 1])}
+              best={best !== null && m === best}
+            />
+          ))}
+        </div>
+      </Card>
       <RiskSummary months={data.months} />
       <Limitations items={data.limitations} />
     </>

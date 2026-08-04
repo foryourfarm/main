@@ -13,6 +13,7 @@ function ChatWithFarmParam() {
 }
 
 // useSearchParams는 프리렌더 시 Suspense 경계를 요구한다(Next 16 use-search-params 문서).
+// 펫·레벨·퀘스트 줄은 ChatPanel 안의 PetQuestBar가 서버 상태로 그린다 — 여기서 따로 얹지 않는다.
 export default function ChatPage() {
   return (
     <Suspense>

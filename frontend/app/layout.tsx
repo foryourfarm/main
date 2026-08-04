@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
+import { Baloo_2, Jua, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
 import ChatDock from "@/components/ChatDock";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import { AuthProvider } from "@/lib/auth-context";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const notoSans = Noto_Sans_KR({
   variable: "--font-body",
   subsets: ["latin"],
 });
 
-const notoSerif = Noto_Serif_KR({
+// comUI 제목 서체(Cafe24 Ssurround)는 로컬 파일이 없어, comUI 폴백 체인의 Jua로 대체한다.
+const jua = Jua({
+  weight: "400",
   variable: "--font-heading",
+  subsets: ["latin"],
+});
+
+// comUI 숫자 전용 서체 — 게이지·점수의 통통한 라운드 숫자(.num).
+const baloo = Baloo_2({
+  variable: "--font-num",
   subsets: ["latin"],
 });
 
@@ -33,7 +42,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${notoSans.variable} ${notoSerif.variable}`}>
+    // data-theme 기본 dark(§6-10). 인라인 스크립트가 페인트 전에 저장값·OS 설정으로 덮으므로
+    // 서버 HTML과 달라질 수 있다 — suppressHydrationWarning으로 DOM을 승자로 둔다(Next 공식 패턴).
+    <html
+      lang="ko"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${notoSans.variable} ${jua.variable} ${baloo.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <AuthProvider>
           <Header />

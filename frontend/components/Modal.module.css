@@ -9,16 +9,7 @@
 }
 
 .content {
-  /* farm.module.css .page 팔레트와 동일 — FarmDetail 내부 스타일이 이 값을 참조한다. */
-  --primary: #2d5016;
-  --card: #e8e6e1;
-  --bg: #fafaf7;
-  --text: #4a4643;
-  --muted: #7a746f;
-  --good: #2d5016;
-  --warn: #9a6b1e;
-  --bad: #c54245;
-
+  /* 색상은 전역 토큰(globals.css :root) 상속 — FarmDetail 내부 스타일이 그대로 참조한다. */
   position: relative;
   width: 100%;
   max-width: 860px;
