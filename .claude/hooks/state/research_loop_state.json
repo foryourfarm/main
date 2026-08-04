@@ -1,0 +1,9 @@
+{
+  "cycle_count": 1,
+  "max_safety_cycles": 17,
+  "current_target": null,
+  "halted": false,
+  "halt_reason": null,
+  "stop_requested": false,
+  "topic_active": true
+}

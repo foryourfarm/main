@@ -154,6 +154,24 @@ def test_band_score_curve():
         assert band_score(v, wide) >= band_score(v, narrow), f"넓은 감쇠폭이 더 박하다: {v}"
     assert pd.isna(band_score(None, rule)), "결측은 NaN 유지(강제 대체 금지)"
 
+    # 단측 밴드(2026-08-02): 문헌이 한쪽 경계만 주는 지표(RDA 사과 교본 Ca "5~6 이상").
+    # 그 방향엔 감점을 두지 않는다 — 없는 상한을 휴리스틱으로 만들지 않기 위함이다.
+    upper_open = {"optimal_min": 5.0, "optimal_max": None, "allowed_min": 4.5, "allowed_max": None}
+    assert band_score(5.0, upper_open) == 100.0, "단측 밴드 하한 경계는 만점"
+    assert band_score(14.42, upper_open) == 100.0, "상한 None인데 상한 감점이 걸렸다"
+    assert round(band_score(4.5, upper_open), 1) == 60.0, "단측 밴드도 하한 taper는 살아 있어야 한다"
+    assert band_score(4.9, upper_open) < 100.0, "하한 이탈이 만점으로 처리됐다"
+    lower_open = {"optimal_min": None, "optimal_max": 2.0, "allowed_min": None, "allowed_max": 2.25}
+    assert band_score(0.1, lower_open) == 100.0, "하한 None인데 하한 감점이 걸렸다"
+    assert round(band_score(2.25, lower_open), 1) == 60.0, "단측 밴드 상한 taper 미작동"
+    # 양쪽 다 없는 규칙은 조용히 만점을 주지 않고 실패한다.
+    try:
+        band_score(1.0, {"optimal_min": None, "optimal_max": None})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("optimal 양쪽 None인 규칙이 조용히 채점됐다")
+
 
 def test_output_csv_integrity():
     # 8. Output CSV integrity checks
