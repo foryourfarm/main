@@ -1,66 +1,32 @@
-"use client";
+/**
+ * 펫 표시 자산. **펫의 진실은 서버다** — 이름·단계·레벨·교체는 `QuestProgress.pet`과
+ * `PUT /api/v1/pet`이 정한다(docs/quest-pet-api.md). 이 파일은 서버가 줄 수 없는 것,
+ * 즉 코드별 일러스트 경로만 들고 있다.
+ *
+ * 일러스트가 나오면 여기 경로만 채우면 된다 — 비어 있는 동안은 서버가 주는 emoji로
+ * 표시되므로, 없는 그림을 있는 척하지 않는다(§18-4).
+ */
 
-import { useEffect, useState } from "react";
+/** 펫 코드 → 확정 일러스트 경로. 아직 자산이 없어 비어 있다. */
+const PET_IMAGE: Record<string, string> = {
+  // sprout: "/assets/pet/sprout.png",
+  // pup: "/assets/pet/pup.png",
+};
+
+/** 이 펫의 일러스트 경로. 없으면 null — 호출자가 서버 emoji로 대체한다. */
+export function petImage(code: string | undefined): string | null {
+  if (code === undefined) return null;
+  return PET_IMAGE[code] ?? null;
+}
 
 /**
- * 펫 더미 계약(FrontEnd.md §11) — 이름·성격·이미지는 아직 확정 자산이 아니라 placeholder다.
- * 실제 자산이 오면 PET_DEFAULTS만 바꾸면 전체 화면에 반영된다(한 파일 수정 계약).
- * 사용자별 커스텀은 localStorage에 저장한다 — 펫 백엔드 API가 없어 서버 저장은 [백엔드 확장 필요].
+ * 게스트·세션 복구 중 표시값. 펫은 로그인 사용자 기능이라(quest-pet-api.md §2) 서버 상태가
+ * 없을 때 쓰는 중립 문구다. 레벨·단계는 붙이지 않는다 — 없는 진행도를 암시하면 거짓이 된다.
  */
-export type PetConfig = {
-  name: string;
-  personality: string;
-  /** public/ 기준 경로 또는 절대 URL. 임시 placeholder. */
-  image: string;
-};
-
-export const PET_DEFAULTS: PetConfig = {
+export const GUEST_PET = {
   name: "텃밭이",
-  personality: "당신의 밭에서 함께 일하는 이웃",
-  image: "/assets/chatbot_icon.png",
-};
+  line: "당신의 밭에서 함께 일하는 이웃",
+} as const;
 
-const KEY = "fyf-pet";
-const EVENT = "fyf-pet-change";
-
-export function getPet(): PetConfig {
-  if (typeof window === "undefined") return PET_DEFAULTS;
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw === null) return PET_DEFAULTS;
-    return { ...PET_DEFAULTS, ...(JSON.parse(raw) as Partial<PetConfig>) };
-  } catch {
-    // 깨진 저장값은 기본값으로 — 펫 설정이 화면을 죽이지 않는다.
-    return PET_DEFAULTS;
-  }
-}
-
-export function setPet(patch: Partial<PetConfig>): void {
-  const next = { ...getPet(), ...patch };
-  localStorage.setItem(KEY, JSON.stringify(next));
-  window.dispatchEvent(new Event(EVENT));
-}
-
-export function resetPet(): void {
-  localStorage.removeItem(KEY);
-  window.dispatchEvent(new Event(EVENT));
-}
-
-/** 저장값 변경 구독 — 플로팅 버튼(ChatDock)과 관리 화면이 같은 값을 본다. */
-export function usePet(): PetConfig {
-  // SSR·첫 페인트는 기본값 — 마운트 후 저장값으로 동기화(하이드레이션 불일치 방지).
-  const [pet, setState] = useState<PetConfig>(PET_DEFAULTS);
-
-  useEffect(() => {
-    const sync = () => setState(getPet());
-    sync();
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync); // 다른 탭에서 바꾼 경우
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
-  return pet;
-}
+/** 우하단 상담 버튼 아이콘. 펫 단계와 무관한 앱 아이콘이라 서버 상태를 기다리지 않는다. */
+export const LAUNCHER_ICON = "/assets/chatbot_icon.png";

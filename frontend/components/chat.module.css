@@ -26,7 +26,7 @@
   font-size: 32px;
   line-height: 1;
 }
-/* 펫 이미지 아바타(이모지 대체) — lib/pet 설정을 따른다 */
+/* 펫 일러스트 아바타. 자산이 없는 펫은 서버 emoji가 .avatar 그대로 나온다(lib/pet의 PET_IMAGE). */
 .avatarImg {
   width: 32px;
   height: 32px;

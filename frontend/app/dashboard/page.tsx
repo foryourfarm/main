@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarCheck, CheckSquare, CircleSlash, History, NotebookPen, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import Gauge from "@/components/ui/Gauge";
 import { useAuth } from "@/lib/auth-context";
 import { fetchDashboard } from "@/lib/farm";
+import { petImage } from "@/lib/pet";
 import { fetchQuestProgress } from "@/lib/quest";
 import { statusLabel } from "@/types/farm";
 import type { DashboardCard, DashboardResponse, Grade } from "@/types/farm";
@@ -66,7 +68,20 @@ function QuestCard() {
       ) : (
         <>
           <div className={styles.questLevel}>
-            <span aria-hidden="true">{progress.pet.emoji}</span>
+            {/* 펫 표시 규칙은 챗 헤더와 같다 — 일러스트가 있으면 이미지, 없으면 서버 emoji. */}
+            <span aria-hidden="true">
+              {petImage(progress.pet.code) !== null ? (
+                <Image
+                  src={petImage(progress.pet.code) as string}
+                  alt=""
+                  width={22}
+                  height={22}
+                  className={styles.questPetIcon}
+                />
+              ) : (
+                progress.pet.emoji
+              )}
+            </span>
             <b>
               Lv.{progress.level} {progress.pet.name}
             </b>
