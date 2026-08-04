@@ -1,7 +1,7 @@
 .wrap {
   padding: 40px 20px;
   text-align: center;
-  color: #7a746f;
+  color: var(--muted);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -12,8 +12,8 @@
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid #d8d4cd;
-  border-top-color: #2d5016;
+  border: 2px solid var(--card);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

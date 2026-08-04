@@ -5,6 +5,7 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import { AuthProvider } from "@/lib/auth-context";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const notoSans = Noto_Sans_KR({
   variable: "--font-body",
@@ -32,7 +33,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${notoSans.variable} ${notoSerif.variable}`}>
+    // data-theme 기본 dark(§6-10). 인라인 스크립트가 페인트 전에 저장값·OS 설정으로 덮으므로
+    // 서버 HTML과 달라질 수 있다 — suppressHydrationWarning으로 DOM을 승자로 둔다(Next 공식 패턴).
+    <html
+      lang="ko"
+      data-theme="dark"
+      suppressHydrationWarning
+      className={`${notoSans.variable} ${notoSerif.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <AuthProvider>
           <Header />

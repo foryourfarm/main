@@ -1,10 +1,5 @@
-/* 색상: Correction_Re_Draft.md §3.1 팔레트(챗봇과 통일) */
+/* 색상: 전역 토큰(globals.css :root) — 로컬 재정의 금지. */
 .wrap {
-  --primary: #2d5016;
-  --card: #e8e6e1;
-  --bg: #fafaf7;
-  --text: #4a4643;
-  --error: #c54245;
   min-height: 100dvh;
   display: flex;
   align-items: center;
@@ -41,7 +36,7 @@
   padding: 10px 12px;
   font: inherit;
   color: var(--text);
-  background: #fff;
+  background: var(--surface);
 }
 .field input:focus {
   outline: 2px solid var(--primary);
@@ -52,7 +47,7 @@
   border-radius: 10px;
   padding: 12px;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 700;
   cursor: pointer;
 }

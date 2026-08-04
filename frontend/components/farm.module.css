@@ -1,13 +1,5 @@
-/* 색상: Correction_Re_Draft.md §3.1 팔레트(챗봇·인증 화면과 통일) */
+/* 색상: 전역 토큰(globals.css :root)을 그대로 쓴다 — 로컬 재정의 금지(다크모드가 여기서 깨졌었다). */
 .page {
-  --primary: #2d5016;
-  --card: #e8e6e1;
-  --bg: #fafaf7;
-  --text: #4a4643;
-  --muted: #7a746f;
-  --good: #2d5016;
-  --warn: #9a6b1e;
-  --bad: #c54245;
   min-height: 100dvh;
   background: var(--bg);
   color: var(--text);
@@ -30,11 +22,11 @@
 .notice {
   padding: 40px 20px;
   text-align: center;
-  color: #7a746f;
+  color: var(--muted);
   font-size: 14px;
 }
 .error {
-  color: #c54245;
+  color: var(--bad);
   font-size: 14px;
 }
 
@@ -60,7 +52,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 .field select:disabled {
@@ -80,7 +72,7 @@
   padding: 12px;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-primary);
   background: var(--primary);
   cursor: pointer;
 }
@@ -96,7 +88,7 @@
   padding: 10px 16px;
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: var(--on-primary);
   background: var(--primary);
   text-decoration: none;
 }
@@ -112,7 +104,7 @@
   color: inherit;
 }
 .card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--card);
   border-radius: 12px;
   padding: 16px;
@@ -171,7 +163,7 @@
 }
 .tab {
   border: 1px solid var(--card);
-  background: #fff;
+  background: var(--surface);
   color: var(--muted);
   border-radius: 999px;
   padding: 8px 14px;
@@ -185,7 +177,7 @@
 .tabActive {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
 }
 .tabHint {
   margin: 0 0 16px;
@@ -199,7 +191,7 @@
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 16px;
-  background: #f2f5ef;
+  background: var(--good-wash);
 }
 .adviceTitle {
   display: flex;
@@ -235,7 +227,7 @@
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--muted);
-  background: #fff;
+  background: var(--surface);
   color: var(--muted);
   font-size: 11px;
   font-weight: 500;
@@ -247,7 +239,7 @@
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 16px;
-  background: #fdf4f4;
+  background: var(--bad-wash);
 }
 .alertTitle {
   margin: 0 0 8px;
@@ -269,7 +261,7 @@
   margin: 0 0 16px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #f2f5ef;
+  background: var(--good-wash);
   color: var(--primary);
   font-size: 13px;
 }
@@ -278,7 +270,7 @@
   margin-left: 8px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fdf4f4;
+  background: var(--bad-wash);
   border: 1px solid var(--bad);
   color: var(--bad);
   font-size: 11px;
@@ -298,7 +290,7 @@
   border: 1px solid var(--card);
   border-radius: 12px;
   padding: 12px;
-  background: #fff;
+  background: var(--surface);
 }
 .dayCard:hover {
   border-color: var(--primary);
@@ -316,7 +308,7 @@
   margin: 8px 0 0;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fdf8ef;
+  background: var(--warn-wash);
   border: 1px solid var(--warn);
   color: var(--warn);
   font-size: 11px;
@@ -402,7 +394,7 @@
   border-radius: 10px;
   padding: 10px 8px;
   text-align: center;
-  background: #fff;
+  background: var(--surface);
 }
 .cellMonth {
   font-size: 12px;
@@ -446,7 +438,7 @@
 /* 한계 표기 — 접어두지 않는다(§18-4 근사를 확정값처럼 보이게 하지 않기) */
 .limits {
   margin-top: 24px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--card);
   border-radius: 12px;
   padding: 14px 16px;
@@ -515,13 +507,13 @@
   padding: 6px 10px;
   font-size: 13px;
   font-weight: 700;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
 }
 .dangerBtn {
-  border-color: #e0b4b5;
-  color: #c54245;
+  border-color: var(--bad);
+  color: var(--bad);
 }
 .sources {
   margin-top: 32px;

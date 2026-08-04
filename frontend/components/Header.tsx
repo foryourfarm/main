@@ -4,30 +4,35 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { getTheme, setTheme, THEME_KEY } from "@/lib/theme";
 
 import styles from "./Header.module.css";
-
-const DARK_MODE_KEY = "darkMode";
 
 /** 상단바 — 로고, 인증 상태(구 AuthBar), 다크모드 토글. */
 export default function Header() {
   const { user, loading, logout } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // 실제 테마는 layout의 인라인 스크립트가 페인트 전에 html[data-theme]로 이미 적용했다.
+  // 여기 상태는 토글 아이콘 표시용 — 마운트 후 DOM에서 읽어 동기화한다.
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // 토글 상태는 localStorage에만 둔다(서버에 저장할 만한 값이 아님).
-  // SSR에서 읽을 수 없어 마운트 후 적용 — 첫 프레임이 라이트로 깜빡일 수 있다.
   useEffect(() => {
-    if (localStorage.getItem(DARK_MODE_KEY) === "true") {
-      setIsDarkMode(true);
-      document.body.classList.add("dark-mode");
-    }
+    setIsDarkMode(getTheme() === "dark");
+    // 사용자가 직접 고르지 않았을 때만 OS 테마 변경을 따라간다(수동 우선).
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => {
+      if (localStorage.getItem(THEME_KEY)) return;
+      const next = mq.matches ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      setIsDarkMode(next === "dark");
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   const toggleDarkMode = () => {
-    const next = !isDarkMode;
-    setIsDarkMode(next);
-    localStorage.setItem(DARK_MODE_KEY, String(next));
-    document.body.classList.toggle("dark-mode", next);
+    const next = isDarkMode ? "light" : "dark";
+    setTheme(next);
+    setIsDarkMode(next === "dark");
   };
 
   return (

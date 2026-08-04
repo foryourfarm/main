@@ -181,7 +181,8 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
       <AdviceCard farmId={farmId} />
       <RiskBanner risks={data.persistent_risks} />
       <div className={styles.dayGrid}>
-        {data.days.map((d) => (
+        {/* FrontEnd.md §6-14: API가 최대 4일(오늘+3)을 주더라도 화면에는 앞의 3개만 노출한다. */}
+        {data.days.slice(0, 3).map((d) => (
           <DayCard key={d.target_date} day={d} onOpen={() => setOpenDate(d.target_date)} />
         ))}
       </div>
