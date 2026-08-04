@@ -52,6 +52,23 @@ SOIL_LIMITATION = (
     "토양 지표는 밭이 속한 동·리의 토양검정 표본 평균입니다 — 이 밭 흙을 직접 측정한 값이 "
     "아니고, 그동안의 시비·관수 등 작업 영향도 반영되지 않습니다."
 )
+# 카드에 보이는 값과 채점에 쓰는 값이 다르다는 사실을 숨기지 않는다(§18-4). 종전에는 일평균을
+# "낮 기온"이라 부르며 한 값이 두 역할을 겸했고, 실측에서 6.7℃까지 벌어졌다(일평균 31.3 vs
+# 일최고 38). 채점 밴드가 어느 척도로 만들어진 것인지는 밴드마다 달라 아직 정리되지 않았다 —
+# 그 미결정은 docs/temperature-open-decisions.md에 있고, 여기서는 사실만 알린다.
+TEMP_SCALE_LIMITATION = (
+    "카드의 '낮 최고기온'은 그날 예보 최고기온이고, 적합도 점수는 하루 평균기온으로 매깁니다 — "
+    "서로 다른 값입니다. 고온·냉해 기준은 원래 최고·최저기온 기준인 경우가 많아, 평균으로 "
+    "매긴 점수는 한낮·새벽의 극단적인 위험을 실제보다 약하게 볼 수 있습니다."
+)
+# 첫날은 발표시각 이후 시간대만 온다(실측: 14시 발표 → 오늘은 15~23시 9개뿐). 예보 지평
+# 끝날은 반대로 앞부분만 온다. 편향 **방향**까지 적는다 — "부정확하다"만 적으면 어느 쪽으로
+# 틀렸는지 몰라 유저가 대응할 수 없다.
+PARTIAL_DAY_LIMITATION = (
+    "일부 날짜는 하루 전체가 아니라 예보 발표시각 이후 시간대만 반영된 값입니다(카드에 "
+    "'일부 시간대'로 표시). 그런 날은 새벽·오전이 빠져 평균기온이 실제보다 높게, 최고기온은 "
+    "낮 피크를 놓쳐 낮게 나올 수 있습니다."
+)
 
 
 def _to_snapshot_rows(
@@ -64,10 +81,13 @@ def _to_snapshot_rows(
             "base_at": base_at,
             "target_date": d.target_date,
             "temp_avg": d.temp_avg,
+            "temp_max": d.temp_max,
             "temp_night_min": d.temp_night_min,
             "rainfall": d.rainfall,
             "sunlight": None,  # 단기예보는 일조를 주지 않는다
-            "is_imputed": False,
+            "hourly_temp": d.hourly_temp,
+            # 부분 표본으로 낸 집계는 하루를 대표하지 못한다 — §12의 "대체됨 플래그"다.
+            "is_imputed": d.is_partial,
         }
         for d in days
     ]
@@ -130,9 +150,14 @@ def get_forecast_rows(
             constraint="uq_weather",
             set_={
                 "temp_avg": stmt.excluded.temp_avg,
+                "temp_max": stmt.excluded.temp_max,
                 "temp_night_min": stmt.excluded.temp_night_min,
                 "rainfall": stmt.excluded.rainfall,
                 "sunlight": stmt.excluded.sunlight,
+                "hourly_temp": stmt.excluded.hourly_temp,
+                # 같은 발표분을 다시 받으면 부분성 판정도 같이 갱신돼야 한다. 갱신 목록에서
+                # 빠뜨리면 0032 이전 캐시가 남은 구역에서 NULL/false가 굳는다.
+                "is_imputed": stmt.excluded.is_imputed,
             },
         )
         db.execute(stmt)
@@ -229,9 +254,15 @@ def compute_short_term(
                 "status": derive_status(bool(guides), result["score"], result["breakdown"]),
                 "score": result["score"],
                 "grade": result["grade"],
+                # temp_avg는 채점 입력이라 그래프가 "이 값으로 매겼다"를 보여주려면 필요하고,
+                # temp_max는 카드에 나가는 표시값이다 — 둘을 함께 내보내야 모달이 그 차이를
+                # 설명할 수 있다.
                 "temp_avg": snap.temp_avg,
+                "temp_max": snap.temp_max,
                 "temp_night_min": snap.temp_night_min,
                 "rainfall": snap.rainfall,
+                "hourly_temp": snap.hourly_temp,
+                "is_imputed": snap.is_imputed,
                 "risk_flags": result["risk_flags"],
                 # 행동추천이 값·허용구간을 함께 서술하려면 필요하다. 종전엔 계산해놓고
                 # coverage_limitation에만 쓰고 버렸다(응답에 나가는 건 risk_flags 문자열뿐).
@@ -239,7 +270,9 @@ def compute_short_term(
             }
         )
 
-    limitations = [FORECAST_LIMITATION, SOIL_LIMITATION]
+    limitations = [FORECAST_LIMITATION, TEMP_SCALE_LIMITATION, SOIL_LIMITATION]
+    if any(bool(row.is_imputed) for row in rows):
+        limitations.insert(0, PARTIAL_DAY_LIMITATION)
     coverage = coverage_limitation(breakdowns)
     if coverage is not None:
         limitations.insert(0, coverage)

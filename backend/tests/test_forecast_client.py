@@ -84,6 +84,11 @@ class TestLatestBaseAt(unittest.TestCase):
         self.assertLess(cached_base_at, latest_base_at(stale_at))
 
 
+def _full_day(d: str, base: int = 20) -> list[dict[str, object]]:
+    """3시간 간격으로 00~21시를 채운 하루. 실측상 +3일차가 이 형태다(간격 3h, 마지막 21시)."""
+    return [_item(d, f"{h:02d}00", "TMP", str(base + h % 5)) for h in range(0, 22, 3)]
+
+
 class TestFoldDaily(unittest.TestCase):
     def test_folds_long_format_into_days(self):
         items = [
@@ -106,12 +111,90 @@ class TestFoldDaily(unittest.TestCase):
         self.assertEqual(first.rainfall, Decimal("1.5"))  # 강수없음(0) + 1.5
         self.assertEqual(first.precip_prob_max, 60)  # 그날 최대
         self.assertEqual(first.humidity_max, 95)
+        # 이 픽스처는 00·03시 2개뿐이라 **하루를 대표하지 않는다.** 종전엔 그 평균을 그대로
+        # "낮 기온"으로 내보내면서 이 사실을 아무도 표시하지 않았다.
+        self.assertTrue(first.is_partial)
+        self.assertEqual(first.temp_max, Decimal("26"))  # TMX 없으면 TMP 최고
+        self.assertEqual(first.hourly_temp, [{"h": 0, "t": "26"}, {"h": 3, "t": "24"}])
 
     def test_night_min_falls_back_to_hourly_min(self):
         """첫날은 TMN 발표시각이 지나 빠질 수 있다 — TMP 최저로 폴백해야 한다."""
         items = [_item("20260725", "0000", "TMP", "26"), _item("20260725", "0300", "TMP", "21")]
         day = fold_daily(items)[0]
         self.assertEqual(day.temp_night_min, Decimal("21"))
+
+    def test_day_max_prefers_tmx_over_hourly(self):
+        """TMX가 오면 그 값을 쓴다 — TMP 최고는 표본이 부분일 때 실제 일최고에 못 미친다."""
+        items = [
+            _item("20260725", "1500", "TMX", "31.0"),
+            _item("20260725", "0000", "TMP", "26"),
+            _item("20260725", "0300", "TMP", "24"),
+        ]
+        day = fold_daily(items)[0]
+        self.assertEqual(day.temp_max, Decimal("31.0"))
+
+    def test_day_max_falls_back_to_hourly_max(self):
+        """실측: 오늘 날짜에는 TMX가 아예 오지 않는다 — TMP 최고로 폴백해야 한다."""
+        items = [_item("20260725", "1500", "TMP", "38"), _item("20260725", "1800", "TMP", "32")]
+        day = fold_daily(items)[0]
+        self.assertEqual(day.temp_max, Decimal("38"))
+
+    def test_full_day_is_not_partial(self):
+        """00~21시를 덮으면 온전한 하루다 — 3시간 간격이라 표본은 8개뿐이지만 부분이 아니다.
+
+        개수로 판정하면 여기서 틀린다(1시간 간격의 온전한 하루는 24개다).
+        """
+        day = fold_daily(_full_day("20260726"))[0]
+        self.assertFalse(day.is_partial)
+        self.assertEqual(len(day.hourly_temp or []), 8)
+
+    def test_hourly_grid_full_day_is_not_partial(self):
+        """1시간 간격으로 00~23시를 덮은 하루(실측상 +1·+2일차 형태)도 부분이 아니다."""
+        items = [_item("20260726", f"{h:02d}00", "TMP", str(20 + h % 7)) for h in range(24)]
+        day = fold_daily(items)[0]
+        self.assertFalse(day.is_partial)
+
+    def test_missing_early_hours_is_partial(self):
+        """첫날은 발표시각 이후만 온다(실측: 14시 발표 → 15~23시). 앞결손을 잡아야 한다."""
+        # 15시 피크(38℃)에서 밤으로 내려가는 곡선 — 실측 첫날 형태.
+        items = [_item("20260725", f"{h:02d}00", "TMP", str(38 - (h - 15))) for h in range(15, 24)]
+        day = fold_daily(items)[0]
+        self.assertTrue(day.is_partial)
+        self.assertEqual((day.hourly_temp or [])[0], {"h": 15, "t": "38"})
+
+    def test_missing_late_hours_is_partial(self):
+        """예보 지평 끝날은 앞부분만 온다(실측: +4일차는 00시 1개뿐)."""
+        items = [_item("20260728", "0000", "TMP", "28")]
+        day = fold_daily(items)[0]
+        self.assertTrue(day.is_partial)
+
+    def test_partial_day_still_reports_values(self):
+        """부분이어도 값을 비우지 않는다 — 단기 탭은 '오늘' 대응이 존재 이유다(플래그로 고지)."""
+        # 15시 피크(38℃)에서 밤으로 내려가는 곡선 — 실측 첫날 형태.
+        items = [_item("20260725", f"{h:02d}00", "TMP", str(38 - (h - 15))) for h in range(15, 24)]
+        day = fold_daily(items)[0]
+        self.assertTrue(day.is_partial)
+        self.assertIsNotNone(day.temp_avg)
+        self.assertIsNotNone(day.temp_max)
+        self.assertIsNotNone(day.temp_night_min)
+
+    def test_hourly_temp_is_sorted_by_hour(self):
+        """그래프가 시각 순으로 선을 잇는다 — 응답 순서에 의존하면 선이 꼬인다."""
+        items = [
+            _item("20260726", "1800", "TMP", "30"),
+            _item("20260726", "0000", "TMP", "22"),
+            _item("20260726", "0900", "TMP", "27"),
+        ]
+        day = fold_daily(items)[0]
+        self.assertEqual([p["h"] for p in day.hourly_temp or []], [0, 9, 18])
+
+    def test_unparseable_hour_keeps_value_but_marks_partial(self):
+        """fcstTime이 깨져도 값은 살린다(§12) — 대신 커버리지를 확신할 수 없으니 부분이다."""
+        items = [_item("20260725", "??00", "TMP", "26")]
+        day = fold_daily(items)[0]
+        self.assertEqual(day.temp_avg, Decimal("26.0"))
+        self.assertIsNone(day.hourly_temp)
+        self.assertTrue(day.is_partial)
 
     def test_ignores_unused_categories(self):
         items = [_item("20260725", "0000", "WSD", "0.4"), _item("20260725", "0000", "VEC", "270")]

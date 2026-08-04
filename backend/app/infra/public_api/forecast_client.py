@@ -8,6 +8,25 @@
 - **PCP/SNO는 숫자가 아니라 "강수없음"/"적설없음" 문자열**로 온다. 그대로 float 하면
   터지므로 파싱에서 방어한다(§12 경계 방어).
 - 응답은 (fcstDate, fcstTime, category) 조합의 롱포맷이라 날짜별로 접어야 쓸 수 있다.
+
+실측으로 확인한 슬롯 구조(2026-08-04 15:43, 14시 발표, 순천 70,70 — item 798개):
+
+```
+        TMP                         TMX        TMN
+오늘    n= 9  15~23시  1시간 간격   (없음)     (없음)   ← 발표시각 이후만, 새벽·오전 결손
++1일    n=24  00~23시  1시간        1500 슬롯  0600 슬롯
++2일    n=24  00~23시  1시간        1500       0600
++3일    n= 8  00~21시  3시간        1500       0600
++4일    n= 1  00시만                (없음)     (없음)
+```
+
+여기서 두 가지가 이 모듈의 설계를 좌우한다.
+
+1. **첫날은 발표시각 이후 시간대만 온다.** 14시 발표면 오늘은 15~23시 9개뿐이라 새벽 최저와
+   오전이 통째로 빠진다. 그 표본으로 산술평균을 내면 **일평균이 실제보다 높다.** TMX·TMN도
+   오늘 날짜에는 아예 없어 TMP의 최고·최저로 폴백해야 한다.
+2. **TMP 간격이 날짜마다 다르다** — +2일까지는 1시간, +3일은 3시간이다. 그래서 "표본 몇 개면
+   온전한 하루"라는 개수 기준은 쓸 수 없고, 대신 **덮은 시각 범위**로 판정한다(LAST_SLOT_HOUR).
 """
 
 import json
@@ -29,17 +48,25 @@ KST = timezone(timedelta(hours=9))
 BASE_TIMES = (2, 5, 8, 11, 14, 17, 20, 23)
 PUBLISH_LAG_MIN = 45
 
-# 한 번의 발표는 3일치를 3시간 간격으로 준다 → 넉넉히 받는다(페이징 방어).
+# 한 번의 발표가 주는 양은 날짜마다 다르다(위 슬롯 구조) — 실측 798개였다. 넉넉히 받아
+# 페이징을 피한다.
 NUM_OF_ROWS = 1000
 
 SUCCESS_CODE = "00"
 
 # 우리 지표로 쓰는 카테고리만 추린다.
 CAT_TEMP = "TMP"  # 1시간 기온
+CAT_TEMP_MAX = "TMX"  # 일 최고기온 — 화면의 "낮 최고기온" 직접 소스
 CAT_TEMP_MIN = "TMN"  # 일 최저기온 — 야간 최저기온 지표의 직접 소스
 CAT_PRECIP = "PCP"  # 1시간 강수량(문자열 가능)
 CAT_POP = "POP"  # 강수확률
 CAT_HUMIDITY = "REH"  # 습도
+
+# 그날 표본이 하루를 온전히 덮었는지 판정할 마지막 시각.
+# **개수로 판정할 수 없다** — TMP 간격이 1시간(+2일까지)과 3시간(+3일)으로 갈려 "온전한 하루"의
+# 표본 수가 24개와 8개로 다르다. 반면 마지막 슬롯은 1시간 간격이면 23시, 3시간 간격이면 21시라
+# 두 경우 모두 21시 이상이다. 그래서 21을 기준선으로 두면 간격에 무관하게 뒤결손만 잡아낸다.
+LAST_SLOT_HOUR = 21
 
 # "강수없음"·"적설없음"처럼 값이 아닌 표기. 0으로 해석한다(없다는 뜻).
 _NO_VALUE_TOKENS = ("강수없음", "적설없음", "-", "")
@@ -51,14 +78,30 @@ class ForecastError(Exception):
 
 @dataclass(frozen=True)
 class DailyForecast:
-    """하루치로 접은 예보. weather_snapshot 한 행에 대응한다."""
+    """하루치로 접은 예보. weather_snapshot 한 행에 대응한다.
+
+    **`temp_avg`와 `temp_max`는 쓰임이 다르다.** `temp_avg`(일평균)는 채점 지표 `temp_day`의
+    입력이고, `temp_max`(일최고)는 화면에 "낮 최고기온"으로 보여주는 값이다. 한 값이 두 역할을
+    겸하면서 일평균을 "낮 기온"이라 부르던 것이 이 분리의 이유다(docs/temperature-scoring.md).
+    """
 
     target_date: date
     temp_avg: Decimal | None
+    """일평균기온. 채점(`temp_day`) 입력 — 화면 표시용이 아니다."""
+    temp_max: Decimal | None
+    """일최고기온. TMX 우선, 없으면 TMP 최고로 폴백(첫날은 TMX가 오지 않는다)."""
     temp_night_min: Decimal | None
     rainfall: Decimal | None  # 일 누적(mm)
     precip_prob_max: int | None  # 그날 최대 강수확률(%)
     humidity_max: int | None
+    hourly_temp: list[dict[str, object]] | None
+    """시간별 기온 `[{"h": 15, "t": "29.5"}, …]`(시각 오름차순). 모달 그래프용.
+
+    `t`를 문자열로 담는 이유: JSONB 직렬화가 Decimal을 못 다루고, float으로 바꾸면 응답의
+    다른 기온값(Decimal→문자열)과 표기가 갈린다.
+    """
+    is_partial: bool
+    """그날 표본이 하루를 온전히 덮지 못함(앞결손·뒤결손). True면 집계값이 편향돼 있다."""
 
 
 def latest_base(now: datetime) -> tuple[str, str]:
@@ -107,41 +150,69 @@ def parse_number(raw: str | None) -> Decimal | None:
         return None
 
 
+def parse_hour(raw: object) -> int | None:
+    """fcstTime("HHMM") → 시각(0~23). 형식이 어긋나면 None — 값 자체는 버리지 않는다."""
+    text = str(raw or "").strip()
+    if len(text) < 2 or not text[:2].isdigit():
+        return None
+    hour = int(text[:2])
+    return hour if 0 <= hour <= 23 else None
+
+
 def fold_daily(items: list[dict[str, object]]) -> list[DailyForecast]:
     """롱포맷 items를 날짜별로 접는다. 순수 함수 — 파싱 규칙을 테스트로 고정한다."""
     by_date: dict[str, dict[str, list[Decimal]]] = {}
+    # TMP는 값과 함께 **시각**도 남긴다 — 하루 커버리지 판정(is_partial)과 그래프에 쓴다.
+    # 종전에는 fcstTime을 읽지도 않아 첫날 부분 표본을 온전한 하루와 구분할 수 없었다.
+    hourly: dict[str, dict[int, Decimal]] = {}
     for it in items:
         fcst_date = str(it.get("fcstDate") or "")
         category = str(it.get("category") or "")
         if not fcst_date or category not in (
-            CAT_TEMP, CAT_TEMP_MIN, CAT_PRECIP, CAT_POP, CAT_HUMIDITY
+            CAT_TEMP, CAT_TEMP_MAX, CAT_TEMP_MIN, CAT_PRECIP, CAT_POP, CAT_HUMIDITY
         ):
             continue
         value = parse_number(str(it.get("fcstValue")) if it.get("fcstValue") is not None else None)
         if value is None:
             continue
         by_date.setdefault(fcst_date, {}).setdefault(category, []).append(value)
+        if category == CAT_TEMP:
+            hour = parse_hour(it.get("fcstTime"))
+            if hour is not None:
+                hourly.setdefault(fcst_date, {})[hour] = value
 
     out: list[DailyForecast] = []
     for fcst_date in sorted(by_date):
         buckets = by_date[fcst_date]
         temps = buckets.get(CAT_TEMP, [])
+        maxs = buckets.get(CAT_TEMP_MAX, [])
         mins = buckets.get(CAT_TEMP_MIN, [])
         precip = buckets.get(CAT_PRECIP, [])
         pops = buckets.get(CAT_POP, [])
         rehs = buckets.get(CAT_HUMIDITY, [])
-        # TMN(일 최저기온)은 하루 1회만 오고, 첫날은 이미 지나 빠질 수 있어 TMP 최저로 폴백.
+        # TMX/TMN(일 최고·최저)은 하루 1회만 오고 **첫날은 둘 다 아예 없다**(실측 확인) —
+        # 그때는 TMP의 최고·최저로 폴백한다. 부분 표본이면 그 폴백값도 실제 극값에 못 미치는데,
+        # 방향이 한쪽으로만(최고는 과소, 최저는 과대) 어긋나는 것은 is_partial로 고지한다.
+        day_max = max(maxs) if maxs else (max(temps) if temps else None)
         night_min = min(mins) if mins else (min(temps) if temps else None)
+
+        hours = sorted(hourly.get(fcst_date, {}))
+        # 앞결손(발표시각 이후만 온 첫날)이나 뒤결손(예보 지평 끝)이면 그날 집계는 하루 전체를
+        # 대표하지 못한다. 표본 개수가 아니라 덮은 시각 범위로 본다(LAST_SLOT_HOUR 주석).
+        is_partial = not hours or hours[0] > 0 or hours[-1] < LAST_SLOT_HOUR
         out.append(
             DailyForecast(
                 target_date=date(int(fcst_date[:4]), int(fcst_date[4:6]), int(fcst_date[6:8])),
                 temp_avg=Decimal(str(round(float(mean(float(t) for t in temps)), 1)))
                 if temps
                 else None,
+                temp_max=day_max,
                 temp_night_min=night_min,
                 rainfall=sum(precip, Decimal(0)) if precip else None,
                 precip_prob_max=int(max(pops)) if pops else None,
                 humidity_max=int(max(rehs)) if rehs else None,
+                hourly_temp=[{"h": h, "t": str(hourly[fcst_date][h])} for h in hours] or None,
+                is_partial=is_partial,
             )
         )
     return out

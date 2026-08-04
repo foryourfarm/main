@@ -32,7 +32,7 @@ DECAY_CURVATURE = 9.0
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
 # temp_day는 일 실측 컬럼이 없어 월평년으로 근사(승인됨). 조용한 대체 아님 — 응답/UI에 병기.
-TEMP_DAY_LIMITATION = "일 기온(temp_day)은 실측이 아니라 월 평균기온 근사입니다."
+TEMP_DAY_LIMITATION = "일 평균기온은 실측이 아니라 월 평균기온 근사입니다."
 # 사과 착색/성숙은 문헌이 한 구간이라 근사 분리(품종 정보 부재 → 이론 추정).
 APPLE_STAGE_LIMITATION = "사과 착색/성숙 단계 구분은 품종 정보 부재로 이론 추정입니다."
 # 상추 작기(0025)는 문헌이 아니라 일반적 노지 재배 시기에서 잡은 범위다. 숨기면 작기 밖
@@ -76,7 +76,11 @@ OUTLOOK_MISSING_LIMITATION = (
 # 지표 한글명. `risk_flags`의 `<지표>:missing`을 사람 말로 옮길 때 쓴다.
 # 프론트 `types/farm.ts:INDICATOR_NAMES`와 같은 표기를 유지한다.
 INDICATOR_NAMES: dict[str, str] = {
-    "temp_day": "낮 기온",
+    # **"낮 기온"이 아니다.** 이 지표에 들어가는 값은 단기 탭에선 그날 시간별 기온의 평균,
+    # 장기 탭에선 월 평균기온이다. 카드가 별도로 "낮 최고기온"(일최고)을 보여주게 되면서
+    # 두 값이 이름으로 구분되지 않으면 경고 문구가 카드 숫자와 어긋난다 — 실측에서 일평균
+    # 31.3℃ vs 일최고 38℃로 6.7℃ 벌어졌다(0032).
+    "temp_day": "일 평균기온",
     "temp_night_min": "야간 최저기온",
     "rainfall_monthly": "월 강수량",
     "rainfall_daily": "일 강수량",

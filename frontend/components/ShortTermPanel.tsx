@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import DayDetailModal from "@/components/DayDetailModal";
 import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
@@ -88,11 +89,22 @@ function AdviceCard({ farmId }: { farmId: number }) {
   );
 }
 
-function DayCard({ day }: { day: ShortTermDay }) {
+/**
+ * 날짜별 요약 카드. 누르면 하루 기온 곡선과 점수 근거를 모달로 연다.
+ *
+ * **"낮 기온"이 아니라 "낮 최고기온"(`temp_max`)을 보여준다.** 종전엔 일평균(`temp_avg`)을
+ * "낮 기온"이라 띄웠는데 실측에서 일평균 31.3℃ vs 일최고 38℃로 6.7℃ 벌어졌다. 점수는 여전히
+ * 일평균으로 매기므로(채점 무변경) 두 값이 다르다는 설명은 모달이 맡는다.
+ */
+function DayCard({ day, onOpen }: { day: ShortTermDay; onOpen: () => void }) {
   const tone = gradeTone(day.grade);
   // 결측(missing)은 위험이 아니라 데이터 없음이므로 카드에 경고로 띄우지 않는다.
   const risks = day.risk_flags.filter((f) => f.endsWith(":outside_allowed"));
   return (
+    // 카드 전체가 눌리지만 **카드 자체를 button으로 만들지 않는다** — button의 콘텐츠 모델은
+    // phrasing content라 안에 dl·ul·p를 넣으면 유효하지 않은 HTML이 된다. 대신 아래 버튼
+    // 하나만 두고 그 클릭영역을 ::after로 카드 전체에 넓힌다(표준 카드 패턴). 포커스 가능한
+    // 요소가 하나뿐이라 키보드 탐색도 단순하다(§8).
     <div className={styles.dayCard}>
       <div className={styles.dayHead}>
         <span className={styles.dayDate}>{formatDayLabel(day.target_date)}</span>
@@ -104,8 +116,8 @@ function DayCard({ day }: { day: ShortTermDay }) {
       <div className={styles.dayStage}>{stageLabel(day.growth_stage, day.status)}</div>
       <dl className={styles.metrics}>
         <div>
-          <dt>낮 기온</dt>
-          <dd>{day.temp_avg ?? "—"}℃</dd>
+          <dt>낮 최고기온</dt>
+          <dd>{day.temp_max ?? "—"}℃</dd>
         </div>
         <div>
           <dt>야간 최저</dt>
@@ -116,6 +128,9 @@ function DayCard({ day }: { day: ShortTermDay }) {
           <dd>{day.rainfall ?? "—"}mm</dd>
         </div>
       </dl>
+      {/* 이 날짜 집계가 부분 표본이라는 사실을 카드에서 바로 알린다 — 첫날 값이 왜 튀는지
+          모르면 유저는 그 경고를 실제 위험으로 받아들인다(§18-4). */}
+      {day.is_imputed && <p className={styles.partialTag}>일부 시간대만 반영</p>}
       {risks.length > 0 && (
         <ul className={styles.dayRisks}>
           {risks.map((f) => (
@@ -123,6 +138,14 @@ function DayCard({ day }: { day: ShortTermDay }) {
           ))}
         </ul>
       )}
+      <button
+        type="button"
+        className={styles.dayMore}
+        onClick={onOpen}
+        aria-label={`${formatDayLabel(day.target_date)} 기온 상세 보기`}
+      >
+        기온 변화 보기
+      </button>
     </div>
   );
 }
@@ -130,6 +153,10 @@ function DayCard({ day }: { day: ShortTermDay }) {
 export default function ShortTermPanel({ farmId }: { farmId: number }) {
   const [data, setData] = useState<FarmShortTerm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 어느 날짜 상세를 열었는지. 날짜 상세는 URL을 갖지 않아(같은 탭 안의 보조 정보)
+  // intercepting route가 아니라 지역 상태로 둔다.
+  const [openDate, setOpenDate] = useState<string | null>(null);
+  const closeDetail = useCallback(() => setOpenDate(null), []);
 
   useEffect(() => {
     fetchShortTerm(farmId)
@@ -155,10 +182,17 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
       <RiskBanner risks={data.persistent_risks} />
       <div className={styles.dayGrid}>
         {data.days.map((d) => (
-          <DayCard key={d.target_date} day={d} />
+          <DayCard key={d.target_date} day={d} onOpen={() => setOpenDate(d.target_date)} />
         ))}
       </div>
       <Limitations items={data.limitations} />
+      {openDate !== null && (() => {
+        const day = data.days.find((d) => d.target_date === openDate);
+        // 재조회로 날짜 목록이 바뀌면 열려 있던 날짜가 사라질 수 있다 — 그때 렌더를 시도하면
+        // undefined를 넘겨 터진다.
+        if (!day) return null;
+        return <DayDetailModal day={day} baseAt={data.base_at} onClose={closeDetail} />;
+      })()}
     </>
   );
 }
