@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.rate_limit import LOGIN_PER_EMAIL, SIGNUP_GLOBAL, check
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.security import create_access_token, create_refresh_token, decode_token
@@ -53,6 +54,11 @@ def _user_response(user: User) -> UserResponse:
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 def signup(req: SignupRequest, db: Session = Depends(get_db)) -> ApiResponse[UserResponse]:
     # 가입만 하고 토큰은 발급하지 않는다 → FE가 로그인 화면으로 이동시킨다(docs/auth-security.md).
+    #
+    # 인증 이전 경로라 셀 수 있는 것이 전역뿐이다(IP는 프록시 뒤에서 믿을 수 없다 — rate_limit
+    # 모듈 주석). 한 명이 한도를 채우면 그동안 정상 가입도 막히는 것이 이 선택의 대가인데,
+    # 가입은 원래 드문 행위라 분당 30건이면 실사용과 부딪히지 않는다.
+    check("signup", "global", SIGNUP_GLOBAL)
     try:
         user = auth_service.create_user(db, req.email, req.password, req.nickname)
     except auth_service.EmailAlreadyExists:
@@ -64,6 +70,10 @@ def signup(req: SignupRequest, db: Session = Depends(get_db)) -> ApiResponse[Use
 def login(
     req: LoginRequest, response: Response, db: Session = Depends(get_db)
 ) -> ApiResponse[LoginResponse]:
+    # **이메일로 센다.** 무차별 대입은 한 계정을 겨냥하므로 공격 대상 자체가 자연스러운 키이고,
+    # 프록시 뒤 IP와 달리 요청자가 위조할 수 없다. 소문자로 맞춰 대소문자만 바꿔 한도를
+    # 우회하지 못하게 한다(이메일 로컬파트는 이론상 대소문자를 구분하지만 실무에선 같은 계정이다).
+    check("login", req.email.lower(), LOGIN_PER_EMAIL)
     user = auth_service.authenticate(db, req.email, req.password)
     if user is None:
         # 문구 일반화 — 어느 필드가 틀렸는지/계정 존재 여부를 노출하지 않는다(계정 열거 방지).

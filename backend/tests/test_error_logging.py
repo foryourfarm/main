@@ -111,6 +111,22 @@ class TestSecretRedaction(unittest.TestCase):
         self.assertNotIn("SEKRET123", out)
         self.assertIn("authKey=***", out)
 
+    def test_bare_key_is_masked(self):
+        """VWorld는 파라미터명이 그냥 `key`다. 지금은 스크립트에서만 쓰여 이 경로를 안 타지만,
+        런타임으로 옮기는 순간 조용히 새는 자리라 미리 막아둔다."""
+        from app.core.log_config import redact
+
+        out = redact("GET https://api.vworld.kr/req/address?key=SEKRET123&format=json")
+        self.assertNotIn("SEKRET123", out)
+        self.assertIn("key=***", out)
+
+    def test_key_inside_other_words_is_not_masked(self):
+        """`\\b` 없이 넓히면 `sortkey=`·`monkey=` 같은 평범한 파라미터까지 지워 로그가
+        진단에 쓸모없어진다. 마스킹 범위가 넓어지는 방향의 회귀도 잡는다."""
+        from app.core.log_config import redact
+
+        self.assertEqual(redact("?sortkey=name"), "?sortkey=name")
+
     def test_masking_survives_traceback_path(self):
         """예외 메시지에 실린 URL이 트레이스백을 타고 나가는 경로 — 레벨 조정으로는 못 막는다."""
         import json

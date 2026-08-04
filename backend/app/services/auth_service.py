@@ -11,6 +11,12 @@ class EmailAlreadyExists(Exception):
     """이메일 UNIQUE 위반. 라우터가 409로 매핑한다."""
 
 
+# 비교할 해시가 없을 때도 bcrypt를 한 번 태우기 위한 더미. **모듈 로드 때 현재 기본 cost로
+# 만든다** — 상수로 박아두면 bcrypt 기본 cost가 바뀌는 순간 실제 계정과 시간이 어긋나
+# 이 방어가 조용히 무효가 된다(§18-4와 같은 부류: 장치는 남고 효과만 사라지는 실패).
+_DUMMY_PASSWORD_HASH = hash_password("timing-equalization-only-never-a-real-password")
+
+
 def create_user(db: Session, email: str, password: str, nickname: str) -> User:
     user = User(email=email, password_hash=hash_password(password), nickname=nickname)
     db.add(user)
@@ -28,11 +34,18 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
 
     **`password_hash`가 없는 계정은 비밀번호로 로그인할 수 없다**(0037 이후 카카오 계정).
     이 검사가 없으면 `verify_password`가 None을 받아 예외로 500이 난다.
+
+    **없는 계정일 때도 bcrypt를 한 번 태운다.** 종전에는 계정이 없으면 즉시 None을 돌려줘
+    가입된 이메일(bcrypt ~100ms)과 아닌 이메일(~1ms)의 응답 시간이 갈렸다 — 라우터가 문구를
+    일반화해 막으려던 계정 열거가 타이밍으로 그대로 뚫린다. 문구만 같고 시간이 다르면
+    방어가 아니라 방어처럼 보이는 것에 그친다(§17 신뢰 경계).
     """
     user = db.query(User).filter(User.email == email).first()
-    if user is None or user.password_hash is None:
+    password_hash = user.password_hash if user is not None else None
+    if password_hash is None:
+        verify_password(password, _DUMMY_PASSWORD_HASH)  # 시간 맞추기용. 결과는 쓰지 않는다
         return None
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, password_hash):
         return None
     return user
 

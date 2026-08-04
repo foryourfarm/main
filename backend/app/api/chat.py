@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_current_user_optional
+from app.api.deps import get_current_user
+from app.api.rate_limit import rate_limit_chat
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import User
@@ -18,15 +19,26 @@ from app.services import chat_service
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(rate_limit_chat)])
 def chat(
     req: ChatRequest,
-    current: User | None = Depends(get_current_user_optional),  # 게스트 허용(토큰 없으면 None)
+    current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    # SSE 스트리밍 — ApiResponse 래퍼를 쓰지 않는다(CLAUDE.md §6 스트리밍 예외).
-    # 스트림 내부 오류/근거 없음은 chat_service가 폴백 문구로 흡수한다.
-    # 로그인 유저면 밭 컨텍스트 주입("내 땅 맞춤"), 게스트는 기존 무상태 경로.
+    """상담 챗봇(SSE 스트리밍).
+
+    **로그인이 필요하다.** 종전에는 토큰이 없으면 게스트로 흘려보냈는데, 그건 `PRD.md` §4.1이
+    정한 "로그인 필수 / 비로그인 접근 시 로그인으로 리다이렉트"와 어긋난 상태였다(§4.6 챗봇
+    항목에도 게스트 얘기는 없다). 게스트 경로는 명세에 없이 구현 쪽에서 자란 것이다(§18-7).
+
+    보안상으로도 이 경로만 예외였다 — **비인증으로 GPU를 태울 수 있는 유일한 엔드포인트**라
+    인증 없이 LLM 비용을 소진시킬 수 있었다. 로그인을 요구하면 레이트리밋을 `user.id`로 걸 수
+    있어(위조 불가) 프록시 뒤 IP 추정에 기대지 않아도 된다.
+
+    SSE라 `ApiResponse` 래퍼를 쓰지 않는다(§6 스트리밍 예외). 스트림 내부 오류·근거 없음은
+    `chat_service`가 폴백 문구로 흡수한다.
+    """
+    # 세션이 지정되면 서버 저장 히스토리를 쓰므로 요청 본문의 history는 무시된다(chat_service).
     history = [(m.role, m.content) for m in req.history]
     return StreamingResponse(
         chat_service.stream_answer(

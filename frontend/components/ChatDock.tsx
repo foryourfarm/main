@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { useAuth } from "@/lib/auth-context";
 import { LAUNCHER_ICON } from "@/lib/pet";
 
 import ChatPanel from "./ChatPanel";
@@ -22,9 +23,14 @@ export default function ChatDock() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { user, loading } = useAuth();
 
-  // /chat은 그 자체가 상담 화면이다 — 같은 챗봇을 두 개 띄우지 않는다.
-  const hidden = pathname === "/chat";
+  // 숨기는 경우 둘:
+  // 1. /chat — 그 자체가 상담 화면이다. 같은 챗봇을 두 개 띄우지 않는다.
+  // 2. 비로그인 — 백엔드 `/api/v1/chat`이 로그인을 요구한다(PRD §4.1 "로그인 필수"). 버튼을
+  //    남겨두면 눌렀을 때 401로 실패하는 "동작하는 척하는 버튼"이 된다(§1-8). 세션 복구가
+  //    끝나기 전(`loading`)에도 감춘다 — 리로드 직후 버튼이 깜빡였다 사라지지 않게.
+  const hidden = pathname === "/chat" || loading || user === null;
 
   useEffect(() => {
     const el = dialogRef.current;
