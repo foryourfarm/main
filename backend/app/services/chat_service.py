@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.infra.embedding_client import EmbeddingClient
-from app.infra.llm_client import LlmClient, OllamaClient
+from app.infra.llm_client import LlmClient, make_llm_client
 from app.models import ChatMessage, Crop, KnowledgeChunk, Region, SoilState, User, UserFarm
 from app.prompts.chatbot import REFERRAL_TEXT, FarmContext, build_chat_prompt
 
@@ -28,7 +28,7 @@ LLM_ERROR_TEXT = "일시적으로 답변을 만들지 못했어요. 잠시 후 �
 SSE_DONE = "data: [DONE]\n\n"
 
 # 요청마다 httpx 호출은 새로 하지만 클라이언트 객체는 재사용(설정만 들고 있음).
-_llm = OllamaClient()
+_llm = make_llm_client()
 _embedder = EmbeddingClient()
 
 

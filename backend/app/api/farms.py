@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
-from app.infra.llm_client import OllamaClient
+from app.infra.llm_client import make_llm_client
 from app.infra.public_api.forecast_client import KST
 from app.models import Crop, District, Region, SoilState, User, UserFarm
 from app.schemas.common import ApiResponse
@@ -197,7 +197,7 @@ def get_farm_advice(
         stage_label=label,
         today=now.date(),
         # 동기 재시도는 짧은 타임아웃으로 — 유저가 기다리는 경로다(config 주석).
-        llm=OllamaClient(timeout_s=settings.advice_llm_timeout_s),
+        llm=make_llm_client(timeout_s=settings.advice_llm_timeout_s),
     )
     if needs_polish:
         # 응답을 보낸 뒤 다듬는다. Cloud Run 스로틀링으로 완주 못 하면 다음 조회가 메운다.
@@ -207,7 +207,7 @@ def get_farm_advice(
             crop_name,
             now.date(),
             text,
-            OllamaClient(),
+            make_llm_client(),
         )
     return ApiResponse.ok(
         DailyAdvice(

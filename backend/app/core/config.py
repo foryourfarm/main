@@ -30,6 +30,10 @@ class Settings(BaseSettings):
 
     # 로컬 LLM (Ollama 개발 / vLLM 서빙 — OpenAI 호환. docs/llm-integration.md)
     llm_base_url: str = "http://localhost:11434"
+    # 생성 런타임 선택: "ollama" | "vllm". `infra.llm_client.make_llm_client()`가 읽는다.
+    # 기본은 ollama — vLLM 전환은 이 값 + llm_base_url(:8000)만 바꾸면 되고 재배포가 필요 없다
+    # (`--update-env-vars`, docs/vllm.md §5-4). 되돌리기도 같은 방법이라 롤백이 싸다.
+    llm_backend: str = "ollama"
     llm_model: str = "exaone3.5:7.8b"
     # 8초였으나 실측(Cloud Run + GPU VM, 2026-07-26)상 콜드로드(모델이 VRAM에 없을 때)가
     # exaone3.5:7.8b 67초, bge-m3 18초까지 걸려 첫 요청이 타임아웃으로 죽었다. VM 부팅 시
@@ -56,8 +60,17 @@ class Settings(BaseSettings):
     # 정상 상태 실측이 3초 수준이라 8초면 콜드가 아닌 한 충분하다.
     advice_llm_timeout_s: float = 8.0
 
-    # 챗봇 RAG 임베딩 — 같은 Ollama 서버, 다른 모델(bge-m3, 1024차원 = knowledge_chunk.embedding과 매칭)
+    # 챗봇 RAG 임베딩 — bge-m3, 1024차원 = knowledge_chunk.embedding과 매칭
     embedding_model: str = "bge-m3"
+    # 임베딩 서버 주소. **비워 두면 `llm_base_url`을 쓴다** — 지금까지 둘이 같은 Ollama였고
+    # 기본값이 같아야 동작이 바뀌지 않는다(`embedding_base_effective`).
+    #
+    # **왜 분리하는가**: vLLM은 한 프로세스에 한 모델이라 생성 서버를 vLLM(`:8000`)으로 옮기면
+    # 임베딩은 Ollama(`:11434`)에 남아야 한다. 그때 이 값만 다르게 주면 된다(docs/vllm.md §4).
+    # Ollama에 임베딩을 남기는 이유는 **재임베딩 회피**다 — `embed_corpus.py`가 적재에 쓴 모델과
+    # 같아야 코사인 유사도가 의미를 갖는데(embedding_client docstring), vLLM의 bge-m3는 풀링·
+    # 정규화가 다를 수 있어 검증 없이 같은 벡터 공간이라 단정할 수 없다(936청크 재적재 위험).
+    embedding_base_url: str = ""
     # 질문당 근거로 주입할 문서 조각 수(top-k). 검색 파라미터라 농업 기준값 아님.
     # 3 -> 5: 5종 작물 19문항으로 hit@k를 실측(scripts/eval_rag_retrieval.py)한 결과
     # @3 0.95 / @5 1.00 / @8 1.00 — 5에서 천장에 닿고 8은 컨텍스트만 늘고 얻는 게 없다.
@@ -132,6 +145,15 @@ class Settings(BaseSettings):
     # 헤더로 보낸다. **비워두면 그 엔드포인트가 503으로 꺼진다** — 기본값이 "누구나 통과"가
     # 되면 env를 빠뜨린 배포가 곧 공개 적재 경로가 된다(fail closed, §17).
     admin_task_token: str = ""
+
+    @property
+    def embedding_base_effective(self) -> str:
+        """임베딩 서버 주소. 비어 있으면 생성 서버(`llm_base_url`)를 그대로 쓴다.
+
+        폴백 규칙을 여기 한 곳에만 둔다 — 호출부마다 `or settings.llm_base_url`을 쓰면
+        나중에 규칙이 갈린다. `EmbeddingClient`가 이 값을 읽는다.
+        """
+        return self.embedding_base_url or self.llm_base_url
 
 
 settings = Settings()
