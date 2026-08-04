@@ -565,6 +565,93 @@ breakdown만 `coverage_limitation`에 넘긴다. 범인은 프론트였다:
 
 ## 🔴 지금 열려 있는 것
 
+### 🆕 단기탭 3일 압축 · 오늘치 예보 유실 · 카카오 로그인 — **미착수** (2026-08-04 요청)
+
+세 건 다 코드를 읽고 근본원인·착수 지점까지 확인했다. 순서는 **A → B → C**. A와 B는 같은
+함수(`_cached_rows`)를 건드리지만 **한 PR로 묶지 않는다** — A는 3줄이고 B는 병합 로직 + 테스트라
+리뷰 성격이 다르다.
+
+#### A. 단기탭 5장 → 3장(오늘·내일·모레)
+
+지금 카드가 4~5장 나오는 이유: 기상청 한 발표가 오늘~+4일을 주고(마지막 날은 00시 **1슬롯**뿐,
+`backend/app/infra/public_api/forecast_client.py:12`의 실측 슬롯표) `_cached_rows`가 `target_date >=
+today`를 **상한 없이** 전부 돌려준다(`short_term_service.py:96`).
+
+- `_cached_rows` 필터에 상한 한 줄: `target_date <= today + 2일`.
+- 같이 고칠 것 — `FORECAST_LIMITATION`(`short_term_service.py:36`)의 "약 3일치, 달력상 4~5일에
+  걸칠 수 있음"은 이 변경 후 거짓이 된다. 안 고치면 §18-4(한계 오표기)다.
+- FE는 손대지 않는다 — `.dayGrid`가 `auto-fill`이라 3장도 그대로 채워진다
+  (`frontend/components/farm.module.css:289`).
+- 부수영향 확인 완료: 대시보드는 오늘치만 쓴다(`dashboard_service.py`의 `today_values`) → 무해.
+  `persistent_risks(min_days=2)`도 그대로 둔다(3일 중 2일 = 연속 위험).
+- 테스트: `test_short_term.py`에 "+3일 이후 행은 응답에 없다" 1건.
+
+#### B. 오늘치 예보가 최신 발표로 갈아탈 때 퇴화하는 문제 — **저장이 아니라 읽기가 원인**
+
+저장은 안 날아간다. `uq_weather`가 `(region_id, kind, base_at, target_date)`라
+(`models/weather_snapshot.py:24`) 발표분마다 **새 행**으로 쌓인다. 날리는 건 읽기다 —
+`_cached_rows`가 `base_at` 최댓값 **한 발표분만** 고른다(`short_term_service.py:96`).
+
+단기예보 첫날은 발표시각 이후 시간대만 온다(14시 발표 → 오늘 15~23시 9개, TMX·TMN은 아예 없음 —
+`forecast_client.py:12` 실측). 그래서 최신 발표로 갈아타는 순간 오늘 카드에서:
+
+| 값 | 갈아탄 뒤 |
+|---|---|
+| 야간 최저 | 이미 지난 새벽이 표본에서 빠져 **오후 최저**로 대체 |
+| 낮 최고 | TMX 없어 남은 시간 TMP 최고로 폴백 → 낮 피크 놓침 |
+| 강수 일누적 | 남은 시간대만 합산 → 오전에 온 비가 사라짐 |
+| 모달 기온 곡선 | 앞부분 통째로 없음 |
+
+`is_imputed=True`로 고지는 되지만(`weather_snapshot.py:44`) 값이 퇴화하는 것 자체는 그대로다.
+
+**해결 방향: 발표분 행은 그대로 보존하고 읽을 때 `target_date`별로 합친다**(원본 훼손 없음 =
+§12 출처·시각 기록 유지).
+
+- **1단계(최소)**: `target_date`별로 `is_imputed=False`인 행 우선, 없으면 최신 `base_at`. ~10줄.
+  다만 오늘치 온전한 행은 "어제 23시 발표"뿐이고 예보 조회가 유저 요청 구동이라(예보용
+  스케줄러 없음 — `outlook-scheduler`는 장기예보 전용) 그 시각 접속이 없으면 행이 없다.
+  → **단독으로는 자주 무효.**
+- **2단계(권장, 실효)**: 같은 `target_date`의 발표분들의 `hourly_temp`를 **시각 단위로 union**
+  (겹치면 최신 발표 우선) → `temp_avg`/`temp_max`/`temp_night_min` 재계산. 지난 시간대는 옛
+  발표에서, 남은 시간대는 최신 발표에서 온다. 순수함수 `merge_day(rows)` + 테스트로 고정.
+  `is_imputed`는 union 후 커버리지로 재판정(`LAST_SLOT_HOUR` 규칙 재사용,
+  `forecast_client.py:69`).
+- **강수만 union이 안 된다** — 시간별 강수를 저장하지 않는다. 두 선택지:
+  - (a) `fold_daily`가 PCP도 시각별로 `hourly_temp` JSONB에 `p`로 함께 담는다 → **컬럼 추가가
+    없으니 마이그레이션도 없고** union 합이 정확해진다. `forecast_client.py:162` 몇 줄.
+  - (b) 발표분 중 `max` — 근사이므로 한계 표기가 또 하나 늘어난다.
+  → **(a)를 권한다.** 근사를 하나 늘리는 비용이 §18-4 기준으로 더 크다.
+- [확인 필요] 병합된 오늘치를 화면에서 어떻게 부를지. "실측"이 아니라 여전히 예보이며 앞부분은
+  **지난 시각의 예보**라는 점을 `FORECAST_LIMITATION`에 한 문장으로 넣는다.
+
+#### C. 카카오 로그인 추가
+
+지금은 이메일+비밀번호뿐이고, `users.email`·`password_hash`가 둘 다 NOT NULL이다
+(`models/user.py:14`). 토큰은 분리형(access 본문 / refresh httpOnly 쿠키, path 스코프 —
+`api/auth.py:29`). **새 인증 축을 만들지 않고 이 발급 경로를 그대로 재사용한다.**
+
+1. **마이그레이션 0036**: `users.kakao_id BIGINT UNIQUE NULL` 추가, `password_hash`·`email`을
+   NULL 허용으로 완화. 이메일을 NULL 허용하는 이유 — 카카오는 이메일 동의항목 검수 전에는 주지
+   않는다. Postgres UNIQUE는 NULL 중복을 허용하므로 제약은 그대로 둔다.
+2. **`infra/oauth/kakao_client.py`**: `code` → 토큰(`kauth.kakao.com/oauth/token`) → `/v2/user/me`.
+   실패는 예외로 올려 라우터가 매핑(§12 경계 방어). 비밀은 env
+   `KAKAO_CLIENT_ID`/`KAKAO_CLIENT_SECRET`/`KAKAO_REDIRECT_URI` — `.env.example`도 같이 갱신해야
+   한다(`test_env_example_matches_settings.py`가 잡는다).
+3. **`POST /api/v1/auth/kakao`** `{code, redirect_uri}` → `kakao_id`로 upsert → 기존
+   `_set_refresh_cookie` + `LoginResponse` 그대로 반환. **새 응답 스키마 없음** → FE 토큰 처리
+   코드가 그대로 돌아간다.
+4. **FE**: 로그인 페이지에 카카오 버튼(카카오 인가 URL로 이동, `client_id`는 공개값이라
+   `NEXT_PUBLIC_`) + `/login/kakao` 콜백 페이지가 `code`를 백엔드로 POST. `state`는
+   sessionStorage 랜덤값 비교(CSRF).
+   - `redirect_uri`를 **FE**로 두는 이유: access를 메모리에만 두는 정책이라(`lib/auth.ts`)
+     백엔드가 리다이렉트로 받으면 토큰을 FE 메모리로 넘길 길이 없다.
+5. **하지 않을 것**: 같은 이메일의 기존 계정과 자동 연결. 카카오 이메일은 미인증일 수 있어
+   계정 탈취 경로가 된다 — 별개 계정으로 두고, 필요해지면 로그인 후 명시적 연결 화면으로.
+6. 테스트 2건: `kakao_client` 응답 파싱(모킹) · `kakao_id` 신규/기존 upsert.
+7. 문서: `docs/auth-security.md`에 카카오 섹션(§3-7 FE 인계 필수).
+
+[확인 필요] 카카오 앱 키 발급 주체, 운영 도메인 `redirect_uri` 등록, 이메일 동의항목 검수 여부.
+
 ### 🔥 프로덕션 데이터 전수 점검 — **미착수, 최우선** (2026-08-03 배포에서 드러남)
 
 2026-08-03 실배포 검증에서 **"코드는 배포됐는데 데이터가 안 채워진" 것이 네 건** 나왔다.
