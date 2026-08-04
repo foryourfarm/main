@@ -34,13 +34,17 @@ _SEVERITY = {
 }
 
 # 쿼리스트링에 인증키를 실어보내는 공공 API들 때문에 **URL이 곧 비밀**이다(§17).
-# 공공데이터포털은 `serviceKey`, 기상청 apihub는 `authKey`를 쓴다.
+# 공공데이터포털은 `serviceKey`, 기상청 apihub는 `authKey`, VWorld는 그냥 `key`를 쓴다.
 #
 # **레벨을 낮추는 것만으로는 못 막는다.** httpx의 INFO 요청 로그를 껐어도 예외 메시지에
 # URL이 그대로 들어간다("Client error '401' for url 'https://…?serviceKey=…'"). 그게
 # `exc_info=True` 트레이스백을 타고 로그로 나간다. 그래서 **출력 직전에 한 번** 지운다 —
 # 호출부마다 조심하게 하지 않고 한 곳에서 막는다.
-_SECRET_QUERY = re.compile(r"(?i)\b(serviceKey|authKey|apikey|api_key)=([^&\s'\"<>]+)")
+#
+# 맨 끝의 `key`는 VWorld용이다. 지금 VWorld는 스크립트에서만 쓰여 이 경로를 안 타지만,
+# 런타임으로 옮기는 순간 조용히 새는 자리라 미리 막아둔다. `\b`가 앞에 있어 `authKey=`나
+# `sortkey=` 같은 합성어 안의 `key`에는 걸리지 않는다(테스트로 고정).
+_SECRET_QUERY = re.compile(r"(?i)\b(serviceKey|authKey|apikey|api_key|key)=([^&\s'\"<>]+)")
 
 
 def redact(text: str) -> str:

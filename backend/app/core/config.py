@@ -1,7 +1,16 @@
+import os
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 브라우저가 받아들이는 SameSite 값. 오타(`Lax `, `none;`)는 쿠키가 조용히 안 붙는 원인이 된다.
+_VALID_SAMESITE = frozenset({"lax", "strict", "none"})
+
+# 로컬 개발용 JWT 시크릿. **이 값은 리포에 공개돼 있으므로 운영에서 쓰면 인증이 없는 것과 같다** —
+# 아는 사람 누구나 임의 user_id로 access 토큰을 서명해 그 계정이 될 수 있다.
+# 아래 `_guard_jwt_secret`이 Cloud Run에서 이 값을 거부한다.
+_DEV_JWT_SECRET = "dev-only-insecure-secret-change-in-prod-min-32-bytes"
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 _REPO_ROOT = _BACKEND_DIR.parent
@@ -149,7 +158,8 @@ class Settings(BaseSettings):
     soil_delta_artifact_path: str = ""
 
     # 인증 — 분리 토큰 JWT(docs/auth-security.md). 시크릿은 운영에서 반드시 env로 덮어쓴다(§17).
-    jwt_secret: str = "dev-only-insecure-secret-change-in-prod-min-32-bytes"
+    # 기본값은 로컬 전용이고 Cloud Run에서는 `_guard_jwt_secret`이 기동을 막는다.
+    jwt_secret: str = _DEV_JWT_SECRET
     jwt_algorithm: str = "HS256"
     # 만료시간: access는 짧게(탈취 피해창 최소), refresh는 길게(로그인 유지). 하드코딩 금지라 config로(§4).
     access_token_expire_min: int = 30
@@ -180,6 +190,59 @@ class Settings(BaseSettings):
     # 헤더로 보낸다. **비워두면 그 엔드포인트가 503으로 꺼진다** — 기본값이 "누구나 통과"가
     # 되면 env를 빠뜨린 배포가 곧 공개 적재 경로가 된다(fail closed, §17).
     admin_task_token: str = ""
+
+    @model_validator(mode="after")
+    def _guard_jwt_secret(self) -> "Settings":
+        """운영(Cloud Run)에서 공개 기본 시크릿으로 뜨는 것을 막는다 — **fail closed**(§17).
+
+        **왜 조용한 폴백이 위험한가**: 기본값은 이 리포에 그대로 적혀 있다. 그 값으로 서명하면
+        누구나 `{"sub": "<임의 user_id>", "type": "access"}`를 직접 만들어 아무 계정이나 될 수
+        있다. 비밀번호도 카카오도 필요 없다.
+
+        **왜 이 사고가 실제로 일어날 수 있나**: README §⑤가 적어둔 대로 `--set-env-vars`로
+        배포하면 기존 env가 통째로 교체돼 `JWT_SECRET`이 삭제된다. 그때 CORS 차단·토양 API
+        401은 **눈에 보이지만** 인증은 조용히 기본값으로 내려앉아 아무 증상도 없다. 이 프로젝트가
+        반복해서 겪은 "에러 없이 조용히 거짓이 되는" 실패다.
+
+        `admin_task_token`이 미설정을 "누구나 통과"가 아니라 "기능 꺼짐"으로 보는 것과 같은
+        판단이다. 다만 인증은 끌 수 있는 기능이 아니라서 기동 자체를 막는다.
+
+        **로컬·CI는 그대로다.** `K_SERVICE`는 Cloud Run이 항상 주입하는 값이라 그 밖에서는
+        이 검사가 돌지 않는다(`log_config.setup_logging`이 쓰는 것과 같은 판별). 새 개발자가
+        `.env` 없이도 백엔드를 띄울 수 있다는 성질은 유지된다.
+
+        기동 실패가 서비스 중단이 되지는 않는다 — Cloud Run은 새 리비전이 못 뜨면 트래픽을
+        넘기지 않고 기존 리비전이 계속 응답한다. 즉 결과는 "배포 실패"이지 "장애"가 아니다.
+        """
+        if os.getenv("K_SERVICE") and self.jwt_secret == _DEV_JWT_SECRET:
+            raise ValueError(
+                "JWT_SECRET이 설정되지 않았다(공개된 개발 기본값 그대로다). "
+                "운영에서는 이 값으로 뜨면 누구나 토큰을 위조할 수 있으므로 기동을 막는다. "
+                "`gcloud run services update ... --update-env-vars JWT_SECRET=$(openssl rand -hex 32)`로 넣을 것."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_cookie_policy(self) -> "Settings":
+        """refresh 쿠키 설정이 브라우저에 거부당하는 조합을 기동 시점에 잡는다.
+
+        **왜 필요한가**: `SameSite=None`은 `Secure` 없이는 브라우저가 쿠키를 **통째로 버린다.**
+        그런데 그게 에러로 드러나지 않는다 — 로그인 직후엔 메모리 access 토큰으로 정상 동작하다가
+        새로고침하는 순간 `/auth/refresh`가 쿠키를 못 받아 복구 불능이 된다. 실제로 겪은 사고이고
+        (FE duckdns.org ↔ BE run.app, 2026-07-26) 증상이 배포 한참 뒤에야 나타나 원인을 찾기
+        어려웠다. 크로스사이트 배포에서 한쪽만 켜는 실수가 반복되므로 여기서 막는다(§17).
+        """
+        samesite = self.cookie_samesite.lower()
+        if samesite not in _VALID_SAMESITE:
+            raise ValueError(
+                f"COOKIE_SAMESITE는 {sorted(_VALID_SAMESITE)} 중 하나여야 한다(받은 값: {self.cookie_samesite!r})"
+            )
+        if samesite == "none" and not self.cookie_secure:
+            raise ValueError(
+                "COOKIE_SAMESITE=none은 COOKIE_SECURE=true가 함께 있어야 한다 — "
+                "Secure 없는 SameSite=None 쿠키는 브라우저가 버려서 refresh가 항상 401이 된다."
+            )
+        return self
 
     @property
     def embedding_base_effective(self) -> str:
