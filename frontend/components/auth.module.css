@@ -65,6 +65,41 @@
   font-size: 13px;
   margin: 0;
 }
+
+/* "또는" 구분선 — 좌우 선은 장식이라 aria-hidden 없이도 스크린리더가 텍스트만 읽는다. */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.4;
+}
+
+/* 카카오 브랜드 색(고정값) — 우리 팔레트 변수를 쓰지 않는다. 이 버튼은 카카오 가이드가 정한
+   외형이어야 알아보기 쉽고, 다크모드에서도 브랜드 색은 그대로 유지한다. */
+.kakao {
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  background: #fee500;
+  color: #191600;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.kakao:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 .alt {
   font-size: 13px;
   text-align: center;

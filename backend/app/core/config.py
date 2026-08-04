@@ -160,6 +160,22 @@ class Settings(BaseSettings):
     # CORS 허용 오리진 — refresh 쿠키가 크로스오리진으로 오가려면 명시 허용 + credentials 필요.
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # 카카오 로그인(docs/auth-security.md §카카오). **비어 있으면 그 엔드포인트만 503으로 꺼진다** —
+    # 이메일 로그인은 그대로 동작한다(fail closed, §17).
+    #
+    # `kakao_rest_api_key`는 비밀이 아니다(FE가 인가 URL을 만들 때 같은 값을 쓴다). 그래서 FE에도
+    # `NEXT_PUBLIC_KAKAO_REST_API_KEY`로 같은 값이 들어가는데, **한쪽만 바꾸면 토큰 교환이
+    # invalid_client로 죽는다.** 실제로 이 프로젝트에서 env 이름/값 불일치 사고가 세 번 있었다
+    # (tests/test_env_example_matches_settings.py 참고) — 바꿀 때 양쪽을 같이 본다.
+    kakao_rest_api_key: str = ""
+    # 카카오 앱 "보안 → Client Secret"을 켠 경우에만 필요하다. 껐으면 비워둔다 —
+    # 빈 값을 보내면 카카오가 invalid_client로 거절하므로 클라이언트가 아예 생략한다.
+    kakao_client_secret: str = ""
+    # 인가 요청과 토큰 교환에서 **정확히 같아야** 하는 값이고, 카카오 앱에 등록된 것과도 같아야
+    # 한다. FE 콜백 주소다(백엔드가 아니다 — access를 메모리에만 두는 정책이라 서버가 리다이렉트를
+    # 받으면 토큰을 FE로 넘길 길이 없다).
+    kakao_redirect_uri: str = "http://localhost:3000/login/kakao"
+
     # 운영 작업 엔드포인트(app/api/admin.py) 공유 시크릿. Cloud Scheduler가 X-Admin-Token
     # 헤더로 보낸다. **비워두면 그 엔드포인트가 503으로 꺼진다** — 기본값이 "누구나 통과"가
     # 되면 env를 빠뜨린 배포가 곧 공개 적재 경로가 된다(fail closed, §17).

@@ -24,10 +24,46 @@ def create_user(db: Session, email: str, password: str, nickname: str) -> User:
 
 
 def authenticate(db: Session, email: str, password: str) -> User | None:
-    """이메일+비밀번호 검증. 실패 시 None(사유는 구분하지 않음 — 계정 열거 방지는 라우터 문구에서)."""
+    """이메일+비밀번호 검증. 실패 시 None(사유는 구분하지 않음 — 계정 열거 방지는 라우터 문구에서).
+
+    **`password_hash`가 없는 계정은 비밀번호로 로그인할 수 없다**(0037 이후 카카오 계정).
+    이 검사가 없으면 `verify_password`가 None을 받아 예외로 500이 난다.
+    """
     user = db.query(User).filter(User.email == email).first()
-    if user is None or not verify_password(password, user.password_hash):
+    if user is None or user.password_hash is None:
         return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
+def upsert_kakao_user(db: Session, kakao_id: int, nickname: str) -> User:
+    """카카오 회원번호로 계정을 찾거나 만든다(로그인 = 가입, 별도 가입 화면 없음).
+
+    **기존 이메일 계정과 자동으로 잇지 않는다.** 이메일이 같다는 사실만으로 이어붙이면 카카오
+    쪽 이메일이 미인증일 때 남의 계정에 들어가는 경로가 된다. 그래서 카카오 계정은 `kakao_id`로만
+    식별하고 이메일은 받지도 않는다(0037). 같은 사람이 두 방식으로 들어오면 계정이 둘이 되는데,
+    그건 나중에 "명시적 계정 연결" 화면으로 풀 문제다(§2 YAGNI).
+
+    **닉네임은 최초 생성 때만 쓴다.** 매번 덮으면 유저가 우리 쪽에서 바꾼 이름이 카카오 닉네임으로
+    조용히 되돌아간다.
+    """
+    user = db.query(User).filter(User.kakao_id == kakao_id).first()
+    if user is not None:
+        return user
+
+    user = User(kakao_id=kakao_id, nickname=nickname, email=None, password_hash=None)
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 카카오 계정으로 동시에 두 번 들어온 경우 — UNIQUE가 막았다. 먼저 만들어진 행을 쓴다.
+        db.rollback()
+        existing = db.query(User).filter(User.kakao_id == kakao_id).first()
+        if existing is None:
+            raise
+        return existing
+    db.refresh(user)
     return user
 
 
