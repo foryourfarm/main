@@ -1,5 +1,6 @@
 "use client";
 
+import { Moon, Sun, Wheat } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -38,7 +39,7 @@ export default function Header() {
   return (
     <header className={styles.header}>
       <Link href="/dashboard" className={styles.logo}>
-        🌾 For Your Farm
+        <Wheat size={22} aria-hidden="true" /> For Your Farm
       </Link>
       <div className={styles.headerRight}>
         {/* 세션 복구 중엔 비운다 — 로그인 링크가 잠깐 떴다 사라지는 깜빡임 방지. */}
@@ -62,7 +63,7 @@ export default function Header() {
           aria-pressed={isDarkMode}
           aria-label={isDarkMode ? "라이트 모드로 전환" : "다크 모드로 전환"}
         >
-          {isDarkMode ? "☀️" : "🌙"}
+          {isDarkMode ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
         </button>
       </div>
     </header>

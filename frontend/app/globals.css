@@ -138,6 +138,14 @@ body {
   flex-direction: column;
 }
 
+/* 모바일: Navigation이 하단 고정 탭이 되므로(§9) 본문 끝이 탭에 가리지 않게 공간을 예약한다.
+   값은 Navigation.module.css의 .navItem min-height(56px)와 짝 — 탭 높이 + safe area + 여유. */
+@media (max-width: 767px) {
+  .appMain {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
+
 a {
   color: inherit;
   text-decoration: none;

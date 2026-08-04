@@ -11,6 +11,9 @@
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-heading);
   font-size: 24px;
   font-weight: 700;
