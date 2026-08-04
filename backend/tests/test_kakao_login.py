@@ -49,7 +49,8 @@ class KakaoAccountTestCase(unittest.TestCase):
 class TestUpsertKakaoUser(KakaoAccountTestCase):
     def test_creates_account_without_email_or_password(self):
         """카카오 계정은 이메일·비밀번호가 없다 — 가짜 값을 지어 채우지 않는다."""
-        user = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
+        user, created = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
+        self.assertTrue(created)
         self.assertIsNotNone(user.id)
         self.assertEqual(user.kakao_id, 999)
         self.assertEqual(user.nickname, "귀농이")
@@ -57,17 +58,20 @@ class TestUpsertKakaoUser(KakaoAccountTestCase):
         self.assertIsNone(user.password_hash)
 
     def test_second_login_reuses_the_same_account(self):
-        first = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
-        second = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
+        first, first_created = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
+        second, second_created = upsert_kakao_user(self.db, kakao_id=999, nickname="귀농이")
         self.assertEqual(first.id, second.id)
+        # 신규 판정은 첫 호출에만 참이어야 한다 — 매번 참이면 닉네임 화면이 계속 뜬다.
+        self.assertTrue(first_created)
+        self.assertFalse(second_created)
         self.assertEqual(self.db.query(User).count(), 1)
 
     def test_does_not_overwrite_nickname_on_later_logins(self):
         """매번 덮으면 유저가 우리 쪽에서 바꾼 이름이 카카오 닉네임으로 조용히 되돌아간다."""
-        user = upsert_kakao_user(self.db, kakao_id=999, nickname="처음이름")
+        user, _ = upsert_kakao_user(self.db, kakao_id=999, nickname="처음이름")
         user.nickname = "내가 바꾼 이름"
         self.db.commit()
-        again = upsert_kakao_user(self.db, kakao_id=999, nickname="처음이름")
+        again, _ = upsert_kakao_user(self.db, kakao_id=999, nickname="처음이름")
         self.assertEqual(again.nickname, "내가 바꾼 이름")
 
     def test_does_not_attach_to_an_existing_email_account(self):
@@ -76,14 +80,14 @@ class TestUpsertKakaoUser(KakaoAccountTestCase):
         self.db.add(existing)
         self.db.commit()
 
-        kakao_user = upsert_kakao_user(self.db, kakao_id=999, nickname="카카오")
+        kakao_user, _ = upsert_kakao_user(self.db, kakao_id=999, nickname="카카오")
         self.assertNotEqual(kakao_user.id, existing.id)
         self.db.refresh(existing)
         self.assertIsNone(existing.kakao_id)  # 기존 계정은 손대지 않는다
 
     def test_different_kakao_ids_get_different_accounts(self):
-        a = upsert_kakao_user(self.db, kakao_id=1, nickname="가")
-        b = upsert_kakao_user(self.db, kakao_id=2, nickname="나")
+        a, _ = upsert_kakao_user(self.db, kakao_id=1, nickname="가")
+        b, _ = upsert_kakao_user(self.db, kakao_id=2, nickname="나")
         self.assertNotEqual(a.id, b.id)
 
 
@@ -94,7 +98,7 @@ class TestPasswordLoginAgainstKakaoAccount(KakaoAccountTestCase):
         카카오 계정은 email도 None이라 조회 자체가 비지만, 나중에 이메일을 채우는 변경이 오면
         이 방어가 유일한 벽이 된다.
         """
-        user = upsert_kakao_user(self.db, kakao_id=999, nickname="카카오")
+        user, _ = upsert_kakao_user(self.db, kakao_id=999, nickname="카카오")
         user.email = "kakao@example.com"  # 이메일이 채워진 최악의 경우를 가정
         self.db.commit()
         self.assertIsNone(authenticate(self.db, "kakao@example.com", "아무비밀번호"))

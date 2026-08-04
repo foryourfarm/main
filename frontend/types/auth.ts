@@ -5,3 +5,9 @@ export interface User {
   email: string | null;
   nickname: string;
 }
+
+/** 카카오 로그인 결과. `isNewUser`면 계정이 방금 만들어진 것 → 닉네임부터 받는다. */
+export interface KakaoLoginResult {
+  user: User;
+  isNewUser: boolean;
+}
