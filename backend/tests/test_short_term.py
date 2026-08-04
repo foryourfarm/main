@@ -4,12 +4,56 @@
 구분하는 규칙이 이 탭의 핵심이다(PRD.md §4.5, §7-4).
 """
 import unittest
+from datetime import date, datetime
+from decimal import Decimal
 
-from app.services.short_term_service import persistent_risks
+from app.infra.public_api.forecast_client import KST, DailyForecast
+from app.services.short_term_service import _to_snapshot_rows, persistent_risks
 
 
 def _day(d: str, *flags: str) -> dict[str, object]:
     return {"target_date": d, "risk_flags": list(flags)}
+
+
+def _forecast(**over: object) -> DailyForecast:
+    base: dict[str, object] = {
+        "target_date": date(2026, 8, 4),
+        "temp_avg": Decimal("31.3"),
+        "temp_max": Decimal("38"),
+        "temp_night_min": Decimal("27"),
+        "rainfall": Decimal("0"),
+        "precip_prob_max": 20,
+        "humidity_max": 80,
+        "hourly_temp": [{"h": 15, "t": "38"}],
+        "is_partial": False,
+    }
+    base.update(over)
+    return DailyForecast(**base)  # type: ignore[arg-type]
+
+
+class TestToSnapshotRows(unittest.TestCase):
+    """DailyForecast → weather_snapshot 행 매핑. 컬럼을 빠뜨리면 조용히 NULL로 저장된다."""
+
+    def test_maps_new_temperature_columns(self):
+        row = _to_snapshot_rows(7, datetime(2026, 8, 4, 14, tzinfo=KST), [_forecast()])[0]
+        self.assertEqual(row["temp_avg"], Decimal("31.3"))
+        self.assertEqual(row["temp_max"], Decimal("38"))
+        self.assertEqual(row["temp_night_min"], Decimal("27"))
+        self.assertEqual(row["hourly_temp"], [{"h": 15, "t": "38"}])
+
+    def test_partial_flag_lands_in_is_imputed(self):
+        """부분 표본으로 낸 집계는 §12의 "대체됨"이다 — 기존 컬럼을 재사용한다."""
+        rows = _to_snapshot_rows(
+            7,
+            datetime(2026, 8, 4, 14, tzinfo=KST),
+            [_forecast(is_partial=True), _forecast(target_date=date(2026, 8, 5))],
+        )
+        self.assertEqual([r["is_imputed"] for r in rows], [True, False])
+
+    def test_sunlight_stays_null(self):
+        """단기예보는 일조를 주지 않는다 — 0으로 채우면 '일조 없음'으로 오해된다."""
+        row = _to_snapshot_rows(7, datetime(2026, 8, 4, 14, tzinfo=KST), [_forecast()])[0]
+        self.assertIsNone(row["sunlight"])
 
 
 class TestPersistentRisks(unittest.TestCase):

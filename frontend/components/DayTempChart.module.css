@@ -1,0 +1,157 @@
+/* 색은 Modal.module.css .content가 내려주는 팔레트 변수를 따른다(--primary/--warn/--muted 등).
+   모달 밖에서 쓰일 경우를 대비해 var()에 폴백을 둔다. */
+
+.figure {
+  margin: 0;
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.empty {
+  margin: 0;
+  padding: 16px 0;
+  color: var(--muted, #7a746f);
+  font-size: 14px;
+}
+
+/* ── 채점 밴드 ─────────────────────────────────────────── */
+.bandAllowed {
+  fill: var(--warn, #9a6b1e);
+  opacity: 0.1;
+}
+
+.bandOptimal {
+  fill: var(--good, #2d5016);
+  opacity: 0.14;
+}
+
+/* 표본이 없는 시간대. 사선 대신 옅은 회색 — 초보자에게 "여긴 데이터가 없다"가 읽혀야 한다 */
+.gap {
+  fill: var(--muted, #7a746f);
+  opacity: 0.12;
+}
+
+/* ── 곡선 ─────────────────────────────────────────────── */
+.line {
+  fill: none;
+  stroke: var(--text, #4a4643);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--text, #4a4643);
+  opacity: 0.55;
+}
+
+.peak {
+  fill: var(--bad, #c54245);
+}
+
+.trough {
+  fill: var(--primary, #2d5016);
+}
+
+/* 점수 근거선. 파선으로 곡선과 구분한다 — 실선이 둘이면 뭐가 데이터인지 헷갈린다 */
+.avgLine {
+  stroke: var(--muted, #7a746f);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+/* ── 텍스트 ───────────────────────────────────────────── */
+.peakLabel,
+.troughLabel,
+.avgLabel {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text, #4a4643);
+}
+
+.peakLabel {
+  fill: var(--bad, #c54245);
+  text-anchor: middle;
+}
+
+.troughLabel {
+  fill: var(--primary, #2d5016);
+  text-anchor: middle;
+}
+
+.avgLabel {
+  fill: var(--muted, #7a746f);
+  text-anchor: end;
+  font-weight: 500;
+}
+
+.axis,
+.axisX {
+  font-size: 10px;
+  fill: var(--muted, #7a746f);
+}
+
+.axisX {
+  text-anchor: middle;
+}
+
+.caption {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted, #7a746f);
+}
+
+/* ── 접근성용 표 ──────────────────────────────────────── */
+.tableWrap {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.tableWrap > summary {
+  cursor: pointer;
+  color: var(--muted, #7a746f);
+}
+
+.tableWrap > summary:focus-visible {
+  outline: 2px solid var(--primary, #2d5016);
+  outline-offset: 2px;
+}
+
+.table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  /* 24행이 모달을 밀어내지 않게 스크롤 — 넘치는 표는 자체 영역에서 스크롤한다 */
+  display: block;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.table th,
+.table td {
+  padding: 3px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--card, #e8e6e1);
+  font-weight: 400;
+}
+
+.table thead th {
+  font-weight: 600;
+  color: var(--muted, #7a746f);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
