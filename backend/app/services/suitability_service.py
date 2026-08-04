@@ -695,6 +695,7 @@ def compute_monthly_outlook(
         limitations.append(LETTUCE_SEASON_LIMITATION)
     # 창이 전부 비었으면 화면이 통째로 "제철 아님"이라 유저가 다음에 언제 보러 와야 할지
     # 알 수 없다. 창을 늘려 채우지 않고 문구로만 알린다(PRD §4.4).
+    following: tuple[int, int] | None = None
     if all(m["growth_stage"] is None for m in months):
         following = next_season_month(stage_rows, farm.planting_date, window[-1])
         if following is not None:
@@ -709,4 +710,10 @@ def compute_monthly_outlook(
         "label": SUITABILITY_LABEL,
         "months": months,
         "limitations": limitations,
+        # 내부용 — 장기 추천 문구(`long_term_advice_service`)가 빈 창에서 쓴다. 응답 스키마
+        # (`FarmMonthlyOutlook`)에 없으므로 직렬화에서 빠진다(months의 `breakdown`과 같은 방식).
+        # 여기서 함께 내보내는 이유는 추천 쪽이 단계 행·파종일을 다시 읽지 않게 하기 위해서다.
+        # 창이 전부 비지 않았으면 None이고, 파종후경과일 기준 작물(5종 중 감자뿐)은 창이
+        # 비어도 None이다 — 달력으로 정해지지 않아 `next_season_month`가 못 찾는다(의도된 동작).
+        "next_season": following,
     }

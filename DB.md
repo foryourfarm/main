@@ -11,7 +11,7 @@
 - **마스터 vs 유저 vs 캐시 분리**:
   - 마스터(시드/사전적재): `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`.
   - 유저 데이터: `users`, `user_farm`, `farm_action_log`.
-  - 조회/계산 캐시: `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation`.
+  - 조회/계산 캐시: `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation`, `long_term_recommendation`.
 - **계산 결정론**: 같은 입력이면 같은 출력(적합도·토양변화·위험판정 전부). LLM은 계산에 관여하지 않는다.
 - **실시간 조회 + 캐싱**: 단기 탭은 기상 실시간 조회가 본질. 같은 지역·같은 발표시각은 캐시로 재사용, 갱신 주기를 제한해 rate limit·성능 방어(`PRD.md` §9). 게임 시절의 "실시간 호출 전면 금지"는 폐기.
 - **현실 시간 사용**: 유저 농사는 실제 캘린더 날짜(`DATE`)로 진행한다. 게임식 주차 카운터·시간 게이팅 없음.
@@ -25,7 +25,8 @@
 ```
 users 1──N user_farm ──┬──N farm_action_log
                        ├──1 soil_state (현재 추정 토양)
-                       └──N daily_recommendation
+                       ├──N daily_recommendation (단기, 날짜별)
+                       └──1 long_term_recommendation (장기, 밭당 1행)
 
 region 1──1 region_grid
 region 1──N weather_snapshot (실황/단기예보 캐시, 작년 실측도 OBS로 재사용)
@@ -40,7 +41,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - `region`, `region_grid`, `crop`, `crop_growth_guide`, `soil_change_rule`, `knowledge_chunk` = 마스터/사전적재.
 - `users`, `user_farm`, `farm_action_log` = 유저 데이터.
-- `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation` = 캐시/파생.
+- `soil_state`, `weather_snapshot`, `weather_climatology`, `weather_outlook`, `suitability_result`, `daily_recommendation`, `long_term_recommendation` = 캐시/파생.
 
 ---
 
@@ -233,6 +234,7 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 | id | BIGSERIAL | PK | |
 | user_farm_id | BIGINT | FK→user_farm(id) ON DELETE CASCADE, NOT NULL | |
 | target_date | DATE | NOT NULL | 추천 대상일 |
+| input_hash | VARCHAR(64) | | sha256 hex. 그날 안에서 문구가 낡았는지 판정(`0034`). 이전 행은 NULL |
 | risk_flags | JSONB | | 그날 위험신호 |
 | advice_text | TEXT | | LLM 생성 행동 가이드(폴백 시 규칙 문구) |
 | is_llm | BOOLEAN | NOT NULL, DEFAULT true | LLM 생성 여부(폴백이면 false) |
@@ -240,7 +242,9 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 
 - Constraint: `uq_daily (user_farm_id, target_date)`.
 - Index: `ix_daily_farm (user_farm_id, target_date)`.
-- **생성 시점(B4)**: 스케줄러가 활성 밭 전체를 대상으로 매일 사전생성이 기본. 단, 방금 등록한 밭은 다음 스케줄러 실행 전까지 행이 없으므로 **최초 조회 시 없으면 온디맨드 생성 후 저장**(이후엔 캐시 읽기).
+- **생성 시점(B4)**: 스케줄러가 활성 밭 전체를 대상으로 매일 사전생성이 기본. 단, 방금 등록한 밭은 다음 스케줄러 실행 전까지 행이 없으므로 **최초 조회 시 없으면 온디맨드 생성 후 저장**(이후엔 캐시 읽기). 현재는 온디맨드 경로만 쓴다.
+- **날짜만으로는 캐시 키가 부족하다(`0034`)**: 기상청 단기예보는 발표 주기가 3시간이라 하루에 여덟 번 갱신되는데, `(밭, 날짜)`로만 잡으면 새벽에 저장한 "위험 신호가 없습니다"가 오후 폭우 예보에도 그대로 나간다 — 같은 화면에서 날짜 카드는 경고를, 추천 카드는 위험 없음을 말하는 상태가 된다(`CLAUDE.md` §18-4). `input_hash`가 그날 안에서의 낡음을 판정한다. `uq_daily`는 그대로 둔다(날짜는 여전히 의미 있는 키다).
+- **지문 재료**: 프롬프트 버전 + 작물명 + 규칙 문구(`app/services/advice_cache.py`). 다듬은 결과를 결정하는 것이 정확히 이 셋뿐이라 **필요충분**하다 — 문장이 달라질 때만, 그리고 달라지면 반드시 재생성된다. 장기(§3.17)와 같은 함수를 쓴다.
 
 ### 3.15 knowledge_chunk (챗봇 RAG 문서 조각, 마스터 · pgvector) [착수 시 구현]
 | 컬럼 | 타입 | 제약 | 설명 |
@@ -273,6 +277,27 @@ knowledge_chunk = 챗봇 RAG 문서 조각 + 임베딩 (pgvector, 독립)
 - **저장 정책**: 실제 답변이 생성된 턴만 저장(근거 없음 거절·LLM 오류 폴백 문구는 저장 안 함 → 다음 턴 히스토리 오염 방지).
 
 ---
+
+### 3.17 long_term_recommendation (장기 3개월 추천 저장)
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_farm_id | BIGINT | FK→user_farm(id) ON DELETE CASCADE, NOT NULL | |
+| input_hash | VARCHAR(64) | NOT NULL | sha256 hex. 저장된 문구가 아직 유효한지 판정 |
+| window_start_year | INT | NOT NULL | 창 첫 달의 연도(키 아님, 운영 조회용) |
+| window_start_month | INT | NOT NULL | 창 첫 달 |
+| risk_flags | JSONB | | 그 창의 위험신호 |
+| advice_text | TEXT | | LLM 생성 3개월 가이드(폴백 시 규칙 문구) |
+| is_llm | BOOLEAN | NOT NULL, DEFAULT true | LLM 생성 여부(폴백이면 false) |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | |
+
+- Constraint: `uq_long_term (user_farm_id)` — **밭당 1행**.
+- 별도 인덱스 없음. 밭당 1행이라 유니크 제약이 곧 조회 인덱스다(§3.14가 `ix_daily_farm`을 따로 둔 것은 (밭, 날짜) 범위 조회가 있어서다).
+- **§3.14와 키 전략이 다른 이유**: 단기는 `target_date`가 자연 키라 날짜별로 행이 쌓이지만, 장기 창은 항상 오늘 기준이라 **지난 창을 다시 보여줄 일이 없다**(`PRD.md` §4.4). 이력 소비처가 0이라 남기지 않고 덮어쓴다.
+- **왜 창 시작월이 아니라 해시인가**: 창 시작월만 키로 잡으면 매월 23일 3개월전망 발표로 점수가 갈아엎어져도 문구가 낡은 채 남는다. 점수를 바꾸는 변경은 전망 말고도 실제로 여러 번 있었다(토양 backfill `0024`, 지침 마이그레이션 `0027`·`0031`). 그때마다 캐시가 **에러 없이 조용히 거짓말**을 하게 되므로 `CLAUDE.md` §18-4에 걸린다.
+- **지문 재료**: 프롬프트 버전 + 작물명 + 규칙 문구(`app/services/advice_cache.py`, §3.14와 같은 함수). 점수·등급은 문구에 들어가지 않으므로 넣지 않는다 — 넣으면 80.0 → 79.9에도 LLM을 헛되이 다시 부른다. 전망이 새로 발표돼 보정값이 바뀌면 문구의 숫자가 달라지므로 그 경로로 자동 재생성된다.
+- **생성 시점**: 온디맨드만. 사전생성 스케줄러는 없다(§3.14의 B4도 아직 온디맨드 경로만 쓴다).
+
 
 ## 4. 인덱스 / 제약 요약
 

@@ -8,6 +8,7 @@ from app.models.district import District, DistrictSoil
 from app.models.farm_action_log import FarmActionLog
 from app.models.kma_observation_point import KmaObservationPoint
 from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.long_term_recommendation import LongTermRecommendation
 from app.models.prediction_shadow import PredictionShadow
 from app.models.region import Region
 from app.models.region_grid import RegionGrid
@@ -45,6 +46,7 @@ __all__ = [
     "WeatherOutlook",
     "SuitabilityResult",
     "DailyRecommendation",
+    "LongTermRecommendation",
     "KnowledgeChunk",
     "ChatMessage",
 ]

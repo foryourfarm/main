@@ -10,7 +10,7 @@
 few-shot 3개는 작물을 서로 다르게 뒀다 — 챗봇 v5에서 예시 4개 중 3개가 상추여서 사과밭
 질문에 "상추밭과 마찬가지로"가 나온 label bleed 전례가 있다(prompts/chatbot.py).
 
-프롬프트를 바꾸면 PROMPT_VERSION을 올린다(품질 비교·재현용, docs/llm-integration.md §9).
+프롬프트를 바꾸면 PROMPT_VERSION을 올린다(품질 비교·재현용, docs/llm-integration.md §10).
 """
 
 PROMPT_VERSION = "advice-v1"

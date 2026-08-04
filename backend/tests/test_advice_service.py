@@ -20,6 +20,7 @@ from datetime import date
 
 from app.prompts import daily_advice
 from app.services import advice_service as svc
+from app.services.advice_cache import prompt_fingerprint
 from app.services.suitability_service import INDICATOR_NAMES, WEATHER_INDICATORS
 
 
@@ -112,9 +113,9 @@ class TestRuleAdvice(unittest.TestCase):
 
     def test_subject_particle_matches_final_consonant(self):
         """규칙 문구는 LLM 실패 시 그대로 유저에게 나간다 — "이(가)"로 뭉개지 않는다."""
-        self.assertEqual(svc._subject_josa("야간 최저기온"), "이")  # 온: 받침 ㄴ
-        self.assertEqual(svc._subject_josa("일조"), "가")  # 조: 받침 없음
-        self.assertEqual(svc._subject_josa("일 강수량"), "이")  # 량: 받침 ㅇ
+        self.assertEqual(svc.subject_josa("야간 최저기온"), "이")  # 온: 받침 ㄴ
+        self.assertEqual(svc.subject_josa("일조"), "가")  # 조: 받침 없음
+        self.assertEqual(svc.subject_josa("일 강수량"), "이")  # 량: 받침 ㅇ
         text = svc.rule_advice([self._line()], None, 3)
         self.assertNotIn("이(가)", text)
         self.assertIn("야간 최저기온이", text)
@@ -225,7 +226,7 @@ class TestSoilAdvice(unittest.TestCase):
 
     def test_particle_follows_name_not_parenthesis(self):
         """"토양 산도(pH)이"가 아니라 "토양 산도가" — 괄호 병기 뒤에 조사를 붙이지 않는다."""
-        self.assertEqual(svc._subject_josa("토양 산도(pH)"), "가")
+        self.assertEqual(svc.subject_josa("토양 산도(pH)"), "가")
         day = {
             "target_date": D1,
             "risk_flags": ["ph:outside_allowed"],
@@ -321,6 +322,92 @@ class TestPromptGuardrails(unittest.TestCase):
 
     def test_version_is_pinned(self):
         self.assertTrue(daily_advice.PROMPT_VERSION.startswith("advice-"))
+
+
+class TestCacheFingerprint(unittest.TestCase):
+    """캐시가 그날 안에서 낡는 것을 막는다(`0034`).
+
+    **고친 버그**: `daily_recommendation`이 `(밭, 날짜)`로만 키가 잡혀 있어, 새벽 조회에서
+    저장한 "위험 신호가 없습니다"가 오후 폭우 예보에도 그대로 나갔다. 단기예보는 발표 주기가
+    3시간이라 하루에 여덟 번 갱신되는데 캐시는 하루에 한 번만 만들어졌다. 같은 화면에서
+    날짜 카드는 경고를, 추천 카드는 "위험 없음"을 말하는 상태가 된다(§18-4).
+
+    지문 재료는 LLM 프롬프트를 결정하는 전부다 — 프롬프트 버전 + 작물명 + 규칙 문구.
+    장기 추천과 같은 함수를 쓴다(`advice_cache.prompt_fingerprint`).
+    """
+
+    def _fp(self, days, persistent=(), crop="감자", stage="괴경비대기") -> str:
+        """서비스가 하는 것과 같은 순서 — 규칙 문구를 만들고 그것을 지문으로 삼는다."""
+        base = svc.rule_advice(svc.summarize_risks(days, list(persistent)), stage, len(days))
+        return prompt_fingerprint(daily_advice.PROMPT_VERSION, crop, base)
+
+    def _calm(self) -> list[dict]:
+        return [_day(D1, [], {}), _day(D2, [], {})]
+
+    def _stormy(self) -> list[dict]:
+        return [
+            _day(D1, [], {}),
+            _day(
+                D2,
+                ["rainfall_daily:outside_allowed"],
+                {"rainfall_daily": {"value": 62.0, "allowed_min": None, "allowed_max": 30.0}},
+            ),
+        ]
+
+    def test_deterministic(self):
+        self.assertEqual(self._fp(self._calm()), self._fp(self._calm()))
+
+    def test_new_forecast_with_new_risk_invalidates(self):
+        """오후 발표에 폭우가 들어오면 지문이 바뀌어야 한다 — 이게 고친 버그의 핵심이다."""
+        self.assertNotEqual(self._fp(self._calm()), self._fp(self._stormy()))
+
+    def test_changed_amount_invalidates(self):
+        """같은 위험이라도 예보값이 바뀌면 문장의 숫자가 달라진다."""
+        worse = [
+            _day(D1, [], {}),
+            _day(
+                D2,
+                ["rainfall_daily:outside_allowed"],
+                {"rainfall_daily": {"value": 110.0, "allowed_min": None, "allowed_max": 30.0}},
+            ),
+        ]
+        self.assertNotEqual(self._fp(self._stormy()), self._fp(worse))
+
+    def test_streak_change_invalidates(self):
+        """연속 일수는 문구에 나온다 — 하루짜리와 사흘 연속은 다른 안내다."""
+        one = self._fp(self._stormy())
+        three = self._fp(
+            self._stormy(), persistent=[{"flag": "rainfall_daily:outside_allowed", "days": 3}]
+        )
+        self.assertNotEqual(one, three)
+
+    def test_horizon_change_invalidates(self):
+        """예보 일수가 줄면 "앞으로 N일간"이 달라진다."""
+        self.assertNotEqual(self._fp(self._calm()), self._fp(self._calm()[:1]))
+
+    def test_crop_invalidates(self):
+        self.assertNotEqual(self._fp(self._calm(), crop="감자"), self._fp(self._calm(), crop="오이"))
+
+    def test_prompt_version_invalidates(self):
+        before = self._fp(self._calm())
+        original = daily_advice.PROMPT_VERSION
+        try:
+            daily_advice.PROMPT_VERSION = "advice-test"
+            after = self._fp(self._calm())
+        finally:
+            daily_advice.PROMPT_VERSION = original
+        self.assertNotEqual(before, after)
+
+    def test_same_forecast_does_not_invalidate(self):
+        """같은 발표분을 다시 받아도 문장이 같으면 LLM을 다시 부르지 않는다(§18-1).
+
+        예보 캐시는 같은 발표분을 재사용하므로 하루 대부분의 조회가 이 경로다.
+        """
+        self.assertEqual(self._fp(self._stormy()), self._fp(self._stormy()))
+
+    def test_is_sha256_hex(self):
+        # 컬럼이 VARCHAR(64)다(`0034`).
+        self.assertRegex(self._fp(self._calm()), r"^[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

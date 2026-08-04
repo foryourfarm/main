@@ -156,6 +156,15 @@ export interface DailyAdvice {
   soil_text: string | null;
 }
 
+/** 장기 탭 추천 문구. 히트맵과 같은 근거(월별 적합도)에서 나오고 LLM은 문장만 다듬는다. */
+export interface LongTermAdvice {
+  /** 항상 채워진다 — 생육기가 아닌 창에서도 그 사실을 문장으로 알린다. */
+  text: string;
+  /** false면 규칙 기반 문구 — LLM 실패·미도달이거나 생육기가 아니라 다듬지 않은 경우.
+   * 다듬어진 것처럼 보이게 하지 않는다(§18-4). */
+  is_llm: boolean;
+}
+
 export interface FarmShortTerm {
   farm_id: number;
   crop_id: number;
