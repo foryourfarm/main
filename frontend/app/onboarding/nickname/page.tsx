@@ -48,50 +48,58 @@ function NicknameForm() {
   }
 
   return (
-    <form className={styles.form} onSubmit={onSubmit}>
-      <h1>어떻게 불러드릴까요?</h1>
-      <p className={styles.alt}>
-        앱에서 보일 이름입니다. 나중에 설정에서 바꿀 수 있어요.
-      </p>
-      <div className={styles.field}>
-        <label htmlFor="nickname">이름</label>
-        <input
-          id="nickname"
-          type="text"
-          autoComplete="nickname"
-          required
-          maxLength={50}
-          placeholder={user?.nickname ?? "예: 초보농부"}
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-        />
-      </div>
-      {error && <p className={styles.error}>{error}</p>}
-      <button className={styles.submit} type="submit" disabled={busy || nickname.trim() === ""}>
-        {busy ? "저장 중…" : "저장하고 계속하기"}
-      </button>
-      {/* 막다른 화면으로 만들지 않는다 — 지금 정하지 않아도 앱을 쓸 수 있어야 한다. */}
-      <button
-        type="button"
-        className={styles.skip}
-        onClick={() => router.replace(next)}
-        disabled={busy}
-      >
-        나중에 하기
-      </button>
-    </form>
+    <>
+      <h1 className={styles.title}>어떻게 불러드릴까요?</h1>
+      <p className={styles.lead}>앱에서 보일 이름입니다. 나중에 설정에서 바꿀 수 있어요.</p>
+      <form className={styles.form} onSubmit={onSubmit}>
+        <div className={styles.field}>
+          <label htmlFor="nickname">이름</label>
+          <input
+            id="nickname"
+            type="text"
+            autoComplete="nickname"
+            required
+            maxLength={50}
+            placeholder={user?.nickname ?? "예: 초보농부"}
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            aria-describedby={error !== "" ? "nickname-error" : undefined}
+          />
+        </div>
+        {error && (
+          <p id="nickname-error" role="alert" className={styles.error}>
+            {error}
+          </p>
+        )}
+        <button className={styles.submit} type="submit" disabled={busy || nickname.trim() === ""}>
+          {busy ? "저장 중…" : "저장하고 계속하기"}
+        </button>
+        {/* 막다른 화면으로 만들지 않는다 — 지금 정하지 않아도 앱을 쓸 수 있어야 한다. */}
+        <button
+          type="button"
+          className={styles.skip}
+          onClick={() => router.replace(next)}
+          disabled={busy}
+        >
+          나중에 하기
+        </button>
+      </form>
+    </>
   );
 }
 
 export default function NicknamePage() {
+  // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
   return (
-    <main className={styles.wrap}>
-      {/* useSearchParams는 가장 가까운 Suspense 경계까지를 클라이언트 렌더로 만든다. */}
-      <Suspense fallback={<div className={styles.form} />}>
-        <RequireAuth>
-          <NicknameForm />
-        </RequireAuth>
-      </Suspense>
-    </main>
+    <div className={styles.wrap}>
+      <section className={styles.card}>
+        {/* useSearchParams는 가장 가까운 Suspense 경계까지를 클라이언트 렌더로 만든다. */}
+        <Suspense fallback={<div className={styles.form} />}>
+          <RequireAuth>
+            <NicknameForm />
+          </RequireAuth>
+        </Suspense>
+      </section>
+    </div>
   );
 }
