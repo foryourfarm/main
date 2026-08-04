@@ -57,38 +57,46 @@ function KakaoCallback() {
 
   if (error !== null) {
     return (
-      <div className={styles.form}>
-        <h1>카카오 로그인</h1>
-        <p className={styles.error}>{error}</p>
+      <>
+        <h1 className={styles.title}>카카오 로그인</h1>
+        <p role="alert" className={styles.error}>
+          {error}
+        </p>
         <p className={styles.alt}>
           <Link href="/login">로그인으로 돌아가기</Link>
         </p>
-      </div>
+      </>
     );
   }
   return (
-    <div className={styles.form}>
-      <h1>카카오 로그인</h1>
-      <p className={styles.alt}>로그인 중입니다…</p>
-    </div>
+    <>
+      <h1 className={styles.title}>카카오 로그인</h1>
+      {/* 지나가는 자리다 — 진행 중임을 스크린리더에도 알린다. */}
+      <p className={styles.lead} role="status">
+        로그인 중입니다…
+      </p>
+    </>
   );
 }
 
 export default function KakaoCallbackPage() {
   // useSearchParams는 가장 가까운 Suspense 경계까지를 클라이언트 렌더로 만든다 — 경계를 두어
   // 나머지가 프리렌더될 수 있게 한다(node_modules/next/dist/docs …/use-search-params.md).
+  // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
   return (
-    <main className={styles.wrap}>
-      <Suspense
-        fallback={
-          <div className={styles.form}>
-            <h1>카카오 로그인</h1>
-            <p className={styles.alt}>로그인 중입니다…</p>
-          </div>
-        }
-      >
-        <KakaoCallback />
-      </Suspense>
-    </main>
+    <div className={styles.wrap}>
+      <section className={styles.card}>
+        <Suspense
+          fallback={
+            <>
+              <h1 className={styles.title}>카카오 로그인</h1>
+              <p className={styles.lead}>로그인 중입니다…</p>
+            </>
+          }
+        >
+          <KakaoCallback />
+        </Suspense>
+      </section>
+    </div>
   );
 }
