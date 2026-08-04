@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 
 from app.models import CropGrowthGuide
-from app.services.suitability_service import calculate_suitability
+from app.services.suitability_service import calculate_suitability, pick_cultivation_type
 
 
 def guide(
@@ -14,6 +14,9 @@ def guide(
     allowed_max: str | None = None,
     weight: str = "1",
     risk_width: str | None = None,
+    min_kind: str | None = None,
+    max_kind: str | None = None,
+    cultivation_type: str = "open_field",
 ) -> CropGrowthGuide:
     return CropGrowthGuide(
         crop_id=1,
@@ -25,6 +28,9 @@ def guide(
         allowed_max=Decimal(allowed_max) if allowed_max else None,
         weight=Decimal(weight),
         risk_width=Decimal(risk_width) if risk_width else None,
+        allowed_min_kind=min_kind,
+        allowed_max_kind=max_kind,
+        cultivation_type=cultivation_type,
     )
 
 
@@ -139,6 +145,126 @@ class TestSuitabilityService(unittest.TestCase):
         result = calculate_suitability([guide("ca", "5", None, "4.5", None)], {"ca": 4.0})
         self.assertEqual(result["risk_flags"], ["ca:outside_allowed"])
         self.assertLess(result["score"], 100.0)
+
+
+class TestBoundaryKind(unittest.TestCase):
+    """허용경계 점수가 성격별로 갈린다(0036). `literature_limit`만 0점."""
+
+    def test_literature_limit_boundary_scores_zero(self):
+        """문헌이 준 생리적 절대한계 = 생장이 멈추는 점. 60점(B등급 하한)이면 안 된다."""
+        g = guide("temp_day", "15", "20", "2.5", "36", max_kind="literature_limit")
+        self.assertEqual(calculate_suitability([g], {"temp_day": 36})["score"], 0.0)
+
+    def test_other_kinds_keep_sixty(self):
+        """±50% 휴리스틱·재배가능범위 경계는 종전 60점 그대로다."""
+        for kind in (None, "heuristic", "cultivable_range", "literature_threshold"):
+            with self.subTest(kind=kind):
+                g = guide("temp_day", "15", "20", "2.5", "36", max_kind=kind)
+                self.assertEqual(calculate_suitability([g], {"temp_day": 36})["score"], 60.0)
+
+    def test_literature_limit_curve_still_falls_smoothly(self):
+        """끝점만 0으로 내리고 곡선 모양은 그대로다 — 절벽이 되면 안 된다."""
+        g = guide("temp_day", "15", "20", "2.5", "36", max_kind="literature_limit")
+        scores = [calculate_suitability([g], {"temp_day": v})["score"] for v in (21, 26, 31, 36)]
+        self.assertEqual(scores[-1], 0.0)
+        for lower, higher in zip(scores[1:], scores):
+            self.assertLess(lower, higher)
+
+    def test_beyond_literature_limit_is_zero_not_decayed(self):
+        """붕괴점을 넘었으면 더 깎을 것이 없다 — 위험구간 감쇠를 타지 않는다."""
+        g = guide("temp_day", "15", "20", "2.5", "36", max_kind="literature_limit")
+        self.assertEqual(calculate_suitability([g], {"temp_day": 36.5})["score"], 0.0)
+
+    def test_min_and_max_kinds_are_independent(self):
+        """방향별 2컬럼인 이유 — 사과 기온처럼 한쪽만 문헌값인 행이 실제로 있다."""
+        g = guide("temp_day", "15", "20", "10", "25", min_kind="literature_limit")
+        self.assertEqual(calculate_suitability([g], {"temp_day": 10})["score"], 0.0)
+        self.assertEqual(calculate_suitability([g], {"temp_day": 25})["score"], 60.0)
+
+
+class TestNationalTotal(unittest.TestCase):
+    """국가 3단 구조 총점 — min(토양 가중평균, 기후 최대저해인자)."""
+
+    def test_climate_limits_the_total(self):
+        """토양이 아무리 좋아도 기후 한 지표가 나쁘면 총점이 거기 묶인다."""
+        result = calculate_suitability(
+            [
+                guide("ph", "6", "7"),
+                guide("p2o5", "300", "550"),
+                guide("temp_day", "20", "22", "15", "30"),
+            ],
+            {"ph": 6.5, "p2o5": 400, "temp_day": 30},
+        )
+        self.assertEqual(result["score"], 60.0)  # min(토양 100, 기후 60)
+        # 종전 총점은 병기된다 — 왜 내려갔는지 응답 안에서 답할 수 있어야 한다.
+        self.assertAlmostEqual(result["score_weighted_mean"], 86.7, places=1)
+
+    def test_soil_indicators_average_instead_of_min(self):
+        """🔴 토양 안에서는 min이 아니라 합산이다. 평탄 min이면 여기서 60이 나온다."""
+        result = calculate_suitability(
+            [guide("ph", "6", "7"), guide("p2o5", "300", "550"), guide("organic", "20", "30")],
+            {"ph": 6.5, "p2o5": 400, "organic": 15},  # organic만 나쁨
+        )
+        self.assertGreater(result["score"], 60.0)
+        self.assertEqual(result["score"], result["score_weighted_mean"])
+
+    def test_climate_layer_takes_the_worst_of_several(self):
+        result = calculate_suitability(
+            [guide("temp_day", "20", "22", "15", "30"), guide("temp_night_min", "10", "15")],
+            {"temp_day": 21, "temp_night_min": 12},
+        )
+        self.assertEqual(result["score"], 100.0)
+        result = calculate_suitability(
+            [guide("temp_day", "20", "22", "15", "30"), guide("temp_night_min", "10", "15")],
+            {"temp_day": 21, "temp_night_min": 30},  # 야간만 붕괴
+        )
+        self.assertEqual(result["score"], 0.0)
+
+    def test_missing_layer_does_not_zero_the_total(self):
+        """토양이 통째로 결측이어도 기후만으로 판정한다 — 데이터 부족이 부적합이 되면 안 된다."""
+        result = calculate_suitability(
+            [guide("ph", "6", "7"), guide("temp_day", "20", "22")],
+            {"ph": None, "temp_day": 21},
+        )
+        self.assertEqual(result["score"], 100.0)
+        self.assertIn("ph:missing", result["risk_flags"])
+
+    def test_missing_indicator_is_excluded_not_filled(self):
+        """결측을 50점 같은 중간값으로 메우지 않는다 — 남은 지표로만 계산한다."""
+        both = calculate_suitability(
+            [guide("ph", "6", "7"), guide("organic", "20", "30")],
+            {"ph": 6.5, "organic": 25},
+        )
+        one_missing = calculate_suitability(
+            [guide("ph", "6", "7"), guide("organic", "20", "30")],
+            {"ph": 6.5, "organic": None},
+        )
+        self.assertEqual(both["score"], one_missing["score"])
+
+
+class TestCultivationType(unittest.TestCase):
+    def test_open_field_wins_when_both_rows_exist(self):
+        rows = [
+            guide("ph", "5.5", "6.2", cultivation_type="facility"),
+            guide("ph", "5.5", "7.0", cultivation_type="open_field"),
+        ]
+        picked = pick_cultivation_type(rows)
+        self.assertEqual(len(picked), 1)
+        self.assertEqual(picked[0].cultivation_type, "open_field")
+        # 순서가 반대여도 같아야 한다 — DB가 순서를 보장하지 않는다.
+        self.assertEqual(pick_cultivation_type(rows[::-1])[0].cultivation_type, "open_field")
+
+    def test_facility_only_falls_back(self):
+        rows = [guide("ph", "5.5", "6.2", cultivation_type="facility")]
+        self.assertEqual(pick_cultivation_type(rows)[0].cultivation_type, "facility")
+
+    def test_different_stages_are_not_collapsed(self):
+        """상추처럼 spring/fall 2행인 지표를 재배형 선택이 하나로 뭉개면 안 된다."""
+        spring = guide("temp_night_min", "10", "15")
+        spring.growth_stage = "spring"
+        fall = guide("temp_night_min", "10", "15")
+        fall.growth_stage = "fall"
+        self.assertEqual(len(pick_cultivation_type([spring, fall])), 2)
 
 
 if __name__ == "__main__":

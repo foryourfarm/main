@@ -142,7 +142,29 @@ def load_guides(db: Session, crop_id: int, growth_stage: str) -> list[CropGrowth
             CropGrowthGuide.growth_stage.is_(None),
         ),
     )
-    return list(db.scalars(stmt))
+    return pick_cultivation_type(list(db.scalars(stmt)))
+
+
+def pick_cultivation_type(guides: Sequence[CropGrowthGuide]) -> list[CropGrowthGuide]:
+    """같은 (단계, 지표)에 재배형 행이 둘이면 `open_field`를 고른다(0036·0037).
+
+    우리 채점 입력은 노지 실측이므로 노지 기준이 있으면 그걸 쓴다. 없으면 종전대로
+    시설 기준으로 폴백한다 — 폴백 자체는 밴드와 입력의 재배형이 어긋난다는 뜻이라
+    `source_ref`에 그 사실이 적혀 있다.
+
+    작물별 설정 테이블을 두지 않는 것은 의도다 — 어느 작물이 노지인지를 코드가 아니라
+    **데이터가** 말하게 한다. 감자 pH가 첫 사례이고, 나머지 지표는 재배형 행이 하나뿐이라
+    이 함수를 그냥 통과한다.
+    """
+    best: dict[tuple[str | None, str], CropGrowthGuide] = {}
+    for guide in guides:
+        key = (guide.growth_stage, guide.indicator)
+        current = best.get(key)
+        if current is None or (
+            current.cultivation_type != "open_field" and guide.cultivation_type == "open_field"
+        ):
+            best[key] = guide
+    return list(best.values())
 
 
 # 장기 탭에 데이터원이 없는 지표. 평년치는 월 단위라 일 강수량이 채워질 길이 없는데
@@ -161,18 +183,37 @@ def _log_falloff(x: float) -> float:
     return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
 
 
-def _allowed_score(nearness: float) -> float:
+def boundary_score(kind: str | None) -> float:
+    """허용경계의 점수. 성격이 `literature_limit`인 경계만 0점, 나머지는 종전 60점(0036).
+
+    같은 `allowed` 칸에 ±50% 휴리스틱과 생리적 절대한계가 섞여 있었고 둘 다 60점을 받았다 —
+    **생장이 완전히 멈추는 온도가 B등급 하한**이었다는 뜻이다(상추 2.5·36℃, 오이 5·35℃,
+    사과 만개기 −3.9℃). 문헌이 "여기서 수량이 0"이라고 말한 점만 0점으로 내린다.
+
+    🔵 `cultivable_range`(재배 가능 범위)는 여기 해당하지 않는다 — 「부적지」는 적지 등급
+    판정이지 생장이 멈추는 점이 아니다. 잘못 표기하면 사과 0점 지역이 실측 93 → 121로 는다.
+    """
+    return 0.0 if kind == "literature_limit" else ALLOWED_BOUNDARY_SCORE
+
+
+def _allowed_score(nearness: float, boundary: float = ALLOWED_BOUNDARY_SCORE) -> float:
     """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
 
     최적 근처에서는 거의 안 깎이고 허용경계에 다가갈수록 가파르게 떨어진다 — 소폭 이탈은
     실제로 해가 적고 내성 한계에 가까울수록 위험이 커진다는 쪽에 맞춘 곡선.
+
+    `boundary`는 허용경계(nearness=0)에서의 점수다. 곡선 모양은 그대로 두고 끝점만
+    내린다 — `literature_limit`이면 0점에서 최적경계 95점까지 이어진다.
     """
-    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
-        nearness
-    )
+    return boundary + (OPTIMAL_EXIT_SCORE - boundary) * _log_falloff(nearness)
 
 
-def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None) -> float:
+def _risk_score(
+    overshoot: float,
+    buffer: float,
+    risk_width: float | None = None,
+    boundary: float = ALLOWED_BOUNDARY_SCORE,
+) -> float:
     """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
 
     절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
@@ -185,14 +226,19 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     산포도 기반 절대폭, 마이그레이션 0020)가 있으면 그것을 감쇠 거리로 쓴다.
     없으면 종전대로 완충폭 1배로 폴백한다 — 산포도를 낼 수 없는 지표(temp_night_min,
     rainfall_daily)에서 척도를 지어내지 않는다. 둘 다 없으면 종전대로 0점.
+
+    `boundary`가 0이면(성격이 `literature_limit`) 이 구간 전체가 0점이다 — 문헌이 준
+    붕괴점을 넘었으니 더 깎을 것이 없다.
     """
+    if boundary <= 0:
+        return 0.0
     width = risk_width if risk_width and risk_width > 0 else buffer
     if width <= 0:
         return 0.0
     t = overshoot / width
     if t >= 1:
         return 0.0
-    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+    return boundary * (1 - _log_falloff(t))
 
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
@@ -210,16 +256,18 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
+        bound = boundary_score(guide.allowed_min_kind)
         if value >= edge:
-            return _allowed_score((value - edge) / (lo - edge)), "allowed"
-        return _risk_score(edge - value, lo - edge, risk_width), "risk"
+            return _allowed_score((value - edge) / (lo - edge), bound), "allowed"
+        return _risk_score(edge - value, lo - edge, risk_width, bound), "risk"
     # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
+    bound = boundary_score(guide.allowed_max_kind)
     if value <= edge:
-        return _allowed_score((edge - value) / (edge - hi)), "allowed"
-    return _risk_score(value - edge, edge - hi, risk_width), "risk"
+        return _allowed_score((edge - value) / (edge - hi), bound), "allowed"
+    return _risk_score(value - edge, edge - hi, risk_width, bound), "risk"
 
 
 def _is_valid(indicator: str, value: float) -> bool:
@@ -256,7 +304,10 @@ def calculate_suitability(
     values: Mapping[str, float | Decimal | None],
     applied: Mapping[str, tuple[Decimal, Decimal]] | None = None,
 ) -> dict[str, object]:
-    """결측/이상 지표는 제외하고 나머지 가중평균을 반환한다.
+    """결측/이상 지표는 제외하고 나머지로 국가 3단 구조 총점을 낸다(`_national_total`).
+
+    `score`는 `min(토양 가중평균, 기후 최소값)`이고, 종전 총점인 전 지표 가중평균은
+    `score_weighted_mean`으로 병기한다.
 
     `applied`는 장기예보 보정 내역 {지표: (baseline, 보정치)} — 넘기면 breakdown에
     평년치·보정치를 분해해 기록한다(근거 제시, DB.md §8.1-5).
@@ -265,6 +316,9 @@ def calculate_suitability(
     risk_flags: list[str] = []
     weighted_sum = 0.0
     weight_sum = 0.0
+    # 국가 3단 구조용 층 분리(`_national_total`). 결측 지표는 어느 층에도 들어가지 않는다 —
+    # 모르는 값을 50점 같은 중간값으로 메우지 않고 그냥 뺀다(2026-08-05 사용자 확정).
+    layers: dict[str, list[tuple[float, float]]] = {"soil": [], "climate": []}
 
     for guide in guides:
         indicator = guide.indicator
@@ -314,16 +368,49 @@ def calculate_suitability(
             risk_flags.append(f"{indicator}:outside_allowed")
         weighted_sum += score * weight
         weight_sum += weight
+        layer = "climate" if indicator in WEATHER_INDICATORS else "soil"
+        layers[layer].append((score, weight))
 
     if weight_sum == 0:
         return {"score": None, "grade": None, "breakdown": breakdown, "risk_flags": risk_flags}
-    score = round(weighted_sum / weight_sum, 1)
+    weighted_mean = round(weighted_sum / weight_sum, 1)
+    score = _national_total(layers, weighted_mean)
     return {
         "score": score,
         "grade": _grade(score),
+        # 종전 총점(전 지표 가중평균)을 지운 게 아니라 옆에 둔다 — 국가 3단 구조로 바꾸면서
+        # 점수가 내려가므로 "왜 내려갔나"를 응답 안에서 답할 수 있어야 한다.
+        "score_weighted_mean": weighted_mean,
         "breakdown": breakdown,
         "risk_flags": risk_flags,
     }
+
+
+def _national_total(
+    layers: Mapping[str, Sequence[tuple[float, float]]], fallback: float
+) -> float:
+    """국가 재배적지 3단 구조 — `min(토양 점수제 합산, 기후 최대저해인자)`.
+
+    심교문(2016) 「토양·기후요인을 종합적으로 고려한 과수 재배적지 구분」이 쓰는 구조다:
+    **토양은 요인별 점수제 합산, 기후는 최대저해인자법(MLCM), 통합만 다시 최대저해인자법.**
+    `outcomes/` 미러가 2026-08-04 v5에서 먼저 이 구조로 갔고, 백엔드가 가중평균에 남아 있어
+    같은 밭에 두 점수가 나왔다 — 그 갈라짐을 닫는다(2026-08-05 사용자 결정).
+
+    🔴 **전 지표를 한 번에 min하지 않는다.** 그건 국가 방식이 아니라 평탄 min이고, 실측에서
+    150지역 중 사과 138·상추 148·감자 143지역이 C등급이 되어 채점이 사실상 무의미해졌다.
+    토양 안에서는 한 지표가 나빠도 다른 지표가 벌충하는 것이 국가 배점표의 전제다.
+
+    한쪽 층이 통째로 결측이면 남은 층만으로 판정한다 — 층이 없다고 0점을 주면 데이터
+    부족이 부적합으로 둔갑한다. 양쪽 다 없으면 `fallback`(전체 가중평균)을 그대로 쓴다.
+    """
+    def layer_mean(rows: Sequence[tuple[float, float]]) -> float | None:
+        total = sum(w for _, w in rows)
+        return None if total == 0 else sum(s * w for s, w in rows) / total
+
+    soil = layer_mean(layers["soil"])
+    climate = min((s for s, _ in layers["climate"]), default=None)
+    present = [v for v in (soil, climate) if v is not None]
+    return round(min(present), 1) if present else fallback
 
 
 def gather_indicator_values(
