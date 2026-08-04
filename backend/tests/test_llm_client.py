@@ -108,6 +108,26 @@ class TestVllmPayload(unittest.TestCase):
     def test_maps_num_predict_to_max_tokens(self):
         self.assertEqual(VllmClient(num_predict=123)._payload("p", stream=False)["max_tokens"], 123)
 
+    def test_sends_disable_thinking_by_default(self):
+        """**이 항목이 빠지면 Qwen3가 답변을 아예 안 준다.**
+
+        L4 vLLM 0.26 실측(2026-08-04): 미지정 시 `content`가 `<think>\\nOkay, the user is
+        asking...`로 시작해 max_tokens 200을 전부 내부 사고(영어)에 쓰고 `finish_reason=length`로
+        끝났다 — 유저는 사고 과정만 보고 답변은 0자다. 껐을 때는 `completion_tokens=28`,
+        `finish_reason=stop`, 정상 한국어 답변. 기본값을 켜 둔 이유가 이것이다.
+        """
+        payload = VllmClient()._payload("p", stream=False)
+        self.assertEqual(payload["chat_template_kwargs"], {"enable_thinking": False})
+
+    def test_can_opt_out_of_disable_thinking(self):
+        """생각 모드를 쓰는 모델로 바꿀 여지를 남긴다 — 하드코딩하면 그때 걸린다."""
+        payload = VllmClient(disable_thinking=False)._payload("p", stream=False)
+        self.assertNotIn("chat_template_kwargs", payload)
+
+    def test_ollama_does_not_get_chat_template_kwargs(self):
+        """Ollama는 `think` 필드가 별도라 이 항목이 가면 안 된다(모르는 키)."""
+        self.assertNotIn("chat_template_kwargs", OllamaClient()._payload("p", stream=False))
+
     def test_does_not_send_num_ctx(self):
         """vLLM은 컨텍스트 창을 `--max-model-len` 기동 플래그로 고정한다 — 요청 항목이 아니다.
 

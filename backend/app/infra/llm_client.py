@@ -117,6 +117,7 @@ class VllmClient:
         num_predict: int | None = None,
         temperature: float | None = None,
         num_ctx: int | None = None,
+        disable_thinking: bool | None = None,
     ) -> None:
         self.base_url = base_url or settings.llm_base_url
         self.model = model or settings.llm_model
@@ -125,15 +126,23 @@ class VllmClient:
         self.temperature = temperature if temperature is not None else settings.llm_temperature
         # 요청에 싣지 않는다(위 docstring) — 기동 플래그와의 정합 확인용으로만 보관한다.
         self.num_ctx = num_ctx if num_ctx is not None else settings.llm_num_ctx
+        self.disable_thinking = (
+            disable_thinking if disable_thinking is not None else settings.llm_disable_thinking
+        )
 
     def _payload(self, prompt: str, *, stream: bool) -> dict:
-        return {
+        payload: dict = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": stream,
             "max_tokens": self.num_predict,  # Ollama의 num_predict에 대응
             "temperature": self.temperature,
         }
+        if self.disable_thinking:
+            # **이걸 빼면 Qwen3가 답변을 아예 안 준다**(config.llm_disable_thinking 주석의 실측).
+            # chat template 인자로 전달되며, 그 인자를 모르는 모델(EXAONE 등)은 무시한다.
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+        return payload
 
     def generate(self, prompt: str) -> str:
         resp = httpx.post(
