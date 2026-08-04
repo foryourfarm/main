@@ -12,8 +12,9 @@
 
 import json
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, datetime
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -176,6 +177,85 @@ def load_history(db: Session, user_id: int, session_id: str, limit: int) -> list
         .all()
     )
     return [(role, content) for role, content in reversed(rows)]
+
+
+SESSION_TITLE_MAX_CHARS = 30  # 목록에 보일 제목 길이(첫 질문을 잘라 쓴다)
+
+
+def list_sessions(db: Session, user_id: int, limit: int) -> list[dict[str, object]]:
+    """내 대화 스레드 목록(최근 활동 순). **세션 테이블을 따로 두지 않는다** —
+    `chat_message`를 session_id로 묶으면 그대로 목록이 나오고, 새 대화는 클라가 uuid를
+    새로 만드는 순간 시작되므로 서버가 미리 만들어 둘 행이 없다(빈 스레드도 안 생긴다).
+
+    제목은 그 스레드의 **첫 메시지**(= 항상 user 질문, save_turn이 user→assistant 순으로
+    넣는다)를 잘라 쓴다. 제목 컬럼을 따로 저장하면 첫 질문이 바뀔 때 어긋난다.
+    """
+    rows = (
+        db.query(
+            ChatMessage.session_id,
+            func.count().label("n"),
+            func.min(ChatMessage.id).label("first_id"),
+            func.max(ChatMessage.id).label("last_id"),
+            func.max(ChatMessage.created_at).label("last_at"),
+        )
+        .filter(ChatMessage.user_id == user_id)
+        .group_by(ChatMessage.session_id)
+        .order_by(func.max(ChatMessage.id).desc())
+        .limit(limit)
+        .all()
+    )
+    if not rows:
+        return []
+    # 제목은 첫 메시지 본문만 따로 집어온다. 집계 쿼리 안에서 문자열을 뽑으려면
+    # DB별 방언(array_agg/group_concat)을 타서, 이식성 있는 두 번째 조회로 나눈다.
+    first_ids = [r.first_id for r in rows]
+    titles = {
+        mid: content
+        for mid, content in db.query(ChatMessage.id, ChatMessage.content)
+        .filter(ChatMessage.id.in_(first_ids))
+        .all()
+    }
+    return [
+        {
+            "session_id": r.session_id,
+            "title": titles.get(r.first_id, "")[:SESSION_TITLE_MAX_CHARS],
+            "message_count": r.n,
+            "last_at": r.last_at,
+        }
+        for r in rows
+    ]
+
+
+def delete_session(db: Session, user_id: int, session_id: str) -> int:
+    """스레드 하나를 지운다. user_id 필터가 곧 소유권 검증이다 — 남의 스레드를 넣으면 0건.
+    반환값은 지운 메시지 수(0이면 없거나 내 것이 아니다 — 둘을 구분해 알리지 않는다)."""
+    n = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.user_id == user_id, ChatMessage.session_id == session_id)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return n
+
+
+def prune_old_messages(db: Session, older_than: datetime) -> int:
+    """보존 기한이 지난 대화를 지운다(운영 배치가 매일 1회 호출). 지운 행 수를 돌려준다.
+
+    **`created_at`이 아니라 `id`로 지운다.** id는 삽입순 = 시간순이라 결과가 같으면서
+    **PK 인덱스를 그대로 탄다** — created_at에 인덱스를 새로 달면 모든 INSERT가 그 값을
+    치르는데, 하루 한 번 도는 삭제를 위해 상시 쓰기 비용을 내는 건 밑진다.
+
+    경계 조회 한 번(`created_at < 기준`의 최대 id)만 순차 스캔이 될 수 있으나, 그 한 번은
+    하루 1회이고 이후 삭제는 인덱스 범위 삭제다.
+    """
+    cutoff_id = (
+        db.query(func.max(ChatMessage.id)).filter(ChatMessage.created_at < older_than).scalar()
+    )
+    if cutoff_id is None:
+        return 0  # 기한 지난 게 없다
+    n = db.query(ChatMessage).filter(ChatMessage.id <= cutoff_id).delete(synchronize_session=False)
+    db.commit()
+    return n
 
 
 def save_turn(db: Session, user_id: int, session_id: str, question: str, answer: str) -> None:

@@ -1,10 +1,47 @@
-import { ensureAccessToken } from "@/lib/auth";
-import type { ChatMessage } from "@/types/chat";
+import { authFetch, ensureAccessToken } from "@/lib/auth";
+import type { ChatMessage, ChatSessionSummary } from "@/types/chat";
 
 // 백엔드 챗봇 SSE 계약: docs/llm-integration.md §11.
 // 스트림은 `data: {"token":"..."}\n\n` 프레임 연속 + 종료 `data: [DONE]\n\n`.
 // ApiResponse 래퍼를 쓰지 않으므로(§6 스트리밍 예외) EventSource(GET전용) 대신 fetch로 직접 파싱한다.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+
+const sessionKey = (userId: number) => `chat_session:${userId}`;
+
+/**
+ * 지금 보고 있는 대화 스레드 키. **localStorage에 남긴다** — 리로드하면 새 uuid를 만들던 탓에
+ * 서버에 저장된 대화가 매번 고아가 됐다(저장은 되는데 아무도 다시 못 읽는 상태).
+ * 키에 userId를 넣어 계정이 바뀌면 남의 스레드를 이어받지 않게 한다(§11 소유권).
+ * access 토큰과 달리 스레드 키는 비밀이 아니다 — 서버가 (user_id, session_id)로 다시 검증한다.
+ */
+export function chatSessionId(userId: number): string {
+  const saved = localStorage.getItem(sessionKey(userId));
+  if (saved !== null) return saved;
+  return switchChatSession(userId, crypto.randomUUID());
+}
+
+/** 보고 있는 스레드 교체(새 대화 = 새 uuid). 서버 호출이 없다 — 첫 답변이 저장되는 순간
+ * 그 스레드가 목록에 나타난다. 빈 스레드를 미리 만들지 않는 이유이기도 하다. */
+export function switchChatSession(userId: number, sessionId: string): string {
+  localStorage.setItem(sessionKey(userId), sessionId);
+  return sessionId;
+}
+
+export function fetchChatSessions(): Promise<ChatSessionSummary[]> {
+  return authFetch<ChatSessionSummary[]>("/api/v1/chat/sessions");
+}
+
+/** 스레드 삭제. 지운 메시지 수를 돌려준다(0 = 없거나 내 것이 아님). */
+export function deleteChatSession(sessionId: string): Promise<number> {
+  return authFetch<number>(`/api/v1/chat/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "DELETE",
+  });
+}
+
+/** 저장된 지난 대화(오래된 순). 실패는 호출부에서 빈 대화로 흡수한다 — 조회 실패가 상담을 막지 않는다. */
+export function fetchChatHistory(sessionId: string): Promise<ChatMessage[]> {
+  return authFetch<ChatMessage[]>(`/api/v1/chat/history?session_id=${encodeURIComponent(sessionId)}`);
+}
 
 /**
  * 질문을 보내고 답변 토큰을 순서대로 흘려준다.

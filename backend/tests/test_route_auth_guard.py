@@ -43,6 +43,7 @@ PUBLIC_ROUTES: dict[tuple[str, str], str] = {
     # 유저 인증이 아니라 공유 시크릿 헤더로 막는다. 그 가드는
     # test_admin_outlook_endpoint.py가 따로 검증한다(미설정 시 503 fail-closed 포함).
     ("POST", "/api/v1/admin/weather-outlooks"): "X-Admin-Token 가드(별도 테스트)",
+    ("POST", "/api/v1/admin/chat-retention"): "X-Admin-Token 가드(유저 인증 아님)",
 }
 
 # 경로 파라미터 채움값. 인증이 서비스 호출보다 먼저 돌기 때문에 실재하지 않아도 된다.

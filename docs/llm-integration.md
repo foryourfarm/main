@@ -293,6 +293,72 @@ few-shot 3개는 배·상추·사과로, §8이 쓴 감자·오이·사과와 �
 
 **FE 할 일**: 로그인 상태면 헤더에 access 첨부 + `credentials: "include"`(refresh 쿠키). 스트림을 `[DONE]`까지 읽어 토큰 이어붙이기. 대화를 서버에 저장/이어가려면 스레드마다 uuid4 `session_id`를 만들어 매 요청에 재전송(같은 대화 = 같은 값). 게스트/미저장은 `history`를 직접 들고 다니며 매 요청 재전송.
 
+### 11.1 지난 대화 복원 — `GET /api/v1/chat/history`
+
+`POST /api/v1/chat`이 저장은 하는데 **읽을 길이 없어서**, FE가 리로드할 때마다 새 uuid를 만들고 저장된 스레드는 고아가 됐다. 그래서 조회를 붙였다.
+
+```
+GET /api/v1/chat/history?session_id=<uuid4>
+Authorization: Bearer <access>          // 필수 — 게스트는 저장 자체가 없다(없으면 401)
+→ 200 { "success": true, "data": [ {"role":"user","content":"..."}, ... ], "error": null }
+```
+
+- `data`는 **오래된 순**, 최근 `chat_history_display_limit`(기본 100)개. 프롬프트에 넣는 6개 캡과 다른 값이다 — 모델이 참고할 양과 유저가 다시 읽을 양은 다르다.
+- 소유권은 `POST`와 같은 `(user_id, session_id)` 스코프. 남의 스레드는 빈 배열.
+- `session_id` 형식 위반은 422, 없는 스레드는 빈 배열(404 아님).
+
+**FE 할 일**: `session_id`를 **유저별로 localStorage에 보관**(`chat_session:<userId>`)해 리로드/재방문에도 같은 스레드를 이어간다. 마운트 시 이 API로 화면을 복원하되, 실패하면 조용히 빈 대화로 시작(상담을 막지 않는다). 구현: `frontend/lib/chat.ts`의 `chatSessionId()`/`fetchChatHistory()`.
+
+### 11.2 대화 스레드 목록/삭제 — 세션 테이블은 없다
+
+```
+GET    /api/v1/chat/sessions              → [{session_id, title, message_count, last_at}, ...]  최근 활동 순, 최대 30개
+DELETE /api/v1/chat/sessions/{session_id} → 지운 메시지 수(0 = 없거나 내 것이 아님)
+```
+
+**`chat_session` 테이블을 만들지 않았다.** `chat_message`를 `session_id`로 묶으면 목록이 그대로 나오고, **새 대화는 클라가 uuid를 새로 만드는 순간 시작**되므로 서버가 미리 만들어 둘 행이 없다. 테이블을 두면 빈 스레드·고아 행·"메시지는 있는데 세션이 없음" 같은 정합 상태를 떠안게 된다.
+
+- **제목**은 그 스레드의 첫 메시지(= 항상 첫 질문) 앞 30자. 저장하지 않고 조회 때 만든다.
+- 목록 조회는 기존 인덱스 `ix_chat_message_user_session(user_id, session_id, id)`를 탄다 — 새 인덱스 없음.
+- 삭제는 `user_id` 필터가 곧 소유권 검증이다. 남의 스레드는 404가 아니라 **0건**을 돌려준다(존재 여부를 알려주지 않는다).
+
+**FE 할 일**: "새 대화" = `crypto.randomUUID()`로 새 키를 만들고 localStorage에 저장. 서버 호출 없음. 스레드 전환 시에는 `GET /chat/history`로 화면을 **덮어쓴다**(유저가 명시적으로 연 것이므로 복원 때와 달리 기존 메시지를 보존하지 않는다).
+
+### 11.3 저장 용량과 보존 정책
+
+실측(2026-08-04, 개발 DB):
+
+| 항목 | 값 |
+|---|---|
+| assistant 답변 평균 | 907 바이트 |
+| user 질문 평균 | 32 바이트 |
+| **턴 1개(질문+답변) 실제 점유** | 본문 940B + 행 오버헤드 180B + 인덱스 160B ≈ **1.3 KB** |
+| 퀘스트 로그(`user_daily_quest`) | 3행/유저/일 ≈ 300 B/일 |
+
+하루 3턴 가정 시 연간 증가량:
+
+| DAU | chat_message | user_daily_quest |
+|---|---|---|
+| 1,000 | 1.6 GB/년 | 0.1 GB/년 |
+| 10,000 | 16 GB/년 | 1.1 GB/년 |
+| 100,000 | 160 GB/년 | 11 GB/년 |
+
+**1만 DAU까지 Postgres는 문제가 아니다.** 파티셔닝·아카이빙은 10만 DAU에서 할 얘기고, 지금 하면 순수한 비용이다. 먼저 아픈 것은 성능이 아니라 **백업·복원 시간과 스토리지 비용**이다.
+
+**보존 정책**: `chat_retention_days = 365`(기본). 매일 1회 운영 배치가 기한 지난 대화를 지운다.
+
+```
+POST /api/v1/admin/chat-retention        헤더: X-Admin-Token: <시크릿>
+→ { "success": true, "data": 1234 }      // 지운 메시지 수
+```
+
+- 스케줄러 배선은 3개월전망(`docs/outlook-scheduler.md`)과 **같은 패턴**이다 — 새 인프라 없음.
+- **1년인 이유**: 농업은 한 시즌이 1년이라 "작년 이맘때 뭘 물었지"가 실제로 의미 있는 조회다. 프롬프트가 쓰는 건 최근 6개뿐이라 그보다 짧게 잡아도 답변 품질은 안 변한다.
+- `chat_retention_days = 0`이면 삭제하지 않는다(기능 끄기).
+- 삭제는 `created_at`이 아니라 **`id` 범위로** 지운다(id = 삽입순 = 시간순). `created_at`에 인덱스를 새로 달면 하루 한 번 도는 삭제를 위해 **모든 INSERT**가 비용을 치른다.
+
+**⚠️ `user_daily_quest`는 지우지 않는다.** 경험치가 이 로그의 합에서 파생되므로 지우면 **유저 레벨이 내려간다**. 언젠가 정리해야 하면 `users.archived_exp` 같은 롤업 컬럼에 합산해 넣고 지워야 한다 `[확인 필요]`.
+
 ## 12. 프롬프트 인젝션/탈옥 방어 (프롬프트 가드레일)
 
 시스템 프롬프트에 **#보안 규칙**(다른 지시보다 우선·변경 불가) + 방어 few-shot을 넣어 다음을 차단한다(`app/prompts/chatbot.py`, `PROMPT_VERSION=chatbot-v6`). 위반/무관 요청은 `SECURITY_REDIRECT`로 페르소나(텃밭이) 유지하며 거부:

@@ -29,6 +29,9 @@ MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
 MIGRATION_LETTUCE_ORGANIC = VERSIONS / "0029_lettuce_organic_matter_guide.py"
 MIGRATION_APPLE_CA = VERSIONS / "0030_apple_ca_one_sided_band.py"
 MIGRATION_CUCUMBER_POTATO = VERSIONS / "0031_cucumber_potato_soil_bands.py"
+# 2026-08-04 FarmML 동기화(사과 k·ca, 감자 ph·organic). **가장 마지막에 겹쳐 읽어야 한다** —
+# 위 마이그레이션들이 심은 값을 UPDATE로 덮는 것이라 순서가 뒤바뀌면 낡은 값이 이긴다.
+MIGRATION_BAND_SYNC = VERSIONS / "0035_farmml_20260804_band_sync.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -118,6 +121,10 @@ class TestSoilBandContract(unittest.TestCase):
         # 최소값은 그대로 두고 최대값 두 칸만 여기서 덮는다(존재는 test_migration_files_exist가 확인).
         apple_ca_min, _, apple_ca_allowed_min, _ = cls.backend[(1, "ca")]
         cls.backend[(1, "ca")] = (apple_ca_min, None, apple_ca_allowed_min, None)
+        # 0035는 위 전부를 UPDATE로 덮는 마지막 층이다(사과 k·ca, 감자 ph·organic).
+        # 반드시 0030의 단측 밴드 처리 뒤에 와야 한다 — 사과 ca 상한을 다시 세우기 때문이다.
+        sync = _load_module("m0035", MIGRATION_BAND_SYNC)
+        cls.backend.update({(row[0], row[1]): tuple(row[2:6]) for row in sync._BANDS})
 
     def test_migration_files_exist(self):
         # 파일명이 바뀌면 위 로드가 조용히 실패해 검증이 공허해진다.
@@ -128,6 +135,7 @@ class TestSoilBandContract(unittest.TestCase):
             MIGRATION_LETTUCE_ORGANIC,
             MIGRATION_APPLE_CA,
             MIGRATION_CUCUMBER_POTATO,
+            MIGRATION_BAND_SYNC,
         ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")
