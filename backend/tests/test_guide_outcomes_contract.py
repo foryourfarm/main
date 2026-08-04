@@ -29,6 +29,8 @@ MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
 MIGRATION_LETTUCE_ORGANIC = VERSIONS / "0029_lettuce_organic_matter_guide.py"
 MIGRATION_APPLE_CA = VERSIONS / "0030_apple_ca_one_sided_band.py"
 MIGRATION_CUCUMBER_POTATO = VERSIONS / "0031_cucumber_potato_soil_bands.py"
+MIGRATION_PROVENANCE = VERSIONS / "0032_guide_provenance_columns.py"
+MIGRATION_OPEN_FIELD = VERSIONS / "0033_open_field_and_prescription_bands.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -65,8 +67,6 @@ _EXTRA_BACKEND_BANDS = {
     # 상수를 import할 수 없다. 값을 여기 옮겨 적되 outcomes와 대조되므로 갈리면 실패한다.
     (5, "ph"): (6.5, 7.0, 6.25, 7.25),
     (5, "p2o5"): (250.0, 400.0, 175.0, 475.0),
-    # 0027이 backfill한 감자 organic — 같은 이유로(값이 SQL 문에 직접 박혀 있다) 여기 적는다.
-    (4, "organic"): (30.0, 47.0, 10.0, 55.5),
 }
 
 BAND_KEYS = ("optimal_min", "optimal_max", "allowed_min", "allowed_max")
@@ -113,6 +113,14 @@ class TestSoilBandContract(unittest.TestCase):
         cls.backend.update({(row[0], row[1]): tuple(row[2:6]) for row in cp._BANDS})
         cls.backend[(3, "ph")] = cp._CUCUMBER_PH_NEW
         cls.backend.update(_EXTRA_BACKEND_BANDS)
+        # 0033은 UPDATE/INSERT라 표가 없다 — 상수를 직접 읽어 덮는다. 감자 pH는 노지·시설
+        # 두 행이 되는데 **채점에 쓰이는 것은 노지**이므로(load_guides가 open_field 우선)
+        # outcomes와 대조할 값도 노지다. outcomes는 노지만 채점하니 시설 행은 대응물이 없다.
+        of = _load_module("m0033", MIGRATION_OPEN_FIELD)
+        cls.backend[(4, "ph")] = of._POTATO_PH_OPEN_FIELD
+        cls.backend[(4, "organic")] = of._POTATO_ORGANIC_NEW
+        cls.backend[(1, "k")] = of._APPLE_K_NEW
+        cls.potato_ph_facility = of._POTATO_PH_FACILITY
         # 0030은 (1, "ca")의 optimal_max·allowed_max만 UPDATE로 NULL로 바꾼다(단측 밴드,
         # 사과 치환성 Ca "5~6cmol/kg 이상"). UPDATE라 상수 import가 안 되니 0024가 심어 둔
         # 최소값은 그대로 두고 최대값 두 칸만 여기서 덮는다(존재는 test_migration_files_exist가 확인).
@@ -128,6 +136,8 @@ class TestSoilBandContract(unittest.TestCase):
             MIGRATION_LETTUCE_ORGANIC,
             MIGRATION_APPLE_CA,
             MIGRATION_CUCUMBER_POTATO,
+            MIGRATION_PROVENANCE,
+            MIGRATION_OPEN_FIELD,
         ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")
@@ -178,6 +188,116 @@ class TestSoilBandContract(unittest.TestCase):
                         f"{filename}에 새 토양 지표 '{name}'이 생겼다 — 백엔드 반영 여부를 "
                         "판단하고 이 테스트의 목록을 갱신할 것",
                     )
+
+
+class TestProvenanceContract(unittest.TestCase):
+    """0032가 만든 성격 컬럼이 outcomes와 같은 값 도메인·같은 판정을 쓰는지.
+
+    밴드 값만 맞춰서는 부족하다 — `allowed_*_kind`가 갈리면 **같은 밴드인데 경계 점수가
+    한쪽은 60, 한쪽은 0**이 된다. 값이 같으니 종전 계약 테스트는 통과하는데 점수는 갈린다.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.migration = _load_module("m0032_kinds", MIGRATION_PROVENANCE)
+
+    def test_kind_domains_match(self):
+        """outcomes가 쓰는 성격 문자열이 전부 마이그레이션의 값 도메인 안에 있는가."""
+        allowed = set(self.migration.ALLOWED_KINDS)
+        for filename in CROP_ID:
+            rules = json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
+            blocks = [rules.get("temperature_guides", [])]
+            blocks.append(list((rules.get("soil_overrides") or {}).values()))
+            blocks.append(list((rules.get("physical_overrides") or {}).values()))
+            for band in [b for block in blocks for b in block]:
+                for side in ("allowed_min", "allowed_max"):
+                    kind = band.get(f"{side}_kind")
+                    with self.subTest(crop=filename, side=side):
+                        if band.get(side) is None:
+                            self.assertIsNone(
+                                kind, f"{filename}: 경계가 없는데 {side}_kind가 붙어 있다"
+                            )
+                        else:
+                            self.assertIn(
+                                kind,
+                                allowed,
+                                f"{filename}: 모르는 {side}_kind — 0032 ALLOWED_KINDS를 갱신할 것",
+                            )
+
+    def test_cultivation_type_domain(self):
+        valid = set(self.migration.CULTIVATION_TYPES)
+        for filename in CROP_ID:
+            rules = json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
+            for name, band in (rules.get("soil_overrides") or {}).items():
+                with self.subTest(crop=filename, indicator=name):
+                    self.assertIn(band.get("cultivation_type"), valid)
+
+    def test_method_code_matches_backend_table(self):
+        """추출법 표기가 갈리면 같은 숫자를 다른 프로토콜 기준으로 비교하게 된다."""
+        table = self.migration._METHOD_BY_INDICATOR
+        for filename in CROP_ID:
+            rules = json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
+            for outcome_name, backend_name in INDICATOR_ALIAS.items():
+                band = (rules.get("soil_overrides") or {}).get(outcome_name)
+                if band is None:
+                    continue
+                with self.subTest(crop=filename, indicator=outcome_name):
+                    self.assertEqual(
+                        band.get("method_code"),
+                        table[backend_name],
+                        f"{filename} {outcome_name}: outcomes와 0032의 method가 다르다",
+                    )
+
+    def test_potato_ph_open_field_is_the_scored_row(self):
+        """감자 pH는 노지·시설 두 행이지만 채점되는 것은 노지다 — outcomes도 노지값이어야 한다.
+
+        `load_guides()`가 `open_field`를 우선하므로, outcomes가 시설값을 들고 있으면
+        같은 밭에 다른 점수가 나온다.
+        """
+        potato = json.loads((CROP_RULES / "potato.json").read_text(encoding="utf-8"))
+        band = potato["soil_overrides"]["ph"]
+        self.assertEqual(band["cultivation_type"], "open_field")
+        of = _load_module("m0033_ph", MIGRATION_OPEN_FIELD)
+        self.assertEqual(
+            (band["optimal_min"], band["optimal_max"], band["allowed_min"], band["allowed_max"]),
+            of._POTATO_PH_OPEN_FIELD,
+        )
+        # 시설 행은 outcomes에 대응물이 없다(노지만 채점한다) — 두 값이 같아지면 재배형
+        # 구분 자체가 무의미해지므로 다르다는 것을 명시적으로 고정한다.
+        self.assertNotEqual(of._POTATO_PH_OPEN_FIELD, of._POTATO_PH_FACILITY)
+
+
+class TestBoundaryScoreParity(unittest.TestCase):
+    """경계 점수 규칙이 백엔드와 outcomes에서 같은가. 두 구현의 곡선 계약이다."""
+
+    def test_literature_limit_scores_zero_on_both_sides(self):
+        import importlib.util as _ilu
+        import sys
+
+        sys.path.insert(0, str(ROOT / "backend"))
+        from app.services.suitability_service import boundary_score as backend_boundary
+
+        spec = _ilu.spec_from_file_location(
+            "outcomes_scoring", ROOT / "outcomes" / "scripts" / "ml" / "scoring.py"
+        )
+        module = _ilu.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except ModuleNotFoundError as exc:  # pandas/numpy가 없는 환경
+            self.skipTest(f"outcomes scoring 임포트 불가: {exc}")
+        for kind in (
+            "literature_limit",
+            "heuristic",
+            "cultivable_range",
+            "literature_threshold",
+            "unverified",
+            "not_applicable",
+            None,
+        ):
+            with self.subTest(kind=kind):
+                self.assertEqual(backend_boundary(kind), module.boundary_score(kind))
+        self.assertEqual(backend_boundary("literature_limit"), 0.0)
+        self.assertEqual(backend_boundary("heuristic"), 60.0)
 
 
 class TestRiskWidthContract(unittest.TestCase):

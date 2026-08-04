@@ -86,14 +86,26 @@ _SOIL_INDICATORS = ("ph", "organic", "p2o5", "k", "ca", "mg", "ec")
 
 # ---------------------------------------------------------------------------
 # 허용경계 성격 예외표. 여기 없으면 ±50% 판정 → 맞으면 heuristic, 아니면 unverified.
-# 키: (crop_id, growth_stage, indicator) — crop_id=None은 전 작물 공통.
+# 키: (crop_id, growth_stage, indicator). `ANY_STAGE`는 그 작물·지표의 모든 단계에 적용.
+#     crop_id=None은 전 작물 공통.
 # 값: (allowed_min_kind, allowed_max_kind). None은 "자동 판정에 맡긴다".
+#
+# 🔴 `ANY_STAGE`가 필요한 이유: 같은 지표가 작물마다 다른 단계 이름을 달고 있다 —
+# 상추 `temp_day`는 `0025`가 작기를 세우면서 spring/fall 2행이 됐고 오이는 `growing`이다.
+# 단계를 못 박으면 정작 성격을 붙여야 할 행을 놓친다(실제로 첫 시도에서 놓쳤다).
 # ---------------------------------------------------------------------------
+ANY_STAGE = "*"
+
 _KIND_OVERRIDE: dict[tuple[int | None, str | None, str], tuple[str | None, str | None]] = {
-    # 🔴 유일하게 채점이 바뀌는 행. 상추 온도 2.5·36℃는 발아 한계·복합장해 온도로
-    # 문헌이 준 생리적 절대한계다(0019 LETTUCE_TEMP_SOURCE). 지금까지 이 두 점이
-    # 60점을 받고 있었다 — 생장이 멈추는 온도인데 B등급 하한이었다.
-    (5, None, "temp_day"): ("literature_limit", "literature_limit"),
+    # 🔴 채점이 실제로 바뀌는 행들. 문헌이 **생육 중지/정지 온도**를 직접 준 두 작물이다.
+    # 상추 2.5·36℃(발아 한계·복합장해), 오이 5·35℃('35℃ 이상/5℃ 이하 시 생육 중지').
+    # 지금까지 이 네 점이 60점을 받고 있었다 — 생장이 멈추는 온도인데 B등급 하한이었다.
+    (5, ANY_STAGE, "temp_day"): ("literature_limit", "literature_limit"),
+    (3, ANY_STAGE, "temp_day"): ("literature_limit", "literature_limit"),
+    # 배 생육기 기온 17·23℃는 arccas 「가능지」 문헌값이다(적지 18.5~21.5의 바깥 구간).
+    # 값이 우연히 ±50%와 일치해 자동 판정이 heuristic으로 오인한다 — 문헌값을 휴리스틱이라
+    # 적으면 근거를 지우는 것이라 명시한다.
+    (2, "growing", "temp_day"): ("cultivable_range", "cultivable_range"),
     # 오이 pH 허용경계는 제주 농업기술원 지도요강의 **재배 가능 범위** 5.5~6.8이다
     # (0031이 종전 ±50% 휴리스틱 7.45를 이 문헌값으로 교체했다). 붕괴점이 아니라
     # "적정은 아니나 재배는 된다"는 구간이라 60점이 맞다.
@@ -121,13 +133,9 @@ _KIND_OVERRIDE: dict[tuple[int | None, str | None, str], tuple[str | None, str |
     # 포기하지만, 하한 4.5는 0024가 상한을 지우기 전의 폭 1.0으로 만든 ±50% 휴리스틱이
     # 맞다 — 이력을 아는 값이므로 미확인으로 떨어뜨리지 않는다.
     (1, None, "ca"): ("heuristic", None),
-    # 오이 기온 15·30℃ — 0004 농사로 안내책자 시드. outcomes 쪽은 같은 지표에 5·35℃를
-    # 쓰고 있어 두 구현이 이미 갈려 있다(계약 테스트가 토양 밴드만 봐서 안 잡혔다).
-    # 어느 쪽이 맞는지 판단할 근거가 없으므로 값은 그대로 두고 성격만 미확인으로 적는다.
-    (3, None, "temp_day"): ("unverified", "unverified"),
     # 일 강수 30/50mm — 원문이 "배수 불량 토양에서(in poorly drained soils)"를 필수 전제로
     # 달고 1차 출처 작물이 대두다(FinalReport §1-12). 전제가 빠진 채 5작물에 일괄 적용 중이다.
-    (None, None, "rainfall_daily"): ("unverified", "unverified"),
+    (None, ANY_STAGE, "rainfall_daily"): ("unverified", "unverified"),
 }
 
 _HEURISTIC_TOLERANCE = 1e-6
@@ -153,9 +161,13 @@ def _auto_kind(optimal_min, optimal_max, allowed_min, allowed_max, side: str) ->
 
 
 def _resolve_kinds(row) -> tuple[str | None, str | None]:
-    override = _KIND_OVERRIDE.get((row.crop_id, row.growth_stage, row.indicator)) or _KIND_OVERRIDE.get(
-        (None, row.growth_stage, row.indicator)
-    ) or (None, None)
+    # 구체적인 것부터: 그 단계 전용 → 그 작물의 모든 단계 → 전 작물 공통.
+    override = (
+        _KIND_OVERRIDE.get((row.crop_id, row.growth_stage, row.indicator))
+        or _KIND_OVERRIDE.get((row.crop_id, ANY_STAGE, row.indicator))
+        or _KIND_OVERRIDE.get((None, ANY_STAGE, row.indicator))
+        or (None, None)
+    )
     kinds = []
     for side, forced in zip(("min", "max"), override):
         auto = _auto_kind(
