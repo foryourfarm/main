@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For Your Farm — UI 시안 v2 (dev 394fc81 기준)</title>
+<!-- 앱과 같은 서체(layout.tsx: next/font의 Noto Sans KR · Jua · Baloo 2). 오프라인이면 시스템 폰트로 폴백. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Jua&family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
+<script>
+  // 앱의 lib/theme.ts와 같은 규칙: 저장값 → OS 설정 → dark. 첫 페인트 전에 실행.
+  try {
+    var t = localStorage.getItem("fyf-deck-theme");
+    if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
+<style>
+  /* ────────────────────────────────────────────────────────────────
+     토큰: frontend/app/globals.css 를 그대로 복사했다(수정 금지).
+     시안용 색을 새로 만들면 "실제로 이렇게 보이나"를 판단할 수 없다.
+     ─ 보더 토큰의 실제 이름은 --card 다(--line 은 시안 v1의 오타).
+       기존 규칙을 다 고치지 않고 별칭 하나로 맞춘다.
+     ──────────────────────────────────────────────────────────────── */
+  :root {
+    --bg:#171310; --surface:#221d17; --surface-2:#2c251c; --card:#3b3226;
+    --text:#f2ecdf; --muted:#a89b85;
+    --primary:#f59e0b; --primary-hover:#fbbf24; --on-primary:#1c1508;
+    --good:#7fd08a; --good-wash:#232b1e;
+    --warn:#f0824f; --warn-strong:#e8590c; --warn-wash:#37281a;
+    --bad:#f27e72; --bad-strong:#dc3b30; --bad-wash:#362020;
+    --grade-s:#f59e0b; --grade-a:#7fd08a; --grade-b:#93c0e8; --grade-c:#f0824f;
+    --r-xl:34px; --r-lg:26px; --r-md:18px; --r-sm:12px;
+    --shadow-1:0 2px 0 rgba(0,0,0,.18), 0 14px 30px -18px rgba(0,0,0,.5);
+    --shadow-2:0 4px 0 rgba(0,0,0,.22), 0 26px 44px -22px rgba(0,0,0,.6);
+    --fs-body:18px; --fs-sub:16px;
+
+    /* 시안 문서 전용(앱 토큰 아님) */
+    --line:var(--card);
+    --deck:#100d0b; --deck-line:#2a231b;
+
+    --font-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --font-heading:"Jua",var(--font-body);
+    --font-num:"Baloo 2",var(--font-heading);
+  }
+  [data-theme="light"] {
+    --bg:#faf7f0; --surface:#fff; --surface-2:#f3edde; --card:#e7e0d2;
+    --text:#2b241a; --muted:#6e6350;
+    --primary:#b45309; --primary-hover:#92400e; --on-primary:#fff;
+    --good:#2e7d32; --good-wash:#f2f5ef;
+    --warn:#c2410c; --warn-strong:#e8590c; --warn-wash:#fdf8ef;
+    --bad:#c62828; --bad-strong:#b3261e; --bad-wash:#fdf4f4;
+    --grade-s:#b45309; --grade-a:#2e7d32; --grade-b:#33678a; --grade-c:#c2410c;
+    --shadow-1:0 2px 0 rgba(122,74,46,.06), 0 14px 30px -18px rgba(122,74,46,.34);
+    --shadow-2:0 4px 0 rgba(122,74,46,.08), 0 26px 44px -22px rgba(122,74,46,.42);
+
+    --deck:#f2ece0; --deck-line:#ddd4c2;
+  }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--deck); color:var(--text);
+    font-family:var(--font-body); font-size:var(--fs-body); line-height:1.6;
+    padding:0 0 96px; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4 { font-family:var(--font-heading); font-weight:700; letter-spacing:-.02em; line-height:1.28; }
+  .num { font-family:var(--font-num); font-weight:700; font-variant-numeric:tabular-nums; }
+  a { color:inherit; text-decoration:none; }
+  :focus-visible { outline:2px solid var(--primary); outline-offset:2px; }
+  .ico { width:1em; height:1em; flex:none; fill:none; stroke:currentColor; stroke-width:2;
+         stroke-linecap:round; stroke-linejoin:round; }
+
+  /* ── 테마 토글(시안 문서용 — 앱은 Header가 갖고 있다) ── */
+  .themeBtn {
+    position:fixed; right:16px; bottom:16px; z-index:40; min-height:48px; padding:12px 18px;
+    border:1.5px solid var(--card); border-radius:999px; background:var(--surface);
+    color:var(--text); font-family:inherit; font-size:15px; font-weight:700; cursor:pointer;
+    box-shadow:var(--shadow-1);
+  }
+
+  /* ── 덱 헤더 ── */
+  .deckHead { max-width:1180px; margin:0 auto; padding:44px 22px 24px; }
+  .eyebrow { font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--primary); font-weight:800; margin:0 0 10px; font-family:var(--font-body); }
+  .deckHead h1 { font-size:clamp(30px,4.2vw,46px); line-height:1.18; margin:0 0 14px; text-wrap:balance; }
+  .deckLead { max-width:64ch; color:var(--muted); font-size:var(--fs-sub); }
+  .deckLead strong { color:var(--text); font-weight:700; }
+
+  .revised { margin:24px 0 0; padding:16px 20px; background:var(--surface);
+    border-left:4px solid var(--primary); border-radius:0 var(--r-sm) var(--r-sm) 0;
+    font-size:var(--fs-sub); max-width:78ch; }
+  .revised b { color:var(--primary); }
+  .revised ul { margin:8px 0 0; padding-left:1.1em; display:grid; gap:5px; }
+  .revised.audit { border-left-color:var(--warn); }
+  .revised.audit b { color:var(--warn-strong); }
+
+  .jump { position:sticky; top:0; z-index:20; padding:10px 0; margin-bottom:8px;
+    background:color-mix(in oklab, var(--deck) 92%, transparent);
+    backdrop-filter:blur(10px); border-bottom:1px solid var(--deck-line); }
+  .jumpInner { max-width:1180px; margin:0 auto; padding:0 22px; display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:6px 14px;
+    border:1.5px solid var(--card); border-radius:999px; background:var(--surface);
+    color:var(--text); font-size:14px; font-weight:700;
+    transition:border-color .16s ease,color .16s ease; }
+  .chip:hover,.chip:focus-visible { border-color:var(--primary); color:var(--primary); }
+  .chip i { font-style:normal; color:var(--primary); font-variant-numeric:tabular-nums; }
+
+  /* ── 섹션 ── */
+  .item { max-width:1180px; margin:0 auto; padding:40px 22px 8px; scroll-margin-top:76px; }
+  .itemHead { display:flex; gap:16px; align-items:flex-start; margin-bottom:6px; }
+  .badgeNo { flex:none; width:42px; height:42px; display:grid; place-items:center; border-radius:12px;
+    background:var(--primary); color:var(--on-primary); font-family:var(--font-num);
+    font-weight:800; font-size:19px; }
+  .itemHead h2 { font-size:clamp(21px,2.4vw,27px); margin:4px 0 0; text-wrap:balance; }
+  .why { margin:12px 0 22px 58px; color:var(--muted); font-size:var(--fs-sub); max-width:72ch; }
+  .why strong { color:var(--text); }
+  .why code, code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em;
+    background:var(--surface-2); border:1px solid var(--card); border-radius:6px; padding:1px 5px; }
+  @media (max-width:640px){ .why { margin-left:0; } }
+
+  /* 코드 근거 — 평가자가 직접 열어 확인할 수 있게 파일:줄을 남긴다 */
+  .src { margin:0 0 18px 58px; padding:11px 14px; border:1px dashed var(--card);
+    border-radius:var(--r-sm); background:var(--surface); max-width:80ch;
+    font-size:14.5px; color:var(--muted); }
+  .src b { color:var(--text); font-weight:700; }
+  .src code { background:none; border:none; padding:0; color:var(--primary); }
+  @media (max-width:640px){ .src { margin-left:0; } }
+
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:1080px){ .compare { grid-template-columns:1fr; } }
+  .compare.solo { grid-template-columns:1fr; }
+  .pane { display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .paneTag { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:800;
+    letter-spacing:.06em; text-transform:uppercase; }
+  .paneTag::before { content:""; width:10px; height:10px; border-radius:3px; }
+  .tagNow { color:var(--muted); } .tagNow::before { background:var(--muted); }
+  .tagNew { color:var(--primary); } .tagNew::before { background:var(--primary); }
+
+  .screen { background:var(--bg); border:1.5px solid var(--card); border-radius:var(--r-md);
+    padding:18px; overflow:hidden; }
+  .screen.dim { opacity:.78; }
+
+  /* ── 앱 컴포넌트(components/ui/Card, farm.module.css 재현) ── */
+  .card { background:var(--surface); border:1.5px solid var(--card); border-radius:var(--r-lg);
+    padding:18px; box-shadow:var(--shadow-1); min-width:0; }
+  .cardHead { display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700;
+    color:var(--muted); margin-bottom:14px; }
+  .cardHead .ico { width:17px; height:17px; color:var(--primary); }
+  .cardHead .tag { margin-left:auto; font-size:12px; font-weight:700; color:var(--muted);
+    border:1px solid var(--card); padding:2px 9px; border-radius:999px; }
+
+  /* Gauge(components/ui/Gauge.tsx) — viewBox 120, r48, stroke 13. 가운데는 숫자 + "적합도". */
+  .dial { position:relative; flex:none; display:grid; place-items:center; }
+  .dial svg { transform:rotate(-90deg); display:block; width:100%; height:100%; }
+  .dialIn { position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; line-height:1; }
+  .dialLetter { font-family:var(--font-num); font-weight:800; letter-spacing:-.03em; }
+  .dialWord { font-weight:700; letter-spacing:-.01em; margin-top:3px; }
+  .dial.lg { width:96px; height:96px; }  /* 대시보드 기본 size=96 */
+  .dial.lg .dialLetter { font-size:38px; } .dial.lg .dialWord { font-size:13px; }
+  .dial.md { width:88px; height:88px; }  /* 장기탭 size=88 */
+  .dial.md .dialLetter { font-size:32px; } .dial.md .dialWord { font-size:12px; }
+  .dial.sm { width:68px; height:68px; }
+  .dial.sm .dialLetter { font-size:25px; } .dial.sm .dialWord { font-size:11px; }
+  .gaugeVal { position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; line-height:1.05; }
+  .gaugeNum { font-family:var(--font-num); font-weight:700; }
+  .dial.lg .gaugeNum { font-size:30px; } .dial.md .gaugeNum { font-size:27px; }
+  .gaugeLbl { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .g-s { color:var(--grade-s); } .g-a { color:var(--grade-a); }
+  .g-b { color:var(--grade-b); } .g-c { color:var(--grade-c); }
+  .track { stroke:var(--card); }
+
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:999px;
+    font-size:14px; font-weight:700; border:1.5px solid currentColor; }
+  .scoreSmall { font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; font-weight:700; }
+
+  /* 밭 카드 */
+  .field { display:flex; flex-direction:column; gap:14px; }
+  .fieldTop { display:flex; align-items:center; gap:13px; }
+  .fieldTop > div { min-width:0; }
+  .cropBadge { width:52px; height:52px; flex:none; display:grid; place-items:center; border-radius:16px;
+    background:var(--surface-2); border:1.5px solid var(--card); color:var(--primary); }
+  .cropBadge .ico { width:26px; height:26px; }
+  .fieldName { font-size:20px; margin:0; overflow-wrap:anywhere; }
+  .fieldLoc { font-size:15px; color:var(--muted); overflow-wrap:anywhere; }
+  .fieldFoot { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding-top:12px; border-top:1px solid var(--card); }
+  .stage { font-size:15px; color:var(--muted); }
+  .detailLink { display:inline-flex; align-items:center; gap:6px; min-height:48px; padding:11px 18px;
+    border-radius:999px; border:1.5px solid var(--card); background:var(--surface-2);
+    color:var(--text); font-size:16px; font-weight:700; margin-left:auto; }
+  .wholeCardHint { font-size:13.5px; color:var(--muted); margin-top:8px; text-align:right; }
+
+  /* 위험 배너 */
+  .risk { display:flex; gap:12px; align-items:flex-start; background:var(--warn-wash);
+    border:1.5px solid color-mix(in oklab, var(--warn) 55%, transparent);
+    border-radius:var(--r-md); padding:14px 16px; }
+  .riskEx { flex:none; width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
+    background:var(--warn); color:var(--on-primary); font-weight:800; font-size:18px; }
+  .risk strong { color:var(--warn-strong); }
+  .riskDates { color:var(--muted); font-size:15px; }
+
+  .advice { background:linear-gradient(180deg,var(--good-wash),var(--surface));
+    border:1.5px solid color-mix(in oklab,var(--good) 40%,transparent);
+    border-radius:var(--r-lg); padding:18px; }
+  .adviceTitle { font-size:17px; font-weight:700; margin:0 0 8px; font-family:var(--font-heading); }
+  .adviceText { margin:0; font-size:var(--fs-sub); }
+  .adviceSoil { margin:8px 0 0; font-size:15px; color:var(--muted); }
+  .adviceTag { margin-left:8px; font-size:12px; font-weight:700; color:var(--muted);
+    border:1px solid var(--card); border-radius:999px; padding:2px 8px; }
+
+  /* 날짜 카드 */
+  .dayGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .dayCard { background:var(--surface-2); border:1.5px solid var(--card); border-radius:12px;
+    padding:12px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .dayCard.centered { align-items:center; text-align:center; gap:9px; }
+  .dayHead { display:flex; justify-content:space-between; align-items:baseline; width:100%; gap:8px; }
+  .dayDate { font-size:15px; font-weight:700; }
+  .cellGrade { font-size:13px; font-weight:700; }
+  .cellScore { font-size:20px; font-family:var(--font-num); font-weight:700; line-height:1.2; margin:2px 0; }
+  .dayStage { font-size:13px; color:var(--muted); }
+  .metrics { display:flex; flex-direction:column; gap:4px; font-size:15px; margin:0; width:100%; }
+  .metrics div { display:flex; justify-content:space-between; gap:8px; }
+  .metrics dt { color:var(--muted); }
+  .metrics dd { margin:0; font-weight:700; font-variant-numeric:tabular-nums; }
+  .partialTag { font-size:12px; color:var(--warn-strong); margin:2px 0 0; }
+  .dayMore { display:block; margin-top:10px; padding:0; border:none; background:none;
+    font:inherit; color:var(--primary); font-weight:700; text-align:left; cursor:pointer; }
+
+  /* 1시간별 날씨 스트립 — 좌우 스크롤 */
+  .hourWrap { position:relative; }
+  .hourStrip { display:grid; grid-auto-flow:column; grid-auto-columns:56px;
+    overflow-x:auto; overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity; padding:4px 0 10px; }
+  .hourStrip::-webkit-scrollbar { height:8px; }
+  .hourStrip::-webkit-scrollbar-thumb { background:var(--card); border-radius:99px; }
+  .hourStrip::-webkit-scrollbar-track { background:transparent; }
+  .hourCol { display:flex; flex-direction:column; align-items:center; gap:7px; text-align:center;
+    scroll-snap-align:start; padding:6px 0; border-radius:12px; }
+  .hourCol.now { background:var(--surface); outline:1.5px solid var(--primary); }
+  .hourCol.peak { background:var(--warn-wash); }
+  .hourTime { font-size:14px; color:var(--muted); font-weight:700; }
+  .hourCol.now .hourTime { color:var(--primary); }
+  .hourIcon { font-size:23px; line-height:1; }
+  .hourTemp { font-size:20px; font-family:var(--font-num); font-weight:700; }
+  .hourCol.peak .hourTemp { color:var(--warn-strong); }
+  .hourRain { font-size:13px; color:var(--grade-b); font-weight:700; font-variant-numeric:tabular-nums; }
+  .hourRain.zero { color:var(--muted); opacity:.55; }
+  .scrollHint { display:flex; align-items:center; gap:6px; justify-content:flex-end;
+    font-size:13px; color:var(--muted); margin-top:-4px; }
+  .missing { display:grid; place-items:center; font-size:12.5px; color:var(--muted);
+    border:1px dashed var(--card); border-radius:12px; margin:6px 2px; padding:8px 4px; line-height:1.35; }
+
+  details.fold { border:1.5px solid var(--card); border-radius:var(--r-md);
+    background:var(--surface-2); overflow:hidden; }
+  details.fold > summary { list-style:none; cursor:pointer; min-height:52px; display:flex;
+    align-items:center; gap:10px; padding:12px 16px; font-size:var(--fs-sub); font-weight:700; }
+  details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary::after { content:"▾"; margin-left:auto; color:var(--muted); transition:transform .18s ease; }
+  details.fold[open] > summary::after { transform:rotate(180deg); }
+  .foldBody { padding:0 16px 16px; }
+
+  table.t { width:100%; border-collapse:collapse; font-size:15px; }
+  table.t th, table.t td { padding:9px 6px; text-align:right; border-bottom:1px solid var(--card); }
+  table.t th:first-child, table.t td:first-child { text-align:left; }
+  table.t thead th { color:var(--muted); font-size:13.5px; font-weight:700; }
+  table.t td { font-variant-numeric:tabular-nums; }
+  table.t.small { font-size:13px; }
+  table.t.small thead th { font-size:12px; }
+  .statusTag { display:inline-block; margin-left:5px; font-size:11px; color:var(--muted);
+    border:1px solid var(--card); border-radius:999px; padding:1px 6px; }
+  .tableScroll { overflow-x:auto; }
+
+  /* 월별 */
+  .months { display:grid; grid-template-columns:repeat(auto-fit,minmax(126px,1fr)); gap:12px; }
+  .mo { background:var(--surface-2); border:1.5px solid var(--card); border-radius:var(--r-md);
+    padding:14px 10px; display:flex; flex-direction:column; align-items:center; gap:8px;
+    text-align:center; min-width:0; }
+  .moName { font-size:16px; font-weight:700; }
+  .moStage { font-size:14px; color:var(--muted); }
+  .moTag { font-size:13px; font-weight:700; color:var(--primary); background:var(--surface);
+    padding:4px 10px; border-radius:999px; }
+  .moBest { border-color:var(--primary); }
+  .bestTag { font-size:12px; font-weight:700; color:var(--on-primary); background:var(--primary);
+    padding:2px 9px; border-radius:999px; }
+
+  /* 밭 상세 bento — 앱은 sp7 + sp5 + sp12 (globals.css .bento) */
+  .bento7-5 { display:grid; grid-template-columns:7fr 5fr; gap:14px; align-items:start; }
+  .bento7-5 > .full { grid-column:1 / -1; }
+  @media (max-width:760px){ .bento7-5 { grid-template-columns:1fr; } }
+
+  /* 챗봇 */
+  .chatHead { display:flex; align-items:center; gap:13px; padding-bottom:14px; border-bottom:1px solid var(--card); }
+  .petFrame { width:64px; height:64px; flex:none; border-radius:18px; background:var(--surface-2);
+    border:1.5px solid var(--card); display:grid; place-items:center; overflow:hidden; font-size:30px; }
+  .petFrame img { width:56px; height:34px; object-fit:contain; }
+  .petName { font-size:18px; font-weight:700; font-family:var(--font-heading); }
+  .petLine { font-size:15px; color:var(--muted); }
+  .expBar { height:9px; border-radius:999px; background:var(--surface-2);
+    border:1px solid var(--card); overflow:hidden; margin-top:7px; }
+  .expFill { height:100%; background:var(--primary); }
+  .questBox { margin-top:12px; border:1px solid var(--card); border-radius:var(--r-sm);
+    background:var(--surface-2); padding:11px 13px; font-size:15px; }
+  .questBox summary { list-style:none; cursor:pointer; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .questBox summary::-webkit-details-marker { display:none; }
+  .questCount { margin-left:auto; font-size:13px; color:var(--muted); }
+  .questList { list-style:none; margin:10px 0 0; display:grid; gap:5px; font-size:14px; }
+  .questList li { display:flex; gap:8px; }
+  .questExp { margin-left:auto; color:var(--muted); font-size:13px; }
+  .petPick { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:11px;
+    padding-top:11px; border-top:1px solid var(--card); font-size:13px; color:var(--muted); }
+  .petButton { border:1px solid var(--card); border-radius:999px; background:var(--surface);
+    color:var(--text); font-family:inherit; font-size:13px; font-weight:700; padding:6px 11px; cursor:pointer; }
+  .petButton[aria-pressed="true"] { border-color:var(--primary); color:var(--primary); }
+  .sessionBar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .sessionSelect { flex:1; min-width:0; border:1px solid var(--card); border-radius:10px;
+    padding:9px 11px; font-family:inherit; font-size:14px; background:var(--surface); color:var(--text); }
+  .sessionButton { border:1px solid var(--card); border-radius:10px; background:var(--surface);
+    color:var(--text); font-family:inherit; font-size:14px; font-weight:700; padding:9px 12px; cursor:pointer; }
+
+  .levelGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+  .levelCard { background:var(--surface); border:1.5px solid var(--card); border-radius:var(--r-md);
+    padding:14px 10px 16px; display:flex; flex-direction:column; align-items:center;
+    gap:8px; text-align:center; min-width:0; }
+  /* 원본이 5:3(320x192) 픽셀아트 — 앱 프레임과 같은 비율로 두고 늘리지 않는다. */
+  .levelCard img { width:100%; max-width:150px; height:auto; aspect-ratio:5/3; object-fit:contain; }
+  .lvTag { font-size:12px; font-weight:700; letter-spacing:.04em; color:var(--on-primary);
+    background:var(--primary); padding:3px 10px; border-radius:999px; }
+  .lvName { font-size:17px; font-weight:700; font-family:var(--font-heading); }
+  .lvHint { font-size:14px; color:var(--muted); }
+  .lvNow { font-size:13px; color:var(--muted); }
+  .arrowRow { display:flex; align-items:center; justify-content:center; gap:8px;
+    color:var(--muted); font-size:14px; margin-top:10px; }
+
+  /* 대화 목록 */
+  .threadList { display:grid; gap:9px; min-width:0; }
+  .thread { display:flex; align-items:center; gap:13px; padding:14px 16px; border-radius:var(--r-md);
+    border:1.5px solid var(--card); background:var(--surface-2); min-height:68px; min-width:0; }
+  .threadIcon { flex:none; color:var(--primary); }
+  .threadIcon .ico { width:21px; height:21px; }
+  .threadBody { min-width:0; flex:1; }
+  .threadTitle { font-size:var(--fs-sub); font-weight:700; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .threadMeta { font-size:14px; color:var(--muted); }
+  .threadGo { flex:none; color:var(--primary); font-weight:700; font-size:15px; }
+  .empty { display:flex; flex-direction:column; align-items:center; gap:8px;
+    padding:30px 16px; text-align:center; color:var(--muted); }
+  .empty .ico { width:28px; height:28px; color:var(--muted); }
+  .emptyBadge { font-size:12px; font-weight:700; color:var(--muted);
+    border:1px solid var(--card); border-radius:999px; padding:2px 9px; }
+  .pageH1 { font-size:22px; color:var(--primary); margin:0 0 4px; }
+  .pageSub { font-size:var(--fs-sub); color:var(--muted); margin:0 0 16px; }
+
+  /* 타이포 비교 */
+  .typo { display:grid; gap:10px; }
+  .typoRow { display:grid; grid-template-columns:96px 1fr; gap:14px; align-items:center;
+    padding:11px 14px; border-radius:var(--r-sm); background:var(--surface-2);
+    border:1px solid var(--card); min-width:0; }
+  .typoKey { font-size:12.5px; color:var(--muted); font-weight:700; }
+
+  .noteList { margin:14px 0 0 58px; padding:0; list-style:none; display:grid; gap:9px; max-width:76ch; }
+  @media (max-width:640px){ .noteList { margin-left:0; } }
+  /* li를 flex로 두면 안의 code·b 하나하나가 별개 flex 아이템이 되어 줄이 들쭉날쭉해진다.
+     마커만 절대배치하고 본문은 인라인 흐름 그대로 둔다. */
+  .noteList li { display:block; position:relative; padding-left:22px;
+    font-size:var(--fs-sub); color:var(--muted); }
+  .noteList li::before { content:"→"; position:absolute; left:0; top:0;
+    color:var(--primary); font-weight:800; }
+  .noteList b { color:var(--text); font-weight:700; }
+  .noteList .warnNote::before { content:"!"; color:var(--warn-strong); }
+  .noteList .fixNote::before { content:"✕"; color:var(--bad); }
+  .noteList .doneNote::before { content:"✓"; color:var(--good); }
+
+  /* 이름 후보 */
+  .names { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin-top:6px; }
+  .nameCard { background:var(--surface); border:1.5px solid var(--card);
+    border-radius:var(--r-md); padding:15px 16px; min-width:0; }
+  .nameCard h4 { margin:0 0 6px; font-size:19px; }
+  .nameCard p { margin:0; font-size:14.5px; color:var(--muted); }
+  .nameCard.pick { border-color:var(--primary); }
+  .nameCard .rec { display:inline-block; font-size:11.5px; font-weight:700;
+    color:var(--on-primary); background:var(--primary); padding:2px 8px;
+    border-radius:999px; margin-left:6px; vertical-align:2px; font-family:var(--font-body); }
+
+  .ask { max-width:1180px; margin:46px auto 0; padding:0 22px; }
+  .askInner { border:2px dashed var(--card); border-radius:var(--r-lg); padding:24px 26px; background:var(--surface); }
+  .askInner h2 { margin:0 0 12px; font-size:21px; }
+  .askInner ol { margin:0; padding-left:1.2em; display:grid; gap:10px; font-size:var(--fs-sub); }
+  .askInner b { color:var(--primary); }
+
+  hr.sep { border:0; border-top:1px solid var(--deck-line); max-width:1180px; margin:34px auto 0; }
+  @media (prefers-reduced-motion: reduce){ *{ transition-duration:.01ms !important; animation-duration:.01ms !important; } }
+</style>
+</head>
+<body>
+
+<!-- ═══ SVG 스프라이트 ═══
+     아이콘: lucide-react v1.28.0 원본 path(앱이 쓰는 것과 같은 자산, ISC).
+     캐릭터 임시 SVG는 걷어냈다 — 3번은 실제 앱 자산(assets/pet/*.png)을 쓴다. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-tree" viewBox="0 0 24 24">
+    <path d="M8 19a4 4 0 0 1-2.24-7.32A3.5 3.5 0 0 1 9 6.03V6a3 3 0 1 1 6 0v.04a3.5 3.5 0 0 1 3.24 5.65A4 4 0 0 1 16 19Z"/>
+    <path d="M12 19v3"/>
+  </symbol>
+  <symbol id="i-notebook" viewBox="0 0 24 24">
+    <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/>
+    <path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/>
+    <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>
+  </symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24">
+    <path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+    <path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/>
+    <path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/>
+  </symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+    <path d="M12 9v4"/><path d="M12 17h.01"/>
+  </symbol>
+  <symbol id="i-range" viewBox="0 0 24 24">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M16 2v3"/><path d="M3 9h18"/>
+    <path d="M8 2v3"/><path d="M17 13h-6"/><path d="M13 17H7"/><path d="M7 13h.01"/><path d="M17 17h.01"/>
+  </symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24">
+    <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+  </symbol>
+
+
+
+
+</defs></svg>
+
+<button class="themeBtn" type="button" id="themeBtn">라이트 모드로 보기</button>
+
+<header class="deckHead">
+  <p class="eyebrow">For Your Farm · UI 시안 v2 — 확정용</p>
+  <h1>도넛은 그대로, 가운데 숫자만 등급으로</h1>
+  <p class="deckLead">
+    1차 시안 피드백을 반영했습니다. 색·간격·글자 크기는 앱의 기존 토큰
+    (<strong>이삭 골드 #F59E0B</strong>, 등급색 4종)을 그대로 씁니다.
+  </p>
+  <p class="deckLead" style="margin-top:10px">
+    <strong style="color:var(--primary)">3번 캐릭터만 코드에 적용됐습니다</strong>(로컬, 미커밋).
+    나머지 1·2·4·5·6·7 항목은 <strong>아직 제안 상태</strong>라 "현재" 칸이 곧 지금 화면입니다.
+  </p>
+  <div class="revised">
+    <b>v1에서 바뀐 것</b>
+    <ul>
+      <li><b>등급 표시</b> — 큰 사각 블록을 버리고 <b>기존 도넛 그래프를 유지</b>, 가운데 숫자(78)를 <b>등급(A)</b>으로 교체. 1·4·6번 전부 같은 방식</li>
+      <li><b>이모지 전면 제거</b> — 🙂😐😟 없앴습니다. 등급 글자 + 단어 + 색 3중 표기로 충분합니다</li>
+      <li><b>캐릭터 1명</b>으로 통일 — 펫 선택(새싹이/흙강아지)을 없애고 제비 한 마리가 4단계로 자랍니다</li>
+      <li><b>시간별 1시간 단위 + 좌우 스크롤</b> — 실호출로 데이터 확인 완료(아래 5번)</li>
+    </ul>
+  </div>
+  <div class="revised audit">
+    <b>v2 → 이 문서(확정본)에서 dev와 맞춘 것</b>
+    <p style="margin:6px 0 0">
+      "현재" 칸을 <b>origin/dev <code>394fc81</code> 실제 코드</b>로 다시 그렸습니다. 아이콘·수치·순서를
+      기억으로 적었던 곳이 여러 군데 틀려 있었고, 제안 중 <b>코드와 충돌하는 3건</b>을 발견해
+      아래 <span style="color:var(--bad)">✕ 표시</span>로 남겼습니다.
+    </p>
+    <ul>
+      <li>앱은 <b>이모지가 아니라 lucide 아이콘</b>을 씁니다(🍎📓⚠️ → TreeDeciduous·NotebookPen·TriangleAlert). 이 문서는 실제 lucide path로 다시 그렸습니다</li>
+      <li>도넛 가운데는 지금 <b>숫자 + "적합도" 라벨 2줄</b>입니다(숫자 하나가 아님) — <code>Gauge.tsx:46-49</code></li>
+      <li>날짜 카드 점수는 <b>20px</b>입니다(34px 아님) — <code>farm.module.css:526</code></li>
+      <li>단기 탭은 세로 스택이 아니라 <b>예보(sp7) + 위험(sp5) 2열 bento</b>입니다. "위험이 아래"는 <b>모바일에서만</b> 맞습니다</li>
+      <li>대화 목록은 이미 FE에 있습니다 — 챗봇 안 <b>드롭다운 + 새 대화/삭제</b>(<code>ChatPanel.tsx:268-314</code>). 2번은 신규가 아니라 <b>이사</b>입니다</li>
+      <li>"준비 중" 카드는 1개가 아니라 <b>3개</b>입니다(기록 페이지 1 + 대시보드 2)</li>
+      <li>캐릭터 자산은 없지만 <b>교체 지점은 이미 있었습니다</b>(<code>lib/pet.ts</code> PET_IMAGE) — 다만 <b>펫 코드</b>로 키가 걸려 있어 <b>단계별</b> 그림에는 키를 바꿔야 했습니다 → <b>STAGE_IMAGE로 교체 완료</b></li>
+      <li>3번의 제비 그림은 이제 <b>실제 앱 자산</b>입니다(<code>frontend/public/assets/pet/*.png</code>) — 임시 SVG를 걷어냈습니다</li>
+    </ul>
+  </div>
+</header>
+
+<nav class="jump" aria-label="항목 바로가기">
+  <div class="jumpInner">
+    <a class="chip" href="#i1"><i>1</i> 대시보드</a>
+    <a class="chip" href="#i2"><i>2</i> 대화 기록</a>
+    <a class="chip" href="#i3"><i>3</i> 캐릭터</a>
+    <a class="chip" href="#i4"><i>4</i> 밭 상세</a>
+    <a class="chip" href="#i5"><i>5</i> 시간별 날씨</a>
+    <a class="chip" href="#i6"><i>6</i> 장기탭</a>
+    <a class="chip" href="#i7"><i>7·8</i> 가독성</a>
+  </div>
+</nav>
+
+<!-- ── 1 ── -->
+<section class="item" id="i1">
+  <div class="itemHead"><span class="badgeNo">1</span>
+    <h2>대시보드 — 도넛 가운데를 점수에서 등급으로</h2></div>
+  <p class="why">
+    도넛의 <strong>호(arc) 길이가 점수</strong>를 그대로 보여주므로, 가운데 숫자는 같은 정보를 두 번 말하는 것입니다.
+    그 자리를 <strong>등급</strong>으로 바꾸면 "얼마나"와 "그래서 괜찮은가"를 한 번에 읽습니다.
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>app/dashboard/page.tsx:125-166</code> FarmCard ·
+    <code>components/ui/Gauge.tsx</code> (viewBox 120, r=48, stroke 13, size 96, 가운데 <b>숫자 + "적합도"</b>) ·
+    <code>components/GradeBadge.tsx</code> (S 매우 적합 / A 적합 / B 주의 / C 부적합) ·
+    작물 아이콘은 <b>lucide TreeDeciduous·Sprout</b>(과수/그 외), 이모지 아님.
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재 (dev 그대로)</span>
+      <div class="screen dim">
+        <div class="card"><div class="field">
+          <div class="fieldTop">
+            <span class="cropBadge"><svg class="ico"><use href="#i-tree"/></svg></span>
+            <div><h3 class="fieldName">앞밭 사과</h3><div class="fieldLoc">사과 · 경북 문경시</div></div>
+            <div class="dial lg" style="margin-left:auto" role="img" aria-label="적합도 78점">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--grade-a)" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="66.4"/>
+              </svg>
+              <span class="gaugeVal"><span class="gaugeNum">78</span><small class="gaugeLbl">적합도</small></span>
+            </div>
+          </div>
+          <div class="fieldFoot">
+            <span class="badge g-a">A 적합</span>
+            <span class="stage" style="margin-left:auto">착과기</span>
+          </div>
+        </div>
+        <p class="wholeCardHint">카드 전체가 <code>/farm/1</code> 링크 — 버튼 없음</p>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안</span>
+      <div class="screen">
+        <div class="card"><div class="field">
+          <div class="fieldTop">
+            <span class="cropBadge"><svg class="ico"><use href="#i-tree"/></svg></span>
+            <div><h3 class="fieldName">앞밭 사과</h3><div class="fieldLoc">사과 · 경북 문경시</div></div>
+            <div class="dial lg g-a" style="margin-left:auto" role="img" aria-label="적합도 A등급, 적합, 78점">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="66.4"/>
+              </svg>
+              <span class="dialIn"><span class="dialLetter">A</span><span class="dialWord">적합</span></span>
+            </div>
+          </div>
+          <div class="fieldFoot">
+            <span class="stage">착과기</span>
+            <span class="scoreSmall" style="margin-left:auto">78점</span>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li><b>호 길이는 그대로 점수</b>입니다 — 78점이면 78% 채워집니다. 숫자만 안 보일 뿐 정보는 안 사라집니다</li>
+    <li>도넛 안의 <b>"적합도" 라벨이 빠집니다</b>(등급 단어가 그 자리를 씁니다). <code>Gauge</code>에 <code>mode="grade"</code> 한 갈래를 더하고, 점수 없음(<code>value===null</code>)이면 지금처럼 "—"로 둡니다</li>
+    <li>아래 중복되던 <b>"A 적합" 배지를 제거</b>했습니다. 도넛 안에 이미 있으니 같은 말을 두 번 하지 않습니다</li>
+    <li>색만으로 구분하지 않습니다 — <b>글자(A) + 단어(적합)</b>가 항상 함께라 색각 이상에서도 읽힙니다</li>
+    <li class="fixNote">v2의 <b>"자세히 보기 →" 버튼은 넣지 않습니다.</b> 카드 전체가 이미 <code>&lt;Link&gt;</code>라
+      그 안에 또 링크를 넣으면 중첩 인터랙티브(<code>a</code> 안의 <code>a</code>)가 됩니다 — HTML 위반이고
+      스크린리더가 두 번 읽습니다. 그 자리에 <b>점수 13px</b>을 넣었습니다</li>
+    <li><b>점수 없음</b> 밭은 도넛이 트랙만 그려집니다(<code>card.score === null</code>) — 이때는 등급도 없으니
+      기존 <code>GradeBadge</code>의 상태 문구("데이터 없음" 등)를 그대로 남겨야 합니다</li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 2 ── -->
+<section class="item" id="i2">
+  <div class="itemHead"><span class="badgeNo">2</span>
+    <h2>기록 탭 — 행동기록을 빼고 챗봇 대화로</h2></div>
+  <p class="why">
+    지금 기록 탭은 <strong>"준비 중"</strong> 빈 카드입니다. 행동기록은 유저가 직접 입력해야 하는데 그 화면이
+    없어 영원히 빈 채로 남습니다. 대신 <strong>이미 쌓이고 있는</strong> 챗봇 대화를 올립니다 —
+    <code>GET /chat/sessions</code>가 있고, <strong>FE 함수까지 이미 있습니다</strong>.
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>app/history/page.tsx</code> (h1 "행동 기록" + "기록 타임라인" 준비 중 카드) ·
+    대시보드에도 준비 중 카드가 <b>2개 더</b> 있음(<code>page.tsx:243-250</code> 행동 기록,
+    <code>:263-270</code> 최근 기록) ·
+    대화 목록은 <b>이미 챗봇 안에 있음</b> — <code>ChatPanel.tsx:268-314</code>의 select + "+ 새 대화" + "삭제",
+    <code>lib/chat.ts</code>의 <code>fetchChatSessions / switchChatSession / deleteChatSession</code>.
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재 ① 기록 페이지</span>
+      <div class="screen dim">
+        <h3 class="pageH1">행동 기록</h3>
+        <p class="pageSub">밭에서 한 일과 시스템이 감지한 변화를 시간순으로 모아 보는 공간입니다.</p>
+        <div class="card">
+          <div class="cardHead"><svg class="ico"><use href="#i-notebook"/></svg> 기록 타임라인 <span class="tag">준비 중</span></div>
+          <div class="empty">
+            <span class="emptyBadge">준비 중</span>
+            <svg class="ico"><use href="#i-notebook"/></svg>
+            <b style="color:var(--text)">아직 준비 중인 기능이에요</b>
+            <span style="font-size:15px">관수·적과 같은 행동 기록과 위험 감지 이력이<br>여기에 쌓일 예정입니다.</span>
+          </div>
+        </div>
+      </div>
+      <span class="paneTag tagNow" style="margin-top:6px">현재 ② 챗봇 안 대화 전환</span>
+      <div class="screen dim">
+        <div class="card">
+          <div class="sessionBar">
+            <select class="sessionSelect">
+              <option>사과 유기물이 권장 범위를 벗어났는데… · 6개</option>
+            </select>
+            <button class="sessionButton" type="button">+ 새 대화</button>
+            <button class="sessionButton" type="button">삭제</button>
+          </div>
+          <p style="margin:10px 0 0; font-size:14.5px; color:var(--muted)">
+            제목·개수는 이미 서버가 줍니다. 다만 <b style="color:var(--text)">드롭다운을 열어야</b> 보입니다.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안 — 같은 데이터를 기록 탭으로</span>
+      <div class="screen">
+        <div class="card">
+          <div class="cardHead"><svg class="ico"><use href="#i-chat"/></svg> 텃밭이와 나눈 이야기 <span class="tag">12개</span></div>
+          <div class="threadList">
+            <div class="thread"><span class="threadIcon"><svg class="ico"><use href="#i-chat"/></svg></span>
+              <div class="threadBody">
+                <div class="threadTitle">사과 유기물이 권장 범위를 벗어났는데…</div>
+                <div class="threadMeta">오늘 · 6개 메시지</div>
+              </div><span class="threadGo">이어서 →</span></div>
+            <div class="thread"><span class="threadIcon"><svg class="ico"><use href="#i-chat"/></svg></span>
+              <div class="threadBody">
+                <div class="threadTitle">요즘 낮에 37도까지 오르는데 괜찮을까요?</div>
+                <div class="threadMeta">어제 · 4개 메시지</div>
+              </div><span class="threadGo">이어서 →</span></div>
+            <div class="thread"><span class="threadIcon"><svg class="ico"><use href="#i-chat"/></svg></span>
+              <div class="threadBody">
+                <div class="threadTitle">적과는 언제 하는 게 좋나요?</div>
+                <div class="threadMeta">8월 2일 · 8개 메시지</div>
+              </div><span class="threadGo">이어서 →</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li>제목은 <b>그 대화의 첫 질문</b>을 자른 것 — 서버가 이미 <code>title</code>로 돌려줍니다</li>
+    <li>줄을 누르면 <b>그 대화가 이어진 채로</b> 챗봇이 열립니다 — <code>ChatPanel</code>의 <code>openSession(sid)</code>이 이미 하는 일입니다(새 API·새 로직 0)</li>
+    <li class="warnNote"><b>날짜가 없습니다.</b> 화면의 "오늘 · 어제 · 8월 2일"을 그리려면
+      <code>ChatSessionSummary</code>에 <code>updated_at</code>이 필요합니다 —
+      지금 계약은 <code>session_id · title · message_count</code>뿐입니다(백엔드 1줄 추가)</li>
+    <li>탭 이름 <b>"행동 기록" → "대화 기록"</b>이 필요합니다(아래 확인 요청 2번).
+      <code>Navigation.tsx</code>·<code>history/page.tsx</code>의 h1·<code>metadata.title</code> 3곳</li>
+    <li>준비 중 카드는 <b>3개</b>입니다. 기록 페이지를 대화로 채우면 대시보드의 "행동 기록"·"최근 기록"
+      두 칸은 <b>지우는 편이 낫습니다</b> — 같은 약속을 세 번 하고 세 번 안 지키는 화면이 됩니다</li>
+    <li>챗봇 안 드롭다운은 <b>남겨둡니다</b>. 대화 중 전환은 거기가 맞는 자리고, 기록 탭은 훑어보는 자리입니다</li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 3 ── -->
+<section class="item" id="i3">
+  <div class="itemHead"><span class="badgeNo">3</span>
+    <h2>캐릭터 — 제비 한 마리가 4단계로 자랍니다 <span style="font-size:.62em;color:var(--primary);vertical-align:3px">✅ 코드 적용됨</span></h2></div>
+  <p class="why">
+    <strong style="color:var(--primary)">이 항목은 로컬에 적용됐습니다(미커밋).</strong>
+    종전 백엔드에는 펫이 <strong>2종(새싹이·흙강아지)</strong>이고 유저가 골랐습니다.
+    캐릭터를 하나로 통일해 <strong>선택 기능을 통째로 지웠습니다</strong> —
+    <code>PUT /api/v1/pet</code>·<code>pets</code>·<code>changePet()</code>·<code>.petPick</code>.
+    레벨 구간(Lv1/3/6/10)은 이미 4단계라 그대로 씁니다.
+  </p>
+  <p class="src">
+    <b>변경 전(dev 394fc81)</b> — <code>backend/app/services/quest_service.py:32-61</code>:
+    퀘스트 <b>단기탭 +10 · 장기탭 +10 · 질문 +20</b>, <code>EXP_PER_LEVEL = 100</code>,
+    <code>PET_STAGES</code> = 씨앗(Lv1) 🌰🥚 / 새싹(Lv3) 🌱🐣 / 자람(Lv6) 🌿🐕 / 열매(Lv10) 🌻🐕‍🦺,
+    <code>PETS = (("sprout","새싹이"),("pup","흙강아지"))</code> ·
+    표시는 <code>ChatPanel.tsx:242-262</code>(펫 emoji + <code>Lv.N · 단계</code>),
+    선택 UI는 <code>PetQuestBar.tsx:64-83</code> ·
+    일러스트 교체 지점 <code>lib/pet.ts</code> <code>PET_IMAGE</code>(비어 있음 → emoji 폴백).
+  </p>
+  <div class="compare solo">
+    <div class="pane">
+      <span class="paneTag tagNew">적용됨 — 한 마리의 성장 (실제 앱 자산, 레벨 구간은 dev 그대로)</span>
+      <div class="screen">
+        <div class="levelGrid">
+          <div class="levelCard">
+            <img src="../frontend/public/assets/pet/egg.png" alt="1단계 알">
+            <span class="lvTag">Lv 1–2</span><span class="lvName">알</span>
+            <span class="lvHint">막 시작했어요</span>
+            <span class="lvNow"><code>egg</code></span>
+          </div>
+          <div class="levelCard">
+            <img src="../frontend/public/assets/pet/chick.png" alt="2단계 아기 제비">
+            <span class="lvTag">Lv 3–5</span><span class="lvName">아기 제비</span>
+            <span class="lvHint">알에서 깨어났어요</span>
+            <span class="lvNow"><code>chick</code></span>
+          </div>
+          <div class="levelCard">
+            <img src="../frontend/public/assets/pet/fledgling.png" alt="3단계 어린 제비">
+            <span class="lvTag">Lv 6–9</span><span class="lvName">어린 제비</span>
+            <span class="lvHint">날갯짓을 배워요</span>
+            <span class="lvNow"><code>fledgling</code></span>
+          </div>
+          <div class="levelCard">
+            <img src="../frontend/public/assets/pet/swallow.png" alt="4단계 다 자란 제비">
+            <span class="lvTag">Lv 10+</span><span class="lvName">제비</span>
+            <span class="lvHint">함께 날아요</span>
+            <span class="lvNow"><code>swallow</code></span>
+          </div>
+        </div>
+        <p class="arrowRow">단기 탭 +10 · 장기 탭 +10 · 질문하기 +20 → 100 경험치마다 1레벨 (하루 다 하면 40exp)</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="compare" style="margin-top:18px">
+    <div class="pane">
+      <span class="paneTag tagNow">변경 전 — 챗봇 헤더 + 펫 선택 (로그인)</span>
+      <div class="screen dim">
+        <div class="card">
+          <div class="chatHead">
+            <span class="petFrame">🌿</span>
+            <div style="flex:1"><div class="petName">새싹이</div>
+              <div class="petLine">Lv.7 · 자람</div></div>
+          </div>
+          <details class="questBox" open>
+            <summary><span aria-hidden="true">🌿</span><span>Lv.7 새싹이 · 자람</span>
+              <span class="questCount">오늘 퀘스트 1/3</span></summary>
+            <div class="expBar"><span class="expFill" style="width:64%"></span></div>
+            <ul class="questList">
+              <li><span aria-hidden="true">✅</span><span>오늘 단기 탭 확인하기</span><span class="questExp">완료</span></li>
+              <li><span aria-hidden="true">⬜</span><span>장기 탭 확인하기</span><span class="questExp">+10</span></li>
+              <li><span aria-hidden="true">⬜</span><span>텃밭이에게 질문하기</span><span class="questExp">+20</span></li>
+            </ul>
+            <div class="petPick"><span>펫 바꾸기</span>
+              <button class="petButton" type="button" aria-pressed="true" disabled>🌱 새싹이</button>
+              <button class="petButton" type="button">🐣 흙강아지</button>
+            </div>
+          </details>
+          <p style="margin:10px 0 0; font-size:14.5px; color:var(--muted)">
+            이름은 <b style="color:var(--text)">펫 이름(새싹이)</b>이 나옵니다 — "텃밭이"는 게스트일 때만.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">적용됨 — 챗봇 헤더</span>
+      <div class="screen">
+        <div class="card">
+          <div class="chatHead">
+            <span class="petFrame"><img src="../frontend/public/assets/pet/fledgling.png" alt=""></span>
+            <div style="flex:1">
+              <div class="petName">텃밭이 <span style="font-size:14px;color:var(--primary);font-weight:700">Lv.7 어린 제비</span></div>
+              <div class="petLine">오늘 질문하면 <b style="color:var(--text)">+20</b> 자라요</div>
+              <div class="expBar"><span class="expFill" style="width:64%"></span></div>
+            </div>
+          </div>
+          <details class="questBox" open>
+            <summary><span aria-hidden="true"><svg class="ico" style="width:18px;height:18px;color:var(--primary)"><use href="#i-chat"/></svg></span>
+              <span>Lv.7 텃밭이 · 어린 제비</span>
+              <span class="questCount">오늘 퀘스트 1/3</span></summary>
+            <ul class="questList">
+              <li><span aria-hidden="true">✓</span><span>오늘 단기 탭 확인하기</span><span class="questExp">완료</span></li>
+              <li><span aria-hidden="true">·</span><span>장기 탭 확인하기</span><span class="questExp">+10</span></li>
+              <li><span aria-hidden="true">·</span><span>텃밭이에게 질문하기</span><span class="questExp">+20</span></li>
+            </ul>
+          </details>
+          <p style="margin:10px 0 0; font-size:14.5px; color:var(--muted)">
+            <b style="color:var(--text)">펫 바꾸기 줄이 사라집니다</b> — 고를 것이 없습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="why" style="margin-top:24px; margin-bottom:10px">
+    <strong>이름은 아직 안 정했습니다.</strong> 제비는 한국 농가에서 실제로 의미가 있는 새라
+    (봄에 처마에 둥지 → 농사 시작 신호 / 해충을 잡아먹는 익조 / 흥부전에서 소식과 복을 물어다 줌)
+    그 결을 살린 후보를 뽑았습니다.
+  </p>
+  <div class="names">
+    <div class="nameCard pick">
+      <h4>텃밭이 유지 <span class="rec">추천</span></h4>
+      <p>이름은 그대로 두고 <b>생김새만</b> 제비로. 챗봇 프롬프트·안내 문구가 전부 "텃밭이"라
+      이름을 바꾸면 프롬프트 버전을 올리고 재검증해야 합니다. 비용 0.</p>
+    </div>
+    <div class="nameCard">
+      <h4>강남이</h4>
+      <p>"강남 갔던 제비가 돌아온다" — 봄에 돌아오는 제비. 40~50대에게 즉시 통하는 관용구라
+      설명이 필요 없습니다.</p>
+    </div>
+    <div class="nameCard">
+      <h4>소식이</h4>
+      <p>날씨·위험을 <b>미리 물어다 주는</b> 역할이 곧 제품의 핵심(선제적 안내)입니다.
+      이름이 하는 일을 그대로 설명합니다.</p>
+    </div>
+    <div class="nameCard">
+      <h4>제비</h4>
+      <p>군더더기 없이 종 이름 그대로. 다만 고유명사 느낌이 약해 "우리 제비"처럼
+      쓰이기 어렵습니다.</p>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li class="doneNote"><b>이름 = 텃밭이 유지</b> → 챗봇 프롬프트를 안 건드렸습니다.
+      PROMPT_VERSION 그대로, 답변 품질 재검증 없음(비용 0)</li>
+    <li class="doneNote"><b>로그인해도 "텃밭이"가 뜹니다.</b> 종전엔 <code>progress.pet.name</code>이
+      <b>"새싹이"</b>였고 "텃밭이"는 게스트 폴백뿐이었습니다 →
+      <code>PETS</code> 튜플을 지우고 <code>PET_NAME = "텃밭이"</code> 한 줄로</li>
+    <li class="doneNote">단계 이름 <b>씨앗·새싹·자람·열매 → 알·아기 제비·어린 제비·제비</b>.
+      레벨 경계(1/3/6/10)는 <b>그대로</b> — 기존 유저의 레벨이 움직이지 않습니다</li>
+    <li class="doneNote"><b>선택 API·화면 삭제</b> — <code>PUT /api/v1/pet</code>,
+      <code>PetChangeRequest</code>, <code>set_pet()</code>, <code>pet_of()</code>, <code>PETS/PET_CODES</code>,
+      <code>changePet()</code>, <code>PetOption</code>, <code>QuestProgress.pets</code>,
+      <code>.petPick/.petButton</code> CSS. <b>순삭 −80줄</b></li>
+    <li class="doneNote"><b>키를 펫 코드 → 단계 코드로</b> 바꿨습니다.
+      <code>PetState.code</code> → <code>PetState.stage_code</code>(<code>egg·chick·fledgling·swallow</code>),
+      <code>PET_IMAGE</code> → <code>STAGE_IMAGE</code>. 단계 코드가 곧 파일명이라
+      <b>어긋나면 테스트가 잡습니다</b>(<code>test_quest_progress.py</code>)</li>
+    <li class="doneNote">원본이 <b>2816×192 흰 배경</b>이라 그대로 쓰면 다크 테마에서 흰 박스가 됩니다 —
+      흰색을 알파로 빼고 네 장을 <b>같은 bbox·같은 배율(320×192)</b>로 맞췄습니다.
+      각자 타이트하게 자르면 단계마다 크기·바닥선이 튑니다</li>
+    <li class="warnNote">프레임은 <b>5:3 가로형</b>입니다. 종전 <code>.avatarImg</code>·<code>.questPetIcon</code>의
+      <code>border-radius:50%</code>를 지웠습니다 — 원형으로 자르면 날개 편 단계가 잘립니다</li>
+    <li class="warnNote"><b>남은 것: 우하단 플로팅 버튼이 아직 자라지 않습니다.</b>
+      지금은 다 자란 제비 고정(<code>LAUNCHER_ICON</code>) — 단계를 따라가려면 <code>ChatDock</code>이
+      퀘스트 진행도를 조회해야 해서 다음 작업으로 뺐습니다</li>
+    <li class="warnNote"><b>남은 것: <code>users.pet_code</code> 컬럼이 죽었습니다.</b>
+      아무도 안 읽지만 drop은 마이그레이션이 필요해 남겨뒀습니다(<code>quest_service.py</code> ponytail 주석)</li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 4 ── -->
+<section class="item" id="i4">
+  <div class="itemHead"><span class="badgeNo">4</span>
+    <h2>밭 상세 — 위험신호를 맨 위로, 도넛은 등급으로</h2></div>
+  <p class="why">
+    이 탭의 존재 이유는 "야간 저온 3일을 미리 몰라 활착에 실패했다"는 A씨 사례입니다 —
+    <strong>가장 급한 것이 가장 위</strong>에 와야 합니다. 날짜 카드의 점수는 도넛 등급으로 대체합니다.
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>ShortTermPanel.tsx:188-210</code>: 세로 스택이 <b>아님</b>.
+    <code>.bento</code> 안에 <b>3일 예보 sp7 + 감지된 위험신호 sp5</b>가 나란히, 행동추천이 sp12로 아래.
+    1080px 이하에서만 전부 1열이 됩니다 → v2가 말한 "위험이 예보 아래"는 <b>모바일에서만</b> 참 ·
+    날짜 카드(<code>:102-154</code>)는 등급 글자 + <b>20px 점수</b> + 생육단계 + 지표 3개
+    (<b>낮 최고기온</b>·야간 최저·강수) + "기온 변화 보기" 버튼 ·
+    위험 문구는 <code>types/farm.ts</code>의 <code>describeRiskFlag()</code>가 만듭니다.
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재 (데스크톱 bento: sp7 + sp5 + sp12)</span>
+      <div class="screen dim">
+        <div class="bento7-5">
+          <div class="card" style="padding:14px">
+            <div class="cardHead" style="margin-bottom:10px"><svg class="ico"><use href="#i-calendar"/></svg> 3일 예보 <span class="tag">오늘 02시 발표</span></div>
+            <div class="dayGrid">
+              <div class="dayCard">
+                <div class="dayHead"><span class="dayDate">8/5 (화)</span><span class="cellGrade g-b">B</span></div>
+                <div class="cellScore g-b">64</div>
+                <div class="dayStage">착과기</div>
+                <dl class="metrics">
+                  <div><dt>낮 최고기온</dt><dd>37℃</dd></div>
+                  <div><dt>야간 최저</dt><dd>29℃</dd></div>
+                  <div><dt>강수</dt><dd>0mm</dd></div>
+                </dl>
+                <p class="partialTag">일부 시간대만 반영</p>
+                <button class="dayMore" type="button">기온 변화 보기</button>
+              </div>
+              <div class="dayCard">
+                <div class="dayHead"><span class="dayDate">8/6 (수)</span><span class="cellGrade g-a">A</span></div>
+                <div class="cellScore g-a">81</div>
+                <div class="dayStage">착과기</div>
+                <dl class="metrics">
+                  <div><dt>낮 최고기온</dt><dd>33℃</dd></div>
+                  <div><dt>야간 최저</dt><dd>26℃</dd></div>
+                  <div><dt>강수</dt><dd>2mm</dd></div>
+                </dl>
+                <button class="dayMore" type="button">기온 변화 보기</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:14px">
+            <div class="cardHead" style="margin-bottom:10px"><svg class="ico"><use href="#i-warn"/></svg> 감지된 위험신호 <span class="tag">1건</span></div>
+            <div class="risk"><span class="riskEx" aria-hidden="true">!</span>
+              <div><strong>낮 기온 허용범위 초과</strong> — 2일 연속 예상
+                <span class="riskDates">(8/5 (화), 8/6 (수))</span></div></div>
+          </div>
+          <div class="advice full"><p class="adviceTitle">오늘 이렇게 하세요
+              <span class="adviceTag">자동 생성 문구</span></p>
+            <p class="adviceText">한낮 물주기는 피하고 아침·저녁 서늘할 때 관수하세요.</p>
+            <p class="adviceSoil">이 밭은 유기물이 권장 범위보다 낮습니다(시군 평균 기준).</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안 순서 (1열 고정: sp12 · sp12 · sp12)</span>
+      <div class="screen">
+        <div style="display:grid; gap:12px;">
+          <div class="card" style="padding:14px; border-color:color-mix(in oklab,var(--warn) 55%,transparent)">
+            <div class="cardHead" style="margin-bottom:10px; color:var(--warn-strong)"><svg class="ico"><use href="#i-warn"/></svg> 지금 주의하세요 <span class="tag">1건</span></div>
+            <div class="risk"><span class="riskEx" aria-hidden="true">!</span>
+              <div><strong>한낮이 너무 덥습니다</strong> — 2일 연속<br>
+                <span class="riskDates">8월 5일, 6일 · 사과가 견디는 한계(31℃)를 넘습니다</span></div></div>
+          </div>
+          <div class="advice"><p class="adviceTitle">오늘 이렇게 하세요
+              <span class="adviceTag">자동 생성 문구</span></p>
+            <p class="adviceText">한낮 물주기는 피하고 아침·저녁 서늘할 때 관수하세요.</p>
+            <p class="adviceSoil">이 밭은 유기물이 권장 범위보다 낮습니다(시군 평균 기준).</p></div>
+          <div class="card" style="padding:14px">
+            <div class="cardHead" style="margin-bottom:10px"><svg class="ico"><use href="#i-calendar"/></svg> 3일 예보 <span class="tag">오늘 02시 발표</span></div>
+            <div class="dayGrid">
+              <div class="dayCard centered">
+                <div class="dayHead"><span class="dayDate">8/5 (화)</span><span class="scoreSmall">64점</span></div>
+                <div class="dial sm g-b" role="img" aria-label="B등급 주의, 64점">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                    <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                            stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="108.6"/>
+                  </svg>
+                  <span class="dialIn"><span class="dialLetter">B</span><span class="dialWord">주의</span></span>
+                </div>
+                <div class="dayStage">착과기</div>
+                <dl class="metrics">
+                  <div><dt>낮 최고</dt><dd>37℃</dd></div>
+                  <div><dt>야간 최저</dt><dd>29℃</dd></div>
+                  <div><dt>강수</dt><dd>0mm</dd></div>
+                </dl>
+                <p class="partialTag">일부 시간대만 반영</p>
+                <button class="dayMore" type="button">시간별 날씨 보기</button>
+              </div>
+              <div class="dayCard centered">
+                <div class="dayHead"><span class="dayDate">8/6 (수)</span><span class="scoreSmall">81점</span></div>
+                <div class="dial sm g-a" role="img" aria-label="A등급 적합, 81점">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                    <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                            stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="57.3"/>
+                  </svg>
+                  <span class="dialIn"><span class="dialLetter">A</span><span class="dialWord">적합</span></span>
+                </div>
+                <div class="dayStage">착과기</div>
+                <dl class="metrics">
+                  <div><dt>낮 최고</dt><dd>33℃</dd></div>
+                  <div><dt>야간 최저</dt><dd>26℃</dd></div>
+                  <div><dt>강수</dt><dd>2mm</dd></div>
+                </dl>
+                <button class="dayMore" type="button">시간별 날씨 보기</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li>순서: <b>위험신호 → 행동추천 → 예보</b>. 지금은 <code>Card span={7}</code>/<code>span={5}</code>가
+      나란히 서므로 <b>span을 12로 바꾸고 JSX 순서를 재배치</b>하는 변경입니다(CSS만으로는 안 됩니다)</li>
+    <li>위험 문구를 <b>사람 말</b>로 — <code>describeRiskFlag()</code>의 "낮 기온 허용범위 초과" 대신
+      "한낮이 너무 덥습니다 · 사과가 견디는 한계(31℃)를 넘습니다".
+      <b>한계 수치(31℃)는 시드에서 옵니다</b>(<code>breakdown.temp_day.allowed_max</code>) — 하드코딩 금지</li>
+    <li>위험이 없는 날은 카드가 통째로 빠지는 대신 지금은 <b>"이번 예보 기간에 연속되는 기상 위험은 없습니다"</b>
+      한 줄이 나옵니다(<code>calmBanner</code>). 이 문구는 <b>남기는 게 맞습니다</b> — 없으면
+      "위험 판정이 돌았는지"를 알 수 없습니다</li>
+    <li>점수는 카드 우상단에 <b>13px</b>로만 남깁니다. 현재 20px 대형 숫자 자리를 도넛이 받습니다</li>
+    <li class="fixNote"><b>"기온 변화 보기" 버튼은 지우면 안 됩니다.</b> 날짜 상세 모달을 여는 유일한
+      트리거이고, 카드 자체를 <code>&lt;button&gt;</code>으로 만들 수 없습니다(안에 <code>dl</code>·<code>ul</code>이 있어
+      HTML 위반). 이름만 <b>"시간별 날씨 보기"</b>로 바꿨습니다</li>
+    <li><b>"일부 시간대만 반영" 배지는 유지</b>합니다 — 첫날 값이 왜 튀는지 모르면 유저는 그 경고를
+      실제 위험으로 받습니다(CLAUDE.md §18-4)</li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 5 ── -->
+<section class="item" id="i5">
+  <div class="itemHead"><span class="badgeNo">5</span>
+    <h2>날짜 상세 — 1시간 단위 + 좌우 스크롤, 근거표는 접어둠</h2></div>
+  <p class="why">
+    <strong>기상청 API를 실제로 호출해 확인했습니다</strong>(2026-08-05 02시 발표, 순천 격자):
+    기온·하늘상태·강수형태·강수확률이 모두 <strong>1시간 간격</strong>으로 옵니다 —
+    오늘 21슬롯(발표 이후), 내일 24, 모레 24. 화면에 나오는 3일은 전부 1시간 단위가 가능합니다.
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>DayDetailModal.tsx</code>: 제목 + 등급 + <code>N점</code> + 발표시각,
+    <b><code>DayTempChart</code>(시간별 기온 곡선 + 일최고 마커 + 일평균 기준선 + 결측 구간)</b>,
+    지표 <b>4개</b>(낮 최고기온·야간 최저·<b>일 평균기온 "점수 기준"</b>·강수), 주의 목록,
+    근거표 <b>5열</b>(지표·값·적정·허용·점수+상태태그) ·
+    <b>시간별 기온은 이미 API에 있습니다</b> — <code>day.hourly_temp</code>. 없는 건 SKY·PTY·POP.
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재</span>
+      <div class="screen dim">
+        <div class="card">
+          <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px">
+            <h3 style="margin:0; font-size:20px">8월 5일 (화)</h3>
+            <span class="cellGrade g-b" style="font-size:15px">B</span>
+            <span style="font-size:15px; font-weight:700">64점</span>
+          </div>
+          <p style="margin:0 0 12px; font-size:13px; color:var(--muted)">
+            착과기 · 오늘 02시 발표 <span class="partialTag" style="display:inline">일부 시간대만 반영</span></p>
+          <div style="background:var(--surface-2); border:1px solid var(--card); border-radius:12px; padding:12px; margin-bottom:12px">
+            <svg viewBox="0 0 300 96" width="100%" height="96" aria-label="시간별 기온 곡선">
+              <rect x="10" y="8" width="34" height="72" fill="var(--card)" opacity=".45"/>
+              <text x="12" y="22" font-size="9" fill="var(--muted)">발표 전</text>
+              <polyline fill="none" stroke="var(--grade-c)" stroke-width="2.5"
+                points="46,70 80,64 112,52 144,34 176,20 208,26 240,42 288,60"/>
+              <circle cx="176" cy="20" r="3.5" fill="var(--warn-strong)"/>
+              <text x="150" y="14" font-size="9" fill="var(--warn-strong)">일최고 37℃</text>
+              <line x1="10" y1="48" x2="290" y2="48" stroke="var(--muted)" stroke-dasharray="4 4" stroke-width="1"/>
+              <text x="212" y="44" font-size="9" fill="var(--muted)">일평균 31.3℃</text>
+            </svg>
+          </div>
+          <dl class="metrics" style="font-size:14px; margin-bottom:12px">
+            <div><dt>낮 최고기온</dt><dd>37℃</dd></div>
+            <div><dt>야간 최저</dt><dd>29℃</dd></div>
+            <div><dt>일 평균기온</dt><dd>31.3℃ <span style="font-size:11px;color:var(--muted)">점수 기준</span></dd></div>
+            <div><dt>강수</dt><dd>0.0mm</dd></div>
+          </dl>
+          <h4 style="margin:0 0 8px; font-size:15px">이 점수의 근거</h4>
+          <div class="tableScroll"><table class="t small">
+            <thead><tr><th>지표</th><th>값</th><th>적정</th><th>허용</th><th>점수</th></tr></thead>
+            <tbody>
+              <tr><th>낮 기온</th><td>31.3</td><td>20 ~ 26</td><td>~ 31</td><td>58<span class="statusTag">높음</span></td></tr>
+              <tr><th>야간 최저기온</th><td>29.0</td><td>12 ~ 18</td><td>~ 22</td><td>41<span class="statusTag">매우 높음</span></td></tr>
+              <tr><th>강수량</th><td>0.0</td><td>2 ~ 8</td><td>~ 30</td><td>72<span class="statusTag">적음</span></td></tr>
+            </tbody></table></div>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안</span>
+      <div class="screen">
+        <div class="card">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px">
+            <div style="min-width:0">
+              <h3 style="margin:0; font-size:21px">8월 5일 (화)</h3>
+              <p style="margin:2px 0 0; font-size:15px; color:var(--muted)">
+                착과기 · 오늘 02시 발표 · <span class="scoreSmall">64점</span></p>
+            </div>
+            <div class="dial md g-b" style="margin-left:auto" role="img" aria-label="B등급 주의, 64점">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="108.6"/>
+              </svg>
+              <span class="dialIn"><span class="dialLetter">B</span><span class="dialWord">주의</span></span>
+            </div>
+          </div>
+
+          <div style="background:var(--surface-2); border:1px solid var(--card); border-radius:14px; padding:12px 10px 6px; margin:10px 0 12px">
+            <div class="hourWrap">
+              <div class="hourStrip" tabindex="0" role="group" aria-label="1시간별 날씨, 좌우로 넘겨 보세요">
+                <div class="missing">02시<br>이전<br>없음</div>
+                <div class="hourCol now"><span class="hourTime">3시</span><span class="hourIcon">🌙</span><span class="hourTemp">28°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">4시</span><span class="hourIcon">🌙</span><span class="hourTemp">28°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">5시</span><span class="hourIcon">🌙</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">6시</span><span class="hourIcon">☀️</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">7시</span><span class="hourIcon">☀️</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">8시</span><span class="hourIcon">☀️</span><span class="hourTemp">30°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">9시</span><span class="hourIcon">☀️</span><span class="hourTemp">31°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">10시</span><span class="hourIcon">☀️</span><span class="hourTemp">32°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">11시</span><span class="hourIcon">☀️</span><span class="hourTemp">33°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">12시</span><span class="hourIcon">☀️</span><span class="hourTemp">35°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">13시</span><span class="hourIcon">☀️</span><span class="hourTemp">36°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol peak"><span class="hourTime">14시</span><span class="hourIcon">☀️</span><span class="hourTemp">37°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">15시</span><span class="hourIcon">⛅</span><span class="hourTemp">36°</span><span class="hourRain">10%</span></div>
+                <div class="hourCol"><span class="hourTime">16시</span><span class="hourIcon">⛅</span><span class="hourTemp">34°</span><span class="hourRain">20%</span></div>
+                <div class="hourCol"><span class="hourTime">17시</span><span class="hourIcon">🌦</span><span class="hourTemp">32°</span><span class="hourRain">40%</span></div>
+                <div class="hourCol"><span class="hourTime">18시</span><span class="hourIcon">🌦</span><span class="hourTemp">31°</span><span class="hourRain">40%</span></div>
+                <div class="hourCol"><span class="hourTime">19시</span><span class="hourIcon">⛅</span><span class="hourTemp">30°</span><span class="hourRain">20%</span></div>
+                <div class="hourCol"><span class="hourTime">20시</span><span class="hourIcon">🌙</span><span class="hourTemp">30°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">21시</span><span class="hourIcon">🌙</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">22시</span><span class="hourIcon">🌙</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+                <div class="hourCol"><span class="hourTime">23시</span><span class="hourIcon">🌙</span><span class="hourTemp">29°</span><span class="hourRain zero">0%</span></div>
+              </div>
+              <p class="scrollHint">← 좌우로 넘겨 보세요 (21시간)</p>
+            </div>
+            <p style="margin:6px 0 8px; font-size:14.5px; color:var(--muted); text-align:center">
+              <b style="color:var(--warn-strong)">14시가 가장 덥습니다 (37℃)</b> — 이 시간대 작업은 피하세요
+            </p>
+          </div>
+
+          <dl class="metrics" style="margin-bottom:12px">
+            <div><dt>낮 최고기온</dt><dd>37℃</dd></div>
+            <div><dt>야간 최저</dt><dd>29℃</dd></div>
+            <div><dt>점수를 매긴 기준 (일 평균)</dt><dd>31.3℃</dd></div>
+            <div><dt>강수</dt><dd>0.0mm</dd></div>
+          </dl>
+
+          <details class="fold">
+            <summary>점수가 이렇게 나온 이유 <span style="font-weight:400;color:var(--muted);font-size:14px">(지표 3개)</span></summary>
+            <div class="foldBody"><div class="tableScroll"><table class="t">
+              <thead><tr><th>지표</th><th>우리 밭</th><th>알맞은 범위</th><th>판정</th></tr></thead>
+              <tbody>
+                <tr><th>낮 기온</th><td>31.3℃</td><td>20 ~ 26℃</td><td style="color:var(--warn-strong);font-weight:700">높음</td></tr>
+                <tr><th>야간 최저기온</th><td>29.0℃</td><td>12 ~ 18℃</td><td style="color:var(--bad);font-weight:700">매우 높음</td></tr>
+                <tr><th>강수량</th><td>0.0mm</td><td>2 ~ 8mm</td><td style="color:var(--warn-strong);font-weight:700">적음</td></tr>
+              </tbody></table></div></div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li><b>오늘은 발표시각 이전이 비어 있습니다</b>(02시 발표 → 03시부터). 그 자리를 <b>"없음" 칸</b>으로 명시합니다 —
+      없는 걸 있는 척하지 않습니다. <code>DayTempChart</code>도 이미 같은 일을 합니다(회색 구간)</li>
+    <li><b>현재 시각 칸</b>은 골드 테두리로 표시해 "지금 어디쯤인지" 바로 보이게 합니다</li>
+    <li>표를 <b>"적정/허용/점수" → "알맞은 범위/판정" 2열</b>로. 숫자 대신 <b>높음·낮음</b>으로 읽습니다 —
+      판정 문구는 이미 서버가 줍니다(<code>breakdown[*].status</code>, 지금은 11px 배지)</li>
+    <li><b>"일 평균기온 · 점수 기준"은 남깁니다.</b> 이름만 <b>"점수를 매긴 기준 (일 평균)"</b>으로 —
+      스트립에 37℃가 크게 보이는데 점수는 31.3℃로 매겨졌다는 사실이 사라지면 "왜 B인가"가 설명되지 않습니다</li>
+    <li class="warnNote">백엔드 작업 필요: <b>SKY·PTY·POP을 시간별로 저장</b>해야 합니다.
+      시간별 <b>기온은 이미 옵니다</b>(<code>hourly_temp</code>) — 아이콘·강수확률만 파서에 카테고리 3개 추가 + 컬럼 확장</li>
+    <li class="warnNote"><b>기온 곡선(<code>DayTempChart</code>)을 스트립으로 갈아치우지 않습니다.</b>
+      곡선은 "표시값(일최고) ≠ 채점값(일평균)"을 눈으로 보여주려고 만든 것입니다.
+      스트립을 <b>위에</b> 얹고 곡선은 근거 접기 안으로 옮기는 것을 권합니다</li>
+    <li>날씨 그림 자산 주시면 지금 이모지(☀️⛅🌦🌙) 자리에 넣습니다 — 앱 나머지는 전부 lucide라
+      <b>이모지를 그대로 두면 여기만 톤이 다릅니다</b></li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 6 ── -->
+<section class="item" id="i6">
+  <div class="itemHead"><span class="badgeNo">6</span>
+    <h2>장기 탭 — 1·4번과 똑같은 도넛</h2></div>
+  <p class="why">
+    화면마다 등급이 다르게 생기면 그때마다 새로 배워야 합니다.
+    <strong>대시보드·밭 상세·장기 탭이 전부 같은 도넛</strong>을 씁니다. 크기만 다릅니다.
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>LongTermPanel.tsx:32-55</code> MonthCell: 월 + <code>Gauge size=88</code> +
+    <code>GradeBadge</code> + 생육단계 + <b>"전망 반영" 태그</b>(<code>outlook_applied</code>일 때만) ·
+    최고점 달은 테두리색만(<code>.moBest</code>) ·
+    히트맵 <b>위</b>에 "앞으로 3개월, 이렇게 준비하세요" 카드, <b>아래</b>에 "주의가 필요한 시기" 카드가 있습니다.
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재</span>
+      <div class="screen dim">
+        <div class="card">
+          <div class="cardHead"><svg class="ico"><use href="#i-range"/></svg> 월별 예상 적합도 <span class="tag">3개월</span></div>
+          <div class="months">
+            <div class="mo"><div class="moName">8월</div>
+              <div class="dial md"><svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--grade-c)" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="168.9"/></svg>
+                <span class="gaugeVal"><span class="gaugeNum">44</span><small class="gaugeLbl">적합도</small></span></div>
+              <span class="badge g-c">C 부적합</span><div class="moStage">착과기</div>
+              <div class="moTag">전망 반영</div></div>
+            <div class="mo"><div class="moName">9월</div>
+              <div class="dial md"><svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--grade-a)" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="57.3"/></svg>
+                <span class="gaugeVal"><span class="gaugeNum">81</span><small class="gaugeLbl">적합도</small></span></div>
+              <span class="badge g-a">A 적합</span><div class="moStage">비대기</div></div>
+            <div class="mo moBest"><div class="moName">10월</div>
+              <div class="dial md"><svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                <circle cx="60" cy="60" r="48" fill="none" stroke="var(--grade-s)" stroke-width="13"
+                        stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="30.2"/></svg>
+                <span class="gaugeVal"><span class="gaugeNum">90</span><small class="gaugeLbl">적합도</small></span></div>
+              <span class="badge g-s">S 매우 적합</span><div class="moStage">수확기</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안</span>
+      <div class="screen">
+        <div class="card">
+          <div class="cardHead"><svg class="ico"><use href="#i-range"/></svg> 월별 예상 적합도 <span class="tag">3개월</span></div>
+          <div class="months">
+            <div class="mo"><div class="moName">8월</div>
+              <div class="dial md g-c" role="img" aria-label="C등급 부적합, 44점">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                  <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                          stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="168.9"/></svg>
+                <span class="dialIn"><span class="dialLetter">C</span><span class="dialWord">부적합</span></span></div>
+              <div class="moStage">착과기</div><span class="scoreSmall">44점</span>
+              <div class="moTag">전망 반영</div></div>
+            <div class="mo"><div class="moName">9월</div>
+              <div class="dial md g-a" role="img" aria-label="A등급 적합, 81점">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                  <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                          stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="57.3"/></svg>
+                <span class="dialIn"><span class="dialLetter">A</span><span class="dialWord">적합</span></span></div>
+              <div class="moStage">비대기</div><span class="scoreSmall">81점</span></div>
+            <div class="mo moBest"><div class="moName">10월</div>
+              <div class="dial md g-s" role="img" aria-label="S등급 매우 적합, 90점">
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle class="track" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+                  <circle cx="60" cy="60" r="48" fill="none" stroke="currentColor" stroke-width="13"
+                          stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="30.2"/></svg>
+                <span class="dialIn"><span class="dialLetter">S</span><span class="dialWord">매우 적합</span></span></div>
+              <div class="moStage">수확기</div><span class="scoreSmall">90점</span>
+              <span class="bestTag">가장 좋은 달</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li>중복되던 <b>"C 부적합" 배지를 제거</b> — 도넛 안에 이미 있습니다</li>
+    <li><b>"가장 좋은 달"을 글자로</b> 적습니다. 지금은 테두리 색으로만 표시해서 색각 이상에서 안 보입니다</li>
+    <li class="warnNote"><b>"전망 반영" 태그는 반드시 남깁니다.</b> 이 태그가 없는 칸은 평년치만 쓴 칸이라,
+      지우면 세 달이 전부 같은 근거로 계산된 것처럼 읽힙니다(CLAUDE.md §18-4 한계 표기)</li>
+    <li>같은 <code>Gauge</code>·같은 등급 문구를 쓰므로 1번의 <code>mode="grade"</code> 한 갈래로
+      <b>세 화면이 동시에 바뀝니다</b>(파일 1개 수정 + 호출부 3곳)</li>
+  </ul>
+</section>
+
+<hr class="sep">
+
+<!-- ── 7·8 ── -->
+<section class="item" id="i7">
+  <div class="itemHead"><span class="badgeNo">7·8</span>
+    <h2>40~50대 기준 가독성 — 회색을 줄이고 크기를 올립니다</h2></div>
+  <p class="why">
+    노안이 시작되는 연령대에서 가장 먼저 안 읽히는 건 <strong>작고 흐린 회색 글씨</strong>입니다.
+    토큰은 이미 본문 18px / 보조 16px로 정해져 있는데, <strong>모듈 CSS가 그걸 안 씁니다.</strong>
+  </p>
+  <p class="src">
+    <b>dev 실측</b> — <code>frontend/{components,app}/**/*.css</code>의 <code>font-size</code> 분포:
+    <b>14px 22곳 · 13px 22곳 · 12px 8곳 · 11px 8곳 · 12.5px 1곳 · 10px 1곳</b>.
+    반면 <code>--fs-body:18px</code>를 쓰는 곳은 body와 몇 군데뿐입니다 —
+    <b>토큰이 있는데 안 쓰이는 것</b>이 문제의 정체입니다.
+    (<code>farm.module.css:22 .notice 14px</code>, <code>:64 .hint 12px</code>,
+    <code>DayDetailModal.module.css:132</code> 상태 배지 11px)
+  </p>
+  <div class="compare">
+    <div class="pane">
+      <span class="paneTag tagNow">현재</span>
+      <div class="screen dim">
+        <div class="typo">
+          <div class="typoRow"><span class="typoKey">본문 18px</span><span style="font-size:18px">한낮 물주기는 피하세요</span></div>
+          <div class="typoRow"><span class="typoKey">모달 메타 13px</span><span style="font-size:13px; color:var(--muted)">착과기 · 오늘 02시 발표</span></div>
+          <div class="typoRow"><span class="typoKey">근거표 13px</span><span style="font-size:13px; color:var(--muted)">지표 · 값 · 적정 · 허용 · 점수</span></div>
+          <div class="typoRow"><span class="typoKey">상태배지 11px</span><span style="font-size:11px; color:var(--muted)">매우 높음</span></div>
+          <div class="typoRow"><span class="typoKey">힌트 12px</span><span style="font-size:12px; color:var(--muted)">지역은 등록 후 바꿀 수 없습니다</span></div>
+          <div class="typoRow"><span class="typoKey">최소 10px</span><span style="font-size:10px; color:var(--muted)">일부 시간대만 반영</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <span class="paneTag tagNew">제안</span>
+      <div class="screen">
+        <div class="typo">
+          <div class="typoRow"><span class="typoKey">본문 18px</span><span style="font-size:18px">한낮 물주기는 피하세요</span></div>
+          <div class="typoRow"><span class="typoKey">모달 메타 16px</span><span style="font-size:16px">착과기 · 오늘 02시 발표</span></div>
+          <div class="typoRow"><span class="typoKey">근거표 15px</span><span style="font-size:15px">지표 · 우리 밭 · 알맞은 범위 · 판정</span></div>
+          <div class="typoRow"><span class="typoKey">판정 15px</span><span style="font-size:15px; color:var(--bad); font-weight:700">매우 높음</span></div>
+          <div class="typoRow"><span class="typoKey">힌트 15px</span><span style="font-size:15px; color:var(--muted)">지역은 등록 후 바꿀 수 없습니다</span></div>
+          <div class="typoRow"><span class="typoKey">하한 15px</span><span style="font-size:15px; color:var(--muted)">일부 시간대만 반영</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="noteList">
+    <li><b>회색(--muted)을 본문에 쓰지 않습니다.</b> 보조 설명은 회색 대신 <b>크기</b>로 층을 나눕니다</li>
+    <li>가장 작은 글씨의 <b>하한을 15px</b>로. 11px 이하 8곳은 대부분 <b>한계 표기 배지</b>라
+      (일부 시간대만 반영·자동 생성 문구·전망 반영) <b>정직하게 알려야 하는 정보가 가장 안 읽힙니다</b></li>
+    <li><b>토큰을 실제로 쓰게 만듭니다</b> — 모듈 CSS의 13/14px 리터럴을
+      <code>var(--fs-sub)</code>·새 <code>--fs-meta:15px</code>로 치환. 44곳이지만 기계적 치환입니다</li>
+    <li>누르는 것은 전부 <b>48px 이상</b> — 장갑 낀 손·떨리는 손을 가정합니다.
+      <code>.dayMore</code>는 <code>::after</code>로 카드 전체가 클릭영역이라 이미 넉넉합니다.
+      좁은 건 <code>.petButton</code>·<code>.sessionButton</code>(패딩 6~9px)입니다</li>
+    <li>전문용어에 쉬운 말 병기: <b>EC(염류 농도)</b>, <b>유효인산(뿌리 영양)</b></li>
+  </ul>
+</section>
+
+<div class="ask">
+  <div class="askInner">
+    <h2>확정된 것 · 남은 것</h2>
+    <ol>
+      <li><b>캐릭터 이름 = 텃밭이</b> ✅ <b>구현 완료</b> — 백엔드 <code>PETS</code>를 지우고
+        <code>PET_NAME = "텃밭이"</code> 한 줄로. 단계명은 <b>알 · 아기 제비 · 어린 제비 · 제비</b>,
+        레벨 경계(1/3/6/10)는 그대로. 펫 선택(<code>PUT /api/v1/pet</code>·<code>pets</code>·<code>changePet</code>·
+        <code>.petPick</code>)은 전부 삭제했습니다.</li>
+      <li><b>기록 탭 이름 = "텃밭이와 나눈 이야기"</b> ✅ 결정 — 화면 구현은 아직입니다(위 2번).
+        같이 할 일: 대시보드의 준비 중 카드 2개 삭제.</li>
+      <li><b>5번 백엔드(SKY·PTY·POP)</b> — <span style="color:var(--warn-strong)">아직 미결정</span>.
+        기온만 먼저 1시간 스트립으로 바꿀지, 아이콘까지 한 번에 갈지 결정이 필요합니다.</li>
+      <li><b>대화 목록 날짜 = 넣지 않음</b> ✅ 결정 — <code>updated_at</code> 추가 안 함.
+        "6개 메시지"만 표기합니다(위 2번 화면의 "오늘 · 어제" 자리는 빠집니다).</li>
+    </ol>
+    <p style="margin:14px 0 0; font-size:15px; color:var(--muted)">
+      위 그림은 <b>실제 앱 자산</b>입니다(<code>frontend/public/assets/pet/*.png</code>) —
+      흰 배경을 알파로 빼고 네 장을 같은 프레임·같은 배율(320×192)로 맞췄습니다.
+      단계 코드 ↔ 파일명은 <code>backend/tests/test_quest_progress.py</code>가 검증합니다.
+    </p>
+  </div>
+</div>
+
+<script>
+  var btn = document.getElementById("themeBtn");
+  function sync() {
+    var dark = document.documentElement.dataset.theme !== "light";
+    btn.textContent = dark ? "라이트 모드로 보기" : "다크 모드로 보기";
+  }
+  btn.addEventListener("click", function () {
+    var next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("fyf-deck-theme", next); } catch (e) {}
+    sync();
+  });
+  sync();
+</script>
+</body>
+</html>
