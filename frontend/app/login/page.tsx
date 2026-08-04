@@ -71,15 +71,15 @@ export default function LoginPage() {
             {busy ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        {/* 재편 때는 백엔드 OAuth가 없어 이 자리를 비워뒀다(§6-13). 이제 준비됐으니
-            실제 버튼을 넣는다. 구분선은 아래에 버튼이 있을 때만 — 빈 구분선을 두지 않는다. */}
+        {/* 카카오 키가 없으면 구분선까지 통째로 감춘다 — 아래에 아무것도 없는 "또는"만
+            남지 않게. 준비되면 이 블록이 divider + 버튼을 함께 렌더한다. */}
         {isKakaoEnabled && (
           <>
             <div className={styles.divider} aria-hidden="true">
               또는
             </div>
-            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서 form
-                밖의 button이고, state를 남긴 뒤 이동한다. */}
+            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서
+                submit이 아닌 type="button"이고, state를 남긴 뒤 이동한다. */}
             <button
               type="button"
               className={styles.kakao}

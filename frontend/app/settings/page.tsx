@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Plus, Sprout } from "lucide-react";
+import { Database, Pencil, Plus, Sprout } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -143,8 +143,8 @@ export default function SettingsPage() {
         {/* 이름 바꾸는 화면은 카카오 신규 유저가 자동으로 거쳐가는 그 화면을 그대로 쓴다 —
             폼을 두 곳에 두면 제약(1~50자)이 갈린다. 돌아올 곳만 알려준다. */}
         <p>
-          <Link href="/onboarding/nickname?next=/settings" className={styles.ctaLink}>
-            내 이름 바꾸기
+          <Link href="/onboarding/nickname?next=/settings" className={styles.addLink}>
+            <Pencil size={18} aria-hidden="true" />내 이름 바꾸기
           </Link>
         </p>
         <SettingsBody />

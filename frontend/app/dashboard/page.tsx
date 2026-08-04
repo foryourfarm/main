@@ -203,7 +203,7 @@ function Hero({ nickname, data }: { nickname: string; data: DashboardResponse })
 }
 
 function DashboardBody() {
-  const { user } = useAuth(); // 히어로 인사말에 쓰는 닉네임
+  const { user } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -224,8 +224,7 @@ function DashboardBody() {
   if (data === null) return <Loading />;
 
   if (data.farms.length === 0) {
-    // 위 effect가 곧 /onboarding으로 이동시킨다. 그 사이 "밭이 없습니다"가 번쩍이지 않게
-    // 로딩을 유지한다 — 재편 때 두었던 빈 상태 카드는 이 흐름에서 스쳐 지나갈 뿐이라 뺀다.
+    // 위 effect가 곧 이동시킨다. 그 사이 "밭이 없습니다"가 번쩍이지 않게 로딩을 유지한다.
     return <Loading />;
   }
 
