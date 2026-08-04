@@ -2,6 +2,7 @@
 
 import { CalendarCheck, CheckSquare, CircleSlash, History, NotebookPen, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import GradeBadge from "@/components/GradeBadge";
@@ -188,6 +189,7 @@ function Hero({ nickname, data }: { nickname: string; data: DashboardResponse })
 
 function DashboardBody() {
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -197,22 +199,18 @@ function DashboardBody() {
       .catch(() => setError("밭 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요."));
   }, []);
 
+  // 밭이 없으면 대시보드는 보여줄 것이 없다 — 링크를 누르게 하지 않고 등록 화면으로 바로 보낸다
+  // (가입 직후가 이 경우다). `replace`라 뒤로가기가 빈 대시보드로 튕기지 않는다.
+  useEffect(() => {
+    if (data !== null && data.farms.length === 0) router.replace("/onboarding");
+  }, [data, router]);
+
   if (error !== null) return <p className={styles.error}>{error}</p>;
   if (data === null) return <Loading />;
 
   if (data.farms.length === 0) {
-    return (
-      <EmptyState
-        icon={<Sprout size={28} />}
-        title="등록된 밭이 없습니다"
-        hint="밭을 등록하면 지역·작물에 맞는 적합도를 매일 볼 수 있어요."
-        action={
-          <Link href="/onboarding" className={styles.emptyAction}>
-            첫 밭 등록하기
-          </Link>
-        }
-      />
-    );
+    // 위 effect가 곧 이동시킨다. 그 사이 "밭이 없습니다"가 번쩍이지 않게 로딩을 유지한다.
+    return <Loading />;
   }
 
   const hasLimitations = data.farms.some((card) => card.limitations.length > 0);

@@ -146,7 +146,30 @@
   border-color: var(--bad-strong);
 }
 
-/* 소셜 로그인 자리 구분선(§6-13) — 버튼은 백엔드 준비 전까지 렌더하지 않는다. */
+/* 건너뛰기 — 주 동작(submit)과 확실히 구분되게 테두리 없는 보조 버튼으로 둔다. */
+.skip {
+  border: none;
+  background: none;
+  padding: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  opacity: 0.7;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.skip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.skip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* 소셜 로그인 구분선(§6-13) — 좌우 선은 장식이고 텍스트만 읽히면 된다. */
 .divider {
   display: flex;
   align-items: center;
@@ -163,6 +186,29 @@
   flex: 1;
   height: 1.5px;
   background: var(--card);
+}
+
+/* 카카오 브랜드 색(고정값) — 우리 팔레트 변수를 쓰지 않는다. 이 버튼은 카카오 가이드가 정한
+   외형이어야 알아보기 쉽고, 다크모드에서도 브랜드 색은 그대로 유지한다.
+   형태(알약·높이)만 .submit에 맞춰 나란히 놓았을 때 튀지 않게 한다. */
+.kakao {
+  /* 폼 밖(카드 직속)이라 .form의 stretch를 못 받는다 — submit과 같은 폭을 직접 준다. */
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 24px;
+  background: #fee500;
+  color: #191600;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kakao:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .alt {

@@ -41,11 +41,85 @@ JWT payload는 서명일 뿐 암호화 아님 → 민감정보 없음(`sub=user_
 ### `POST /api/v1/auth/logout`
 - refresh 쿠키 삭제(`Max-Age=0`). `data: "logged out"`. FE는 메모리 access 폐기.
 
+### `POST /api/v1/auth/kakao` (카카오 로그인, 2026-08-05 추가)
+- 요청: `{ "code": str }` — 카카오가 콜백으로 준 **인가코드**. `redirect_uri`는 보내지 않는다(서버 설정값을 쓴다).
+- 성공: `200` — **`/login`과 응답이 같다**(`data: { access_token, user, is_new_user }` + refresh 쿠키). FE 토큰 처리 코드를 그대로 재사용한다.
+  - `is_new_user`: 이 로그인에서 계정이 **새로 만들어졌나**. 카카오는 로그인이 곧 가입이라 이 값으로 "처음 온 사람"을 구분해 닉네임 화면으로 보낸다(아래 `PATCH /me` 참고). 이메일 로그인은 항상 `false`.
+- 실패:
+  - `401` `KAKAO_AUTH_FAILED` — 인가코드 만료·재사용·위조. **재시도로 풀린다**(코드는 1회용) → FE는 로그인 화면으로.
+  - `502` `UPSTREAM_UNAVAILABLE` — 카카오 장애·네트워크. 유저가 할 게 없다 → "잠시 후 다시" 안내.
+  - `503` `KAKAO_NOT_CONFIGURED` — 서버에 카카오 키가 없다(fail closed). 이메일 로그인은 정상 동작.
+  - `422` `VALIDATION_ERROR` — `code` 누락·빈 값.
+- **가입 절차가 없다**: 처음 로그인하면 서버가 계정을 만든다(`kakao_id` 기준). 두 번째부터는 같은 계정을 재사용한다.
+- **카카오 계정은 `user.email`이 `null`이다** — 카카오에서 이메일을 받지 않는다(아래 이유). FE 타입이 `string | null`이어야 한다.
+
+#### 카카오 로그인 FE 흐름 (`frontend/lib/kakao.ts`, `app/login/kakao/page.tsx`)
+
+```
+로그인 화면 [카카오로 로그인]
+   │ state 생성 → sessionStorage 저장, 인가 URL로 **페이지 이동**
+   ↓
+kauth.kakao.com 동의 화면
+   │ 카카오가 redirect_uri(= FE `/login/kakao`)로 ?code=...&state=... 리다이렉트
+   ↓
+FE 콜백 페이지
+   │ ① state 대조(불일치 → 코드를 서버로 보내지 않는다)
+   │ ② POST /api/v1/auth/kakao { code }
+   ↓ 성공하면 access를 메모리에 넣고 /dashboard로
+```
+
+**리다이렉트를 백엔드가 받지 않는 이유**: access를 메모리에만 두는 정책이라(위 토큰 모델) 서버가
+리다이렉트를 받으면 토큰을 FE 메모리로 넘길 길이 없다. 그래서 착지점이 FE다.
+
+**FE가 지켜야 할 것 3개**
+1. `state`를 sessionStorage에 넣고 콜백에서 **대조 후 1회용으로 폐기**한다(CSRF). 서버 세션이 없어 브라우저에 묶는 것이 이 방식의 요점이다.
+2. **인가코드는 1회용이라 한 번만 보낸다.** React StrictMode는 effect를 두 번 실행하므로 `useRef` 가드가 없으면 두 번째 교환이 반드시 401로 실패한다.
+3. 유저가 동의 화면에서 취소하면 `?error=...`로 돌아온다 — 실패가 아니라 정상 흐름이므로 조용히 로그인 화면으로 되돌린다.
+
+#### 환경변수 (BE·FE 양쪽)
+
+| 이름 | 위치 | 비고 |
+|---|---|---|
+| `KAKAO_REST_API_KEY` | 루트 `.env` | 카카오 개발자센터 → 앱 키 → **REST API 키**. 비밀 아님 |
+| `KAKAO_CLIENT_SECRET` | 루트 `.env` | 앱에서 Client Secret을 **켠 경우만**. 껐으면 비워둔다(빈 값 전송 시 `invalid_client`) |
+| `KAKAO_REDIRECT_URI` | 루트 `.env` | 카카오 앱에 등록한 값과 **글자 단위로 동일**해야 한다 |
+| `NEXT_PUBLIC_KAKAO_REST_API_KEY` | `frontend/.env.local` | 위 REST API 키와 **같은 값** |
+| `NEXT_PUBLIC_KAKAO_REDIRECT_URI` | `frontend/.env.local` | 위 redirect URI와 **같은 값** |
+
+같은 값이 BE·FE 양쪽에 있다 — **한쪽만 바꾸면 토큰 교환이 `invalid_client`로 죽는다.** FE 두 값 중
+하나라도 비면 로그인 화면의 카카오 버튼이 **숨는다**(눌러도 실패하는 버튼을 보여주지 않는다).
+
+#### 계정 정책 — 같은 이메일이어도 기존 계정에 잇지 않는다
+
+카카오 계정과 이메일 계정은 **별개 계정**이다. 이어붙이지 않는 이유: 카카오가 주는 이메일은
+미인증일 수 있어, 이메일이 같다는 것만으로 잇는 순간 **남의 계정에 들어가는 경로**가 된다.
+그래서 카카오에서 이메일을 아예 받지 않고 `kakao_id`로만 식별한다(마이그레이션 0037).
+
+**결과**: 같은 사람이 두 방식으로 들어오면 계정이 둘이 되고 밭 목록이 서로 다르다. 필요해지면
+"로그인 후 명시적 계정 연결" 화면으로 푼다(§2 YAGNI) — 자동 연결로는 풀지 않는다.
+
 ### `GET /api/v1/auth/me`
 - `Authorization: Bearer <access>` 필요. 성공 `data: { id, email, nickname }`. FE 로그인 상태·유저 표시용.
+  - `email`은 카카오 계정이면 `null`이다.
 - 실패: `401` `UNAUTHORIZED`(토큰 없음)/`INVALID_TOKEN`(무효)
 
+### `PATCH /api/v1/auth/me` (닉네임 변경, 2026-08-05 추가)
+- `Authorization: Bearer <access>` 필요. 요청: `{ "nickname": str(1~50) }`
+- 성공: `200`, `data: { id, email, nickname }` → FE는 이 유저로 상태를 갈아끼운다(헤더의 "○○님"이 따라온다).
+- 실패: `401`(미인증), `422` `VALIDATION_ERROR`(빈 값·50자 초과)
+- **대상 id를 받지 않는다** — 인증된 유저 자신만 바꾼다(§11 소유권). 이메일·비밀번호는 이 엔드포인트가 다루지 않는다(본문에 넣어도 무시된다).
+
+#### 왜 필요했나 + FE 라우팅 규칙
+
+카카오는 닉네임 동의항목을 요청하지 않으면 이름을 주지 않아 계정이 `"카카오 사용자"`(`DEFAULT_NICKNAME`)로 시작하는데, 그 값이 헤더에 그대로 노출되고 **바꿀 방법이 없었다**(이메일 가입자도 가입 후엔 못 바꿨다). 동의항목을 늘리는 대신(카카오 계정만 해결되는 반쪽) 직접 정하게 한다.
+
+- **`/onboarding/nickname`** — 이름 정하는 화면. `?next=<내부경로>`로 저장 후 갈 곳을 정한다(기본 `/onboarding`). 외부 URL·`//`로 시작하는 값은 거부한다(열린 리다이렉트 방지).
+- **카카오 신규 로그인** → 콜백이 `is_new_user`를 보고 `/onboarding/nickname`으로 보낸다. 이름 저장 후 `/onboarding`(밭 등록)으로 이어진다. `is_new_user`를 서버가 주는 이유: FE가 닉네임 문자열을 `"카카오 사용자"`와 비교해 추측하면, 유저가 실제로 그 이름을 골랐을 때 오판한다.
+- **밭이 0개인 유저가 `/dashboard`에 오면 `/onboarding`으로 `replace`** — 가입 직후가 이 경우다. 종전에는 "첫 밭 등록하기" 링크를 눌러야 했다.
+- 설정 화면은 같은 페이지를 `?next=/settings`로 링크한다 — 폼을 두 곳에 두면 길이 제약이 갈린다.
+
 ## FE가 해야 할 것 (요약)
+0. 카카오 로그인은 위 §`POST /api/v1/auth/kakao`의 흐름 3개(state 대조 · 인가코드 1회 전송 · 취소 처리)를 지킨다. 그 외는 이메일 로그인과 동일하다.
 1. login 응답의 `access_token`을 **메모리에만** 보관(리로드 시 사라지는 게 정상 — refresh로 복구).
 2. 보호된 API 호출마다 `Authorization: Bearer <access>` 헤더 첨부.
 3. **401 인터셉터**: access 401 → `POST /auth/refresh` 1회 → 성공 시 새 access로 원요청 **재시도**, 실패(401)면 로그인 화면.
