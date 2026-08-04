@@ -43,22 +43,26 @@ EXP_PER_LEVEL = 100
 @dataclass(frozen=True)
 class PetStage:
     min_level: int
+    code: str  # FE가 이 코드로 단계 일러스트를 찾는다(frontend/lib/pet.ts STAGE_IMAGE)
     label: str
-    emoji: tuple[str, str]  # (새싹이, 흙강아지) 같은 순서로 PETS와 대응
+    emoji: str  # 일러스트를 못 쓰는 자리(텍스트 알림 등)의 폴백
 
 
-# 4단계(요구 3단계 이상). 이모지를 쓰는 이유는 에셋 없이 지금 돌아가기 때문이다.
-# ponytail: 이모지 = 임시 외형. 일러스트가 나오면 emoji 대신 이미지 경로로 갈아끼우면 된다.
+# 캐릭터는 **제비 한 마리**로 통일했다 — 고를 게 없으니 펫 선택 API도 없다.
+# 4단계(요구 3단계 이상)의 레벨 경계(1/3/6/10)는 종전 그대로 유지한다.
 PET_STAGES: tuple[PetStage, ...] = (
-    PetStage(1, "씨앗", ("🌰", "🥚")),
-    PetStage(3, "새싹", ("🌱", "🐣")),
-    PetStage(6, "자람", ("🌿", "🐕")),
-    PetStage(10, "열매", ("🌻", "🐕‍🦺")),
+    PetStage(1, "egg", "알", "🥚"),
+    PetStage(3, "chick", "아기 제비", "🐣"),
+    PetStage(6, "fledgling", "어린 제비", "🐦"),
+    PetStage(10, "swallow", "제비", "🕊"),
 )
 
-PETS: tuple[tuple[str, str], ...] = (("sprout", "새싹이"), ("pup", "흙강아지"))
-PET_CODES = [code for code, _ in PETS]
-DEFAULT_PET_CODE = PET_CODES[0]
+# 이름은 게스트 폴백(frontend/lib/pet.ts GUEST_PET)과 같아야 한다 — 로그인 전후로 이름이
+# 바뀌면 같은 캐릭터로 안 읽힌다. 종전엔 로그인하면 "새싹이"가 떴다.
+PET_NAME = "텃밭이"
+
+# ponytail: 펫이 1종이 되면서 `users.pet_code`(0036)를 아무도 읽지 않는다. 컬럼을 지우려면
+# 마이그레이션이 필요해 이번엔 남겨둔다 — 캐릭터를 다시 늘리지 않기로 확정되면 drop한다.
 
 
 def total_exp(db: Session, user_id: int) -> int:
@@ -91,13 +95,6 @@ def stage_of(level: int) -> PetStage:
     return matched
 
 
-def pet_of(user: User) -> tuple[str, str, int]:
-    """(코드, 이름, PETS 내 인덱스). 미선택(NULL)/모르는 코드는 기본 펫으로 읽는다."""
-    code = user.pet_code if user.pet_code in PET_CODES else DEFAULT_PET_CODE
-    index = PET_CODES.index(code)
-    return code, PETS[index][1], index
-
-
 def done_codes(db: Session, user_id: int, on: date) -> set[str]:
     rows = (
         db.query(UserDailyQuest.quest_code)
@@ -124,7 +121,6 @@ def progress(db: Session, user: User, on: date) -> dict[str, object]:
     exp = total_exp(db, user.id)
     level = level_of(exp)
     stage = stage_of(level)
-    pet_code, pet_name, pet_index = pet_of(user)
     done = done_codes(db, user.id, on)
     return {
         "level": level,
@@ -132,27 +128,13 @@ def progress(db: Session, user: User, on: date) -> dict[str, object]:
         "exp_into_level": exp_into_level(exp),
         "exp_per_level": EXP_PER_LEVEL,
         "pet": {
-            "code": pet_code,
-            "name": pet_name,
-            "emoji": stage.emoji[pet_index],
+            "stage_code": stage.code,
+            "name": PET_NAME,
+            "emoji": stage.emoji,
             "stage_label": stage.label,
         },
-        # 고를 수 있는 펫 목록도 같이 준다 — FE가 펫 카탈로그를 따로 들고 있으면 펫을 추가할 때
-        # 두 곳을 고쳐야 하고, 한 곳을 잊으면 목록에 없는 펫이 생긴다.
-        "pets": [
-            {"code": code, "name": name, "emoji": stage.emoji[i]}
-            for i, (code, name) in enumerate(PETS)
-        ],
         "quests": [
             {"code": q.code, "label": q.label, "exp": q.exp, "is_done": q.code in done}
             for q in QUESTS
         ],
     }
-
-
-def set_pet(db: Session, user: User, pet_code: str) -> None:
-    """펫 교체. 화이트리스트 밖 코드는 거절한다(신뢰 경계 검증, CLAUDE.md §17)."""
-    if pet_code not in PET_CODES:
-        raise AppError(400, "PET_NOT_FOUND", "없는 펫입니다.")
-    user.pet_code = pet_code
-    db.commit()

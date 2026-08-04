@@ -1,8 +1,8 @@
 import { authFetch } from "@/lib/auth";
 import type { QuestProgress } from "@/types/quest";
 
-// 세 호출 모두 같은 QuestProgress를 돌려준다 — 응답으로 상태를 통째로 갈아끼우면 재조회가 없다.
-// 계약: docs/quest-pet-api.md.
+// 두 호출 모두 같은 QuestProgress를 돌려준다 — 응답으로 상태를 통째로 갈아끼우면 재조회가 없다.
+// 계약: docs/quest-pet-api.md. (펫 교체는 캐릭터가 한 마리로 확정돼 삭제됐다.)
 
 export function fetchQuestProgress(): Promise<QuestProgress> {
   return authFetch<QuestProgress>("/api/v1/quests/today");
@@ -16,11 +16,4 @@ export async function completeQuest(code: string): Promise<QuestProgress | null>
   } catch {
     return null;
   }
-}
-
-export function changePet(code: string): Promise<QuestProgress> {
-  return authFetch<QuestProgress>("/api/v1/pet", {
-    method: "PUT",
-    body: JSON.stringify({ code }),
-  });
 }

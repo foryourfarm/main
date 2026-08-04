@@ -239,9 +239,9 @@
 }
 
 /* 펫 일러스트가 들어오면 쓰이는 자리(없으면 emoji가 그대로 나온다). */
+/* 단계 일러스트는 5:3 가로형이라 원형으로 자르지 않는다(날개가 잘린다). */
 .questPetIcon {
   display: block;
-  border-radius: 50%;
   object-fit: contain;
 }
 

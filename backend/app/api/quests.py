@@ -1,7 +1,9 @@
 """리텐션 장치 엔드포인트(펫·레벨·데일리 퀘스트) — PRD.md §14.5, 계약은 docs/quest-pet-api.md.
 
-세 엔드포인트가 **같은 응답(QuestProgress)**을 돌려준다. FE는 무엇을 호출하든 받은 상태로
+두 엔드포인트가 **같은 응답(QuestProgress)**을 돌려준다. FE는 무엇을 호출하든 받은 상태로
 화면을 통째로 갈아끼우면 되고, 별도 재조회가 없다.
+
+캐릭터가 제비 한 마리로 확정돼 `PUT /pet`(펫 교체)은 삭제했다 — 고를 것이 없다.
 """
 
 from datetime import date
@@ -13,7 +15,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import User
 from app.schemas.common import ApiResponse
-from app.schemas.quest import PetChangeRequest, QuestProgress
+from app.schemas.quest import QuestProgress
 from app.services import quest_service
 
 router = APIRouter(prefix="/api/v1", tags=["quests"])
@@ -43,13 +45,3 @@ def complete(
     today_ = date.today()
     quest_service.complete(db, current.id, quest_code, today_)
     return ApiResponse.ok(quest_service.progress(db, current, today_))
-
-
-@router.put("/pet")
-def change_pet(
-    req: PetChangeRequest,
-    current: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> ApiResponse[QuestProgress]:
-    quest_service.set_pet(db, current, req.code)
-    return ApiResponse.ok(quest_service.progress(db, current, date.today()))

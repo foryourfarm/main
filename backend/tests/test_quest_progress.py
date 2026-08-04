@@ -8,6 +8,7 @@ Postgres 없이 sqlite 인메모리에 필요한 테이블만 만들어 돌린�
 
 import unittest
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import BigInteger, create_engine
 from sqlalchemy.ext.compiler import compiles
@@ -69,17 +70,23 @@ class TestQuestProgress(unittest.TestCase):
 
     def test_pet_stage_boundaries(self):
         # 단계 경계(1/3/6/10)에서 정확히 갈려야 한다 — 오프바이원이 나면 외형이 하루 늦게 바뀐다.
-        self.assertEqual([qs.stage_of(lv).label for lv in (1, 2)], ["씨앗", "씨앗"])
-        self.assertEqual([qs.stage_of(lv).label for lv in (3, 5)], ["새싹", "새싹"])
-        self.assertEqual([qs.stage_of(lv).label for lv in (6, 9)], ["자람", "자람"])
-        self.assertEqual([qs.stage_of(lv).label for lv in (10, 99)], ["열매", "열매"])
+        self.assertEqual([qs.stage_of(lv).code for lv in (1, 2)], ["egg", "egg"])
+        self.assertEqual([qs.stage_of(lv).code for lv in (3, 5)], ["chick", "chick"])
+        self.assertEqual([qs.stage_of(lv).code for lv in (6, 9)], ["fledgling", "fledgling"])
+        self.assertEqual([qs.stage_of(lv).code for lv in (10, 99)], ["swallow", "swallow"])
 
-    def test_pet_defaults_and_whitelist(self):
-        self.assertEqual(qs.pet_of(self.user)[0], qs.DEFAULT_PET_CODE)  # 미선택 → 기본 펫
-        qs.set_pet(self.db, self.user, "pup")
-        self.assertEqual(qs.pet_of(self.user)[0], "pup")
-        with self.assertRaises(AppError):
-            qs.set_pet(self.db, self.user, "dragon")
+    def test_stage_codes_match_frontend_assets(self):
+        # 단계 코드가 곧 일러스트 파일명이다(frontend/public/assets/pet/<code>.png).
+        # 여기서 코드를 바꾸면 그림이 조용히 안 나오므로 자산 존재까지 확인한다.
+        assets = Path(__file__).parents[2] / "frontend" / "public" / "assets" / "pet"
+        for stage in qs.PET_STAGES:
+            self.assertTrue((assets / f"{stage.code}.png").is_file(), stage.code)
+
+    def test_pet_name_is_single_character(self):
+        # 캐릭터는 한 마리 — 레벨이 올라도 이름은 그대로고 단계 라벨만 바뀐다.
+        names = {qs.progress(self.db, self.user, DAY)["pet"]["name"]}
+        self.assertEqual(names, {"텃밭이"})
+        self.assertEqual({s.label for s in qs.PET_STAGES}, {"알", "아기 제비", "어린 제비", "제비"})
 
     def test_progress_marks_today_only(self):
         qs.complete(self.db, self.user.id, "view_short", DAY)

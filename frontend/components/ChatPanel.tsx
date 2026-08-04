@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
-import { GUEST_PET, petImage } from "@/lib/pet";
+import { PET_FALLBACK, petImage } from "@/lib/pet";
 import {
   chatSessionId,
   deleteChatSession,
@@ -231,39 +231,39 @@ export default function ChatPanel({
     }
   }
 
-  // 펫 표시는 전부 서버 값이다(진실 하나). 게스트·세션 복구 중에는 진행도가 없어 중립 표기로 떨어진다.
-  const petName = progress?.pet.name ?? GUEST_PET.name;
-  const petImageSrc = petImage(progress?.pet.code);
+  // 펫 표시는 전부 서버 값이다(진실 하나). 진행도가 아직 안 왔거나 조회가 실패하면 중립 표기로
+  // 떨어진다 — 이름은 같고(같은 캐릭터), 그림은 앱의 얼굴로 두고, 레벨·단계 문구만 빠진다.
+  const petName = progress?.pet.name ?? PET_FALLBACK.name;
+  const petImageSrc = progress === null ? PET_FALLBACK.image : petImage(progress.pet.stage_code);
 
   return (
     <div className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
       <header className={styles.header}>
         {/* 펫이 곧 텃밭이의 외형이다 — 레벨에 따라 이 자리가 자란다(게스트는 기본 얼굴). */}
         <span className={styles.avatar} aria-hidden>
-          {/* 일러스트가 준비된 펫만 이미지로, 나머지는 서버가 주는 emoji로 보여준다
-              (lib/pet의 PET_IMAGE — quest-pet-api.md §4: emoji는 일러스트 전 임시 표기). */}
+          {/* 단계 일러스트로 보여주고, 모르는 단계 코드는 서버 emoji로 떨어진다(lib/pet의 STAGE_IMAGE). */}
           {petImageSrc !== null ? (
             <Image
               src={petImageSrc}
               alt=""
-              width={32}
-              height={32}
+              width={50}
+              height={30}
               className={styles.avatarImg}
             />
           ) : (
-            (progress?.pet.emoji ?? "🌱")
+            (progress?.pet.emoji ?? "🥚")
           )}
         </span>
         <div>
           {/* 도크로 얹힐 때는 그 페이지에 이미 h1이 있다 — 문서에 h1을 둘 두지 않는다. */}
           {embedded ? <h2>{petName}</h2> : <h1>{petName}</h1>}
           {/* 게스트에겐 레벨·단계가 없다 — 없는 진행도를 암시하지 않고 중립 문구를 쓴다. */}
-          <p>{progress === null ? GUEST_PET.line : `Lv.${progress.level} · ${progress.pet.stage_label}`}</p>
+          <p>{progress === null ? PET_FALLBACK.line : `Lv.${progress.level} · ${progress.pet.stage_label}`}</p>
         </div>
       </header>
 
       {/* 펫·레벨·오늘 퀘스트 줄 — 로그인 유저만(서버 상태). */}
-      {progress !== null && <PetQuestBar progress={progress} onChange={setProgress} />}
+      {progress !== null && <PetQuestBar progress={progress} />}
 
       {sessionId !== undefined && (
         <div className={styles.sessionBar}>

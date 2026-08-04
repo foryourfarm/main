@@ -26,13 +26,12 @@
   font-size: 32px;
   line-height: 1;
 }
-/* 펫 일러스트 아바타. 자산이 없는 펫은 서버 emoji가 .avatar 그대로 나온다(lib/pet의 PET_IMAGE). */
+/* 펫 일러스트 아바타. 원본이 5:3(320x192)이라 프레임도 5:3으로 둔다 — 정사각·원형으로 자르면
+   날개 편 단계가 잘리거나 위아래 여백만 커진다. 모르는 단계 코드는 emoji가 .avatar로 나온다. */
 .avatarImg {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 50px;
+  height: 30px;
   object-fit: contain;
-  background: var(--surface-2);
   display: block;
 }
 
@@ -179,29 +178,10 @@
   color: var(--primary);
   font-weight: 700;
 }
-.petPick {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  font-size: 12px;
-  opacity: 0.9;
-}
-.petButton {
-  padding: 4px 10px;
-  border: 1px solid #d6d3cd;
-  border-radius: 999px;
-  background: var(--bg);
-  font: inherit;
-  color: var(--text);
-  cursor: pointer;
-}
-.petButton:disabled {
-  /* 현재 펫 = 이미 선택됨. 테두리를 진하게 해 눌린 상태를 색 없이도 구분한다. */
-  border-color: var(--primary);
-  font-weight: 700;
-  cursor: default;
-  opacity: 1;
+/* 퀘스트 줄의 단계 일러스트(대시보드 .questPetIcon과 같은 크기). */
+.questPetIcon {
+  display: block;
+  object-fit: contain;
 }
 
 .messages {
