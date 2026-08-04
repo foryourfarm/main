@@ -185,7 +185,7 @@ def get_farm_long_term_advice(
         outlook=data,
         stage_label=label,
         # 동기 재시도는 짧은 타임아웃으로 — 유저가 기다리는 경로다(config 주석).
-        llm=OllamaClient(timeout_s=settings.advice_llm_timeout_s),
+        llm=make_llm_client(timeout_s=settings.advice_llm_timeout_s),
     )
     if needs_polish:
         # 응답을 보낸 뒤 다듬는다. Cloud Run 스로틀링으로 완주 못 하면 다음 조회가 메운다.
@@ -195,7 +195,7 @@ def get_farm_long_term_advice(
             crop_name,
             input_hash,
             text,
-            OllamaClient(),
+            make_llm_client(),
         )
     return ApiResponse.ok(LongTermAdvice(text=text, is_llm=is_llm))
 

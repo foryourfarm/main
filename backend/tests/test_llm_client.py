@@ -6,8 +6,10 @@
 전환 전에 캔드 응답으로 고정한다. 상세는 docs/vllm.md §5-2.
 """
 
+import ast
 import json
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import httpx
@@ -168,6 +170,37 @@ class TestMakeLlmClient(unittest.TestCase):
                     client = make_llm_client(timeout_s=8.0)
                     self.assertIsInstance(client, expected)
                     self.assertEqual(client.timeout_s, 8.0)
+
+
+class TestNoHardcodedClient(unittest.TestCase):
+    """호출부가 구체 클라이언트를 직접 생성하면 `LLM_BACKEND` 전환이 그 경로만 비껀다.
+
+    실제로 그랬다(docs/vllm.md 회귀 절): `farms.py`의 장기 추천이 팩토리 대신
+    `OllamaClient`를 하드코딩한 채 머지돼, vLLM 전환 직후 이 엔드포인트만 500이 났다.
+    import도 없어 `NameError`였는데 **테스트 470개가 전부 통과했다** — 라우터 배선을
+    아무도 안 보기 때문이다. 값 하나가 아니라 패턴을 막는다.
+    """
+
+    def test_only_factory_constructs_concrete_clients(self):
+        root = Path(llm_client.__file__).resolve().parents[1]  # app/
+        offenders: list[str] = []
+        for path in sorted(root.rglob("*.py")):
+            if path.samefile(llm_client.__file__):
+                continue  # 팩토리 자신은 당연히 생성한다
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                    if node.func.id in {"OllamaClient", "VllmClient"}:
+                        offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+        self.assertEqual(
+            offenders,
+            [],
+            f"구체 LLM 클라이언트를 직접 생성한다: {offenders} — make_llm_client()를 쓸 것",
+        )
+
+    def test_walk_actually_sees_app_modules(self):
+        # rglob이 빈 결과를 돌면 위 검사가 공허하게 통과한다.
+        root = Path(llm_client.__file__).resolve().parents[1]
+        self.assertGreater(len(list(root.rglob("*.py"))), 20)
 
 
 if __name__ == "__main__":
