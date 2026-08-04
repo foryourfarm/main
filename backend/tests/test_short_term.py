@@ -8,7 +8,11 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from app.infra.public_api.forecast_client import KST, DailyForecast
-from app.services.short_term_service import _to_snapshot_rows, persistent_risks
+from app.services.short_term_service import (
+    _merge_publications,
+    _to_snapshot_rows,
+    persistent_risks,
+)
 
 
 def _day(d: str, *flags: str) -> dict[str, object]:
@@ -132,6 +136,119 @@ class TestPersistentRisks(unittest.TestCase):
             _day("2026-04-02", "temp_night_min:outside_allowed"),
         ]
         self.assertEqual(persistent_risks(days), persistent_risks(days))
+
+
+class _Snap:
+    """`weather_snapshot` 행 대역. 병합은 순수 함수라 DB 없이 검증한다."""
+
+    def __init__(self, hour: int, **over: object):
+        self.base_at = datetime(2026, 8, 4, hour, tzinfo=KST)
+        self.target_date = date(2026, 8, 4)
+        self.temp_avg: Decimal | None = None
+        self.temp_max: Decimal | None = None
+        self.temp_night_min: Decimal | None = None
+        self.rainfall: Decimal | None = None
+        self.sunlight: Decimal | None = None
+        self.hourly_temp: list[dict[str, object]] | None = None
+        self.is_imputed = False
+        for key, value in over.items():
+            setattr(self, key, value)
+
+
+def _hours(*pairs: tuple[int, str]) -> list[dict[str, object]]:
+    return [{"h": h, "t": t} for h, t in pairs]
+
+
+class TestMergePublications(unittest.TestCase):
+    """발표분 병합 — "오늘 데이터가 최신화되며 날아간다"의 수정 지점.
+
+    단기예보 첫날은 발표시각 이후만 오므로(14시 발표 → 15~23시) 최신 발표분만 읽으면 이미
+    지난 새벽·오전이 사라진다. 지난 시간대는 이전 발표에만 있다.
+    """
+
+    def test_keeps_earlier_hours_the_new_publication_dropped(self):
+        early = _Snap(2, hourly_temp=_hours((3, "18"), (4, "17")))
+        late = _Snap(14, hourly_temp=_hours((15, "31"), (16, "30")))
+        merged = _merge_publications([early, late])
+        self.assertEqual([s["h"] for s in merged.hourly_temp or []], [3, 4, 15, 16])
+
+    def test_newest_publication_wins_on_overlapping_hour(self):
+        """겹치는 시각은 최신 예보가 이긴다 — 오래된 값을 남기면 갱신이 무의미해진다."""
+        early = _Snap(2, hourly_temp=_hours((15, "28")))
+        late = _Snap(14, hourly_temp=_hours((15, "31")))
+        self.assertEqual(_merge_publications([early, late]).hourly_temp, [{"h": 15, "t": "31"}])
+
+    def test_order_of_input_does_not_matter(self):
+        """호출 순서가 결과를 바꾸면 안 된다(결정론, CLAUDE.md §2) — base_at으로 정렬한다."""
+        early = _Snap(2, hourly_temp=_hours((15, "28")))
+        late = _Snap(14, hourly_temp=_hours((15, "31")))
+        self.assertEqual(
+            _merge_publications([late, early]).hourly_temp,
+            _merge_publications([early, late]).hourly_temp,
+        )
+
+    def test_extremes_take_the_riskier_side(self):
+        """엇갈리면 위험 쪽(최고는 높게·최저는 낮게·강수는 많게). 놓친 경고는 알릴 방법이 없다."""
+        early = _Snap(
+            2, temp_max=Decimal("35"), temp_night_min=Decimal("12"), rainfall=Decimal("20")
+        )
+        late = _Snap(
+            14, temp_max=Decimal("31"), temp_night_min=Decimal("18"), rainfall=Decimal("2")
+        )
+        merged = _merge_publications([early, late])
+        self.assertEqual(merged.temp_max, Decimal("35"))
+        self.assertEqual(merged.temp_night_min, Decimal("12"))
+        # 오전에 이미 내린 비가 남은 시간대만 담은 최신 발표로 덮이면 일누적이 줄어든다.
+        self.assertEqual(merged.rainfall, Decimal("20"))
+
+    def test_temp_avg_is_mean_of_merged_hours(self):
+        """채점 입력(temp_day)은 합친 표본의 평균이다 — 최신 발표분 평균은 오후로 편향돼 있다."""
+        early = _Snap(2, temp_avg=Decimal("17.5"), hourly_temp=_hours((3, "17"), (4, "18")))
+        late = _Snap(14, temp_avg=Decimal("30.5"), hourly_temp=_hours((15, "30"), (16, "31")))
+        self.assertEqual(_merge_publications([early, late]).temp_avg, Decimal("24.0"))
+
+    def test_coverage_is_rejudged_after_merge(self):
+        """발표분 각각은 부분이어도 합치면 온전할 수 있다 — 그때 '일부 시간대'를 떼야 한다."""
+        early = _Snap(2, is_imputed=True, hourly_temp=_hours(*[(h, "20") for h in range(0, 15)]))
+        late = _Snap(14, is_imputed=True, hourly_temp=_hours(*[(h, "25") for h in range(15, 24)]))
+        self.assertFalse(_merge_publications([early, late]).is_imputed)
+
+    def test_still_partial_when_early_hours_are_missing_everywhere(self):
+        """자정~첫 수집 시각은 어느 발표에도 없다 — 그 결손은 숨기지 않는다(§18-4)."""
+        late = _Snap(14, is_imputed=True, hourly_temp=_hours(*[(h, "25") for h in range(15, 24)]))
+        self.assertTrue(_merge_publications([late]).is_imputed)
+
+    def test_single_publication_is_not_flagged_as_merged(self):
+        self.assertFalse(_merge_publications([_Snap(14)]).is_merged)
+        self.assertTrue(_merge_publications([_Snap(2), _Snap(14)]).is_merged)
+
+    def test_base_at_is_the_newest_publication(self):
+        """화면의 "○시 발표"와 신선도 판정이 이 값을 쓴다 — 오래된 쪽을 쓰면 캐시가 매번 만료된다."""
+        merged = _merge_publications([_Snap(2), _Snap(14)])
+        self.assertEqual(merged.base_at, datetime(2026, 8, 4, 14, tzinfo=KST))
+
+    def test_broken_hourly_slots_are_skipped_not_fatal(self):
+        """JSONB는 타입이 느슨하다 — 슬롯 하나가 깨져도 산출이 죽지 않아야 한다(§12)."""
+        junk = _Snap(
+            2,
+            hourly_temp=[
+                {"h": 3, "t": "18"},
+                {"h": "네시", "t": "17"},
+                {"h": 5, "t": "없음"},
+                "이건 dict가 아니다",
+                {"h": 99, "t": "20"},
+            ],
+        )
+        merged = _merge_publications([junk])
+        self.assertEqual(merged.hourly_temp, [{"h": 3, "t": "18"}])
+
+    def test_no_hourly_anywhere_falls_back_to_newest_values(self):
+        """0032 이전 캐시는 hourly_temp가 NULL이다 — 그 구역에서도 값이 나와야 한다."""
+        merged = _merge_publications(
+            [_Snap(2, temp_avg=Decimal("17")), _Snap(14, temp_avg=Decimal("30"))]
+        )
+        self.assertEqual(merged.temp_avg, Decimal("30"))
+        self.assertIsNone(merged.hourly_temp)
 
 
 if __name__ == "__main__":
