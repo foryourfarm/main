@@ -9,29 +9,35 @@
     않고 `load_crop_overrides()`가 `ValueError`로 즉시 실패한다.
   - 기온: `data/ml/crop_literature_anchor_experiment.csv`(3작물 문헌 앵커 편차 점수, 이미 산출됨).
 
-결측·이상치 처리(2026-07-29 개정 — 점수공간 최근접 단순평균을 원시피처 KNN으로 교체):
-  대체는 `scripts/ml/imputation.py`가 담당한다. 핵심 변경 3가지.
-  1. **점수 공간 → 원시값 공간**. band_score가 비선형(로그 감쇠)이라
-     mean(score) != score(mean) — 종전엔 이 왜곡이 대체값에 그대로 들어갔다. 이제
-     pH·유기물·유효인산·K·Ca·Mg와 작물 앵커월 평균기온을 원시값으로 채운 뒤 채점한다.
-  2. **거리역수 가중 + CV로 k 선택**. k=5 고정·단순평균을 버리고 홀드아웃 20%로
-     k∈{1,3,5,7,10,15}를 고른다. 종전 방식(neighbor_mean_k5)·전역평균과의 MAE 비교를
-     `data/ml/imputation_validation.json`에 남긴다 — 종전 docstring의 "개선 여부 검증
-     불가 [확인 필요]"를 실측으로 대체한 산출물이다.
-  3. **다변량 예측인자**. 예측인자 = 공간(위경도→km 평면) + 기후 4피처 + 나머지 원시변수.
-     K·Ca·Mg 결측 47개 중 23개는 pH·유기물·유효인산을 보유하므로 그 상관이 실제로 쓰인다.
-  이상치: 이웃 대비 KNN 잔차가 크면(modified z>3.5) 결측 처리해 재대체한다. 판정된
-  원본값은 `data/ml/imputation_outliers.csv`에 보존한다 — 지우지 않는다.
-  폴백은 유지: KNN 불가 → 컬럼 평균 → (그래도 결측이면) 점수 50.0.
-  원본 결측 여부는 `*_missing` 컬럼(TRUE/FALSE)으로 항상 보존하고, 대체 방법·빌린
-  지역·거리는 `{변수}_impute_method` / `{변수}_impute_source` 컬럼으로 노출한다(§18-4).
-  한계: 결측 지역엔 실측이 없어 그 지역의 대체 오차는 여전히 직접 검증 불가([확인 필요]).
+결측 처리(🔴 2026-08-05 전면 개정 — KNN 대체를 폐기하고 "제외"로 통일):
+  **결측 지표는 채우지 않고 총점 계산에서 제외한다**(`FILL_MISSING = False`).
+  토양은 '리' 단위 API 조회라 CSV로 전수 적재할 수 있는 데이터가 아니고, 이웃 리에서
+  빌려온 값이 그 필지의 값이라는 근거가 없다 — **KNN 대체는 기상 데이터에만** 적용한다
+  (백엔드 `climatology_service`, k=3·고도 100m 필터·감률 0.65℃/100m).
+
+  종전(2026-07-29~2026-08-04)에는 원시값 공간 KNN으로 채우고, 그래도 결측이면 컬럼
+  평균 → 최종 점수 50.0으로 메웠다. 두 가지가 문제였다.
+  1. 백엔드 `calculate_suitability`는 처음부터 결측을 제외했다 — **같은 밭에 두 점수**가
+     나오고 있었다(`outcomes/README.md`가 금지한 바로 그 상태).
+  2. 50점은 "모른다"가 아니라 "절반쯤 좋다"다. 총점이 min 구조인 지금은 데이터 하나
+     없는 것만으로 그 지역이 C등급에 갇힌다.
+
+  **탐지는 계속 돈다** — 채우는 것과 별개 기능이다. 이웃 대비 KNN 잔차가 크면
+  (modified z>3.5) `{변수}_outlier`로 플래그하고 원본값은 `imputation_outliers.csv`에
+  보존한다(치환하지 않는다, `REPLACE_KNN_OUTLIERS` 참고). 물리 범위 밖 값은 결측 처리된다.
+  원본 결측 여부는 `*_missing` 컬럼(TRUE/FALSE)으로 보존하고
+  `{변수}_impute_method`는 `measured`/`missing` 둘 중 하나가 된다(§18-4).
+
+  한계: 지표 수가 지역마다 달라져 총점의 비교 가능성이 균일하지 않다 — 6지표로 낸 평균과
+  4지표로 낸 평균이 같은 척도인 척하지 않도록 `*_missing` 플래그를 UI에 반드시 노출한다.
 
 신뢰도 플래그(2026-07-25 결정): pH·유기물·유효인산 결측이 변수별 무작위가 아니라
 "토양조사 자체가 없는 동일 24개 지역"에서 항상 동시 발생함(EDA 확인). 개별
 `*_missing` 3개만 두면 총점이 대체값 섞인 걸 한눈에 못 봄 — `soil_score_total_missing`
 (3개 중 하나라도 결측)과 `total_score_{crop}_missing`(토양 or 해당 작물 기온 결측)을
-추가해 총점 신뢰도를 명시한다. 대체 로직 자체(평균/50점)는 바꾸지 않음 — 표시만 강화.
+추가해 총점 신뢰도를 명시한다. (2026-08-05: 이제 대체 자체가 없어 이 플래그는 "대체값이
+섞였다"가 아니라 "그 지표를 못 세었다"를 뜻한다 — 총점의 구성 지표 수가 지역마다 다르므로
+플래그의 중요도는 오히려 커졌다.)
 
 가중치: `_shared.json.weights`에서 읽는다(토양60/기온40/강수0, 2026-08-01 재설계).
 하드코딩하지 않으며 `precipitation != 0`이면 assert로 즉시 실패한다. 강수 0은
@@ -100,7 +106,21 @@ CROPS = {"09001": "사과", "09011": "배", "07001": "상추", "03001": "감자"
 # 따로 돌리면 서로를 예측인자로 쓸 수 없고, 이미 대체된 값이 다음 대체에 섞여 들어간다.
 SOIL_VALUE_COLS = ["pH", "organic_matter", "available_p", "k", "ca", "mg", "ec"]
 CLIMATE_COLS = ["annual_mean_temp", "growing_temp", "temp_seasonality", "annual_precip"]
-UNFILLED_SCORE = 50.0  # 원시값이 끝까지 결측인 경우의 최종 폴백(최고점의 50%)
+# 🔴 결측을 KNN으로 채울지. **False다**(2026-08-05 사용자 확정).
+#
+# 토양은 '리' 단위 API 조회라 CSV로 전수 적재할 수 있는 데이터가 아니고, 이웃 리에서
+# 빌려온 값이 그 필지의 값이라는 근거가 없다 — KNN 대체는 **기상 데이터에만** 적용한다
+# (백엔드 `climatology_service`, k=3·고도 100m 필터). 토양 결측은 채우는 대신 **채점에서
+# 제외**하고 UI에 명시한다. 백엔드 `calculate_suitability`가 처음부터 그렇게 동작했고,
+# 여기만 KNN+50점을 써서 같은 밭에 두 점수가 나오고 있었다.
+#
+# 종전 최종 폴백 `UNFILLED_SCORE = 50.0`도 함께 사라진다. 50점은 "모른다"가 아니라
+# "절반쯤 좋다"이고, 총점이 min 구조인 지금은 데이터 하나 없는 것만으로 그 지역이
+# C등급에 갇힌다 — 모르는 것을 아는 척하지 않는다는 원칙과 정면으로 부딪힌다.
+# 심토토성에서는 50이 '가능지'라는 **실제 등급값**이기도 해서 "판정불가"와 구분조차 안 됐다.
+#
+# 탐지(이상치·물리범위 위반)는 계속 돈다 — 채우는 것과 별개 기능이다.
+FILL_MISSING = False
 
 # 이웃 대비 이상치로 판정된 값을 KNN으로 **치환**할지. 탐지·플래그는 항상 한다.
 #
@@ -165,7 +185,8 @@ def physical_frame(regions):
 
     결측·99(기타)는 NaN으로 남긴다. KNN 대체 대상에 넣지 않는다 — 지형은 이웃 지역에서
     빌려올 수 있는 값이 아니고, 범주 3~6개를 연속값처럼 보간하면 없는 정밀도를 만들어낸다.
-    결측은 기존 최종 폴백(UNFILLED_SCORE=50)으로 처리되고 `*_missing` 플래그로 노출된다.
+    결측은 점수도 NaN으로 남아 총점 계산에서 제외되고 `*_missing` 플래그로 노출된다
+    (2026-08-05 이전에는 50점으로 메웠다 — `FILL_MISSING` 주석 참고).
 
     범주형(토성)을 환산하지 않는 이유: 어떤 %·순위로 바꾸든 단조 순서를 전제하게 되고,
     사과·배의 최적 토성이 정반대라 반드시 한쪽이 틀린다. 코드가 배점표의 키다.
@@ -228,9 +249,18 @@ def load_raw_features(regions):
     return frame, base, targets
 
 
+def in_range(series):
+    """0~100 범위 검증. **결측(NaN)은 통과시킨다** — 결측은 위반이 아니라 채점 제외다."""
+    return series.between(0, 100) | series.isna()
+
+
 def score_column(values, rule):
-    """원시값 → 점수. 대체 실패로 값이 끝까지 결측이면 최종 폴백 50점(종전 3순위와 동일)."""
-    return values.apply(lambda v: band_score(v, rule)).fillna(UNFILLED_SCORE)
+    """원시값 → 점수. **결측은 NaN으로 남긴다** — 채우지 않고 총점 계산에서 제외된다.
+
+    pandas의 `mean`·`min`이 NaN을 기본으로 건너뛰므로 제외가 자동으로 성립한다.
+    종전에는 여기서 50점으로 메웠다(`UNFILLED_SCORE` 주석 참고).
+    """
+    return values.apply(lambda v: band_score(v, rule))
 
 
 def build_soil(df, raw_missing, crop_soil_overrides, crop_physical_overrides, physical):
@@ -272,7 +302,7 @@ def build_soil(df, raw_missing, crop_soil_overrides, crop_physical_overrides, ph
                 scored = values.apply(lambda c: category_score(c, rule))
             else:
                 scored = values.apply(lambda v: band_score(v, physical_rule(rule, var)))
-            df[score_col] = scored.fillna(UNFILLED_SCORE).round(1)
+            df[score_col] = scored.round(1)  # 결측은 NaN 유지 — 총점 계산에서 제외된다
             df[f"{var}_missing_{crop_code}"] = values.isna()
             indicator_scores.append(score_col)
             missing_flags.append(values.isna())
@@ -363,11 +393,22 @@ def build_temp(df, raw_missing, crop_indicator_cols):
         # 무엇이 총점을 정했는가. 국가 구조에서는 먼저 **층**(토양/기온)이 갈리고, 토양이
         # 결속했으면 그 안에서 가장 낮은 지표까지 알려준다 — 층만 알려주면 "토양이 문제"에서
         # 더 나아갈 수 없고, 지표만 알려주면 그 지표가 실제로 총점을 정했는지 알 수 없다.
-        soil_binds = df[soil_col] <= df[f"temp_{crop_code}_{name}_score"]
-        worst_soil = (
-            df[crop_indicator_cols[crop_code]].idxmin(axis=1)
-            .str.replace(f"_{crop_code}$", "", regex=True)
+        # 결측 방어: 한쪽 층이 NaN이면 남은 층이 총점을 정한 것이다. NaN 비교는 항상
+        # False라서 그냥 `soil <= temp`로 두면 토양만 있는 지역이 "기온"으로 잘못 적힌다.
+        temp_score_col = df[f"temp_{crop_code}_{name}_score"]
+        soil_binds = df[soil_col].notna() & (
+            temp_score_col.isna() | (df[soil_col] <= temp_score_col)
         )
+        # 토양 지표가 **전부** 결측인 지역이 있다(토양조사 자체가 없는 24개 지역).
+        # `idxmin`은 전 열 NA인 행에서 예외를 던지므로 채점된 행만 넘긴다.
+        factors = df[crop_indicator_cols[crop_code]]
+        scored_any = factors.notna().any(axis=1)
+        worst_soil = pd.Series("", index=df.index, dtype=object)
+        if scored_any.any():
+            worst_soil.loc[scored_any] = (
+                factors[scored_any].idxmin(axis=1)
+                .str.replace(f"_{crop_code}$", "", regex=True)
+            )
         df[f"limiting_factor_{crop_code}_{name}"] = worst_soil.where(soil_binds, "기온")
     return df
 
@@ -403,6 +444,7 @@ def main():
         base,
         labels=frame["region_name"],
         replace_outliers=REPLACE_KNN_OUTLIERS,
+        fill=FILL_MISSING,
     )
 
     df, crop_indicator_cols = build_soil(
@@ -416,27 +458,33 @@ def main():
     )
 
     score_cols = [c for c in df.columns if "_score" in c and not c.startswith("total_")]
-    assert df[score_cols].apply(lambda s: s.between(0, 100)).all().all(), "점수 0-100 범위 위반"
+    assert df[score_cols].apply(in_range).all().all(), "점수 0-100 범위 위반"
     for crop_code, name in CROPS.items():
-        assert df[f"total_score_{crop_code}_{name}"].between(0, 100).all(), f"{name} 총점 범위 위반"
-        assert df[f"total_score_{crop_code}_{name}_percentile"].between(0, 100).all(), f"{name} percentile 범위 위반"
+        assert in_range(df[f"total_score_{crop_code}_{name}"]).all(), f"{name} 총점 범위 위반"
+        assert in_range(
+            df[f"total_score_{crop_code}_{name}_percentile"]
+        ).all(), f"{name} percentile 범위 위반"
         # 세 총점은 구조적으로 평탄 min ≤ 국가 3단 ≤ 가중평균이다. min 대상이 넓을수록
         # 낮고, min은 그 인자들의 가중평균을 넘을 수 없다. 순서가 깨지면 컬럼 정의가 뒤바뀐 것이다.
         weighted = df[f"total_score_{crop_code}_{name}_weighted_mean"]
         national = df[f"total_score_{crop_code}_{name}"]
         flat = df[f"total_score_{crop_code}_{name}_mlcm_flat"]
-        assert weighted.between(0, 100).all(), f"{name} 가중평균 범위 위반"
-        assert flat.between(0, 100).all(), f"{name} 평탄 MLCM 범위 위반"
-        assert (national <= weighted + 0.05).all(), \
+        assert in_range(weighted).all(), f"{name} 가중평균 범위 위반"
+        assert in_range(flat).all(), f"{name} 평탄 MLCM 범위 위반"
+        # 결측 행은 세 총점 중 일부가 NaN이라 순서 비교 대상이 아니다 — 비교는 셋 다 있는
+        # 행에서만 한다(비교 자체를 포기하지 않는다).
+        comparable = national.notna() & weighted.notna() & flat.notna()
+        assert (national[comparable] <= weighted[comparable] + 0.05).all(), \
             f"{name} 국가구조 총점이 가중평균보다 높다 — min 정의 위반"
-        assert (flat <= national + 0.05).all(), \
+        assert (flat[comparable] <= national[comparable] + 0.05).all(), \
             f"{name} 평탄 MLCM이 국가구조 총점보다 높다 — 토양 합산/평탄 min 구조가 뒤바뀌었다"
         # 제한요인은 실제로 총점을 정한 쪽을 가리켜야 한다. "기온"이라 적혀 있으면 기온 점수가
         # 곧 총점이어야 한다 — 이 대조가 없으면 층 판정이 뒤집혀도 산출물에서 드러나지 않는다.
         is_temp = df[f"limiting_factor_{crop_code}_{name}"] == "기온"
         if is_temp.any():
             temp_score = df.loc[is_temp, f"temp_{crop_code}_{name}_score"]
-            assert (national[is_temp] - temp_score).abs().max() <= 0.05, \
+            gap = (national[is_temp] - temp_score).abs()
+            assert gap.max(skipna=True) <= 0.05 or gap.isna().all(), \
                 f"{name} 제한요인이 기온인데 총점이 기온 점수와 다르다"
     for crop_code in CROPS:
         assert f"soil_score_total_{crop_code}" in df.columns, f"{crop_code} 토양 총점 컬럼 누락"
@@ -500,11 +548,18 @@ def main():
                             "배 교본은 '5~6'(양측)으로 써서 Ca 14.42 지역이 사과 100점·배 0점이 된다. "
                             "계산 오류가 아니라 두 교본의 표기 차이를 그대로 반영한 것이며, 어느 "
                             "표기가 옳은지는 미확정이다([확인 필요], knowledge-base/registry.md §1).",
-        "imputation_rule": "2026-07-29 개정: 원시값 공간에서 거리역수 가중 KNN 대체"
-                            f"(k={impute_report['k_used']}, 홀드아웃 CV로 선택). 예측인자 = 공간(위경도→km "
-                            "평면) + 기후 4피처 + 나머지 원시변수. 폴백: KNN 불가 → 컬럼 평균 → 점수 50.0. "
-                            "이상치는 이웃 대비 KNN 잔차 modified z>3.5를 결측 처리해 재대체하고 원본값은 "
-                            "imputation_outliers.csv에 보존한다. 상세·베이스라인 비교는 imputation_validation.json.",
+        "imputation_rule": "🔴 2026-08-05 개정: **토양 결측은 대체하지 않고 채점에서 제외한다** "
+                            "(FILL_MISSING=False). 토양은 '리' 단위 API 조회라 이웃에서 빌려온 값이 그 "
+                            "필지의 값이라는 근거가 없다 — KNN 대체는 기상 데이터에만 적용한다(백엔드 "
+                            "climatology_service, k=3·고도 100m 필터·감률 0.65℃/100m). 종전(2026-07-29~08-04) "
+                            "원시값 공간 KNN 대체 + 컬럼 평균 + 최종 점수 50.0 폴백은 폐기됐다: 백엔드 "
+                            "calculate_suitability가 처음부터 결측을 제외했으므로 같은 밭에 두 점수가 나왔고, "
+                            "50점은 '모른다'가 아니라 '절반쯤 좋다'라 총점 min 구조에서 데이터 하나 없는 것만으로 "
+                            "그 지역을 C등급에 가둔다. 탐지는 유지: 이웃 대비 KNN 잔차 modified z>3.5를 "
+                            "{변수}_outlier로 플래그하고 치환하지 않으며 원본값은 imputation_outliers.csv에 "
+                            "보존한다(물리 범위 밖 값만 결측 처리). {변수}_impute_method는 measured/missing 둘 중 "
+                            "하나다. 한계: 지표 수가 지역마다 달라 총점의 비교 가능성이 균일하지 않다 — "
+                            "*_missing 플래그를 UI에 반드시 노출할 것.",
         "reliability_flag_rule": "soil_score_total_{crop}_missing = 그 작물 토양 총점을 구성한 "
                                   "지표(화학 + 물리성) 중 하나라도 원본 결측. "
                                   "total_score_{crop}_missing = 토양 결측 or 해당 작물 기온 결측. "
@@ -551,11 +606,12 @@ def main():
                             "단일 구간 0-15%로, 이 배점표는 0-7(20점)/7-15(15점) 4등급으로 준다 — 국가 자료 "
                             "2건이 충돌해 기존 처방 5차 값을 유지했다 [확인 필요]. 사과·배 soil_score_total은 "
                             "지표가 7→8개로 늘어 이전 산출과 직접 비교할 수 없다(scoring_version 2026-08-03-v3). "
-                            "⚠️값 충돌 주의: 토성 결측(등급코드 없음 5지역, 99=기타)은 다른 지표와 같은 최종 폴백 "
-                            "UNFILLED_SCORE=50점을 받는데, 토성에서 50점은 '가능지'라는 **실제 등급값**이기도 하다 "
-                            "— 즉 subsoil_texture_score 50은 '가능지'와 '판정불가'가 같은 숫자로 나온다. "
-                            "구분은 subsoil_texture_missing_{crop} 플래그로만 가능하고, 그 플래그는 "
-                            "soil_score_total_{crop}_missing으로도 전파된다. 점수만 읽고 등급을 역추론하면 안 된다.",
+                            "🔵 2026-08-05 해소: 토성 결측(등급코드 없음 5지역, 99=기타)이 종전엔 최종 폴백 "
+                            "50점을 받았고 토성에서 50점은 '가능지'라는 **실제 등급값**이기도 해서 '가능지'와 "
+                            "'판정불가'가 같은 숫자로 나왔다. 이제 결측은 NaN으로 남아 총점 계산에서 제외되므로 "
+                            "그 혼동이 사라졌다 — 점수 50은 '가능지' 하나만 뜻한다. "
+                            "결측 여부는 subsoil_texture_missing_{crop} 플래그로 노출되고 "
+                            "soil_score_total_{crop}_missing으로도 전파된다.",
         "mlcm_note": "🔴 **2026-08-04: total_score_{crop}은 국가 적지평가 3단 구조다.** "
                       "min(토양 총점, 기온 점수) — 토양은 요인별 점수제로 합산해 토양 등급을 내고, "
                       "기후는 최대저해인자법으로 묶고, 두 결과를 다시 최대저해인자법으로 통합한다"
@@ -620,7 +676,8 @@ def main():
     # 이상치로 판정된 원본값은 지우지 않고 남긴다 — "진짜 특이 토양"일 수 있다(§18-4).
     pd.DataFrame(impute_report["outliers"]).to_csv(OUTLIERS, index=False, encoding="utf-8")
 
-    print(f"{OUT.name}: {len(df)} regions | KNN k={impute_report['k_used']}")
+    fill_note = f"KNN k={impute_report['k_used']}" if FILL_MISSING else "결측 대체 없음(제외)"
+    print(f"{OUT.name}: {len(df)} regions | {fill_note}")
     for name, mae in impute_report["k_selection"].get("normalized_mae", {}).items():
         print(f"  CV 정규화 MAE {name}: {mae}")
     for col, v in impute_report["columns"].items():

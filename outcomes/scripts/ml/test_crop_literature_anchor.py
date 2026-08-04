@@ -26,8 +26,17 @@ if str(SCRIPTS_ML) not in sys.path:
 
 
 def _repo_root():
+    """이 스크립트 트리의 루트 — `memory/crop_rules`를 가진 조상을 찾는다.
+
+    🔴 2026-08-05 수정: 종전엔 `CLAUDE.md`를 찾아 올라갔는데, ForYourFarm 쪽에서는
+    `outcomes/`에 CLAUDE.md가 없어 **리포지토리 루트까지 올라가** ROOT가 엉뚱한 곳을
+    가리켰다 — `memory/crop_rules`가 없으니 이 테스트가 그 리포에서 항상 실패했다.
+    FarmML 쪽에서는 `outcomes/`가 곧 리포 루트라 CLAUDE.md가 있어 통과했고, 그래서
+    **계약을 지키려고 만든 테스트가 정작 지켜야 할 쪽에서 돌지 않고 있었다.**
+    찾는 대상을 CLAUDE.md가 아니라 이 트리가 반드시 갖는 디렉터리로 바꾼다.
+    """
     for parent in Path(__file__).resolve().parents:
-        if (parent / "CLAUDE.md").exists():
+        if (parent / "memory" / "crop_rules").is_dir():
             return parent
     return Path(__file__).resolve().parents[2]
 

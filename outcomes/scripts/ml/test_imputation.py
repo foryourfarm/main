@@ -178,10 +178,18 @@ def test_regional_score_exposes_provenance():
         assert f"{col}_impute_source" in df.columns, f"{col}_impute_source 누락"
         assert f"{col}_outlier" in df.columns, f"{col}_outlier 누락"
     methods = set(df["pH_impute_method"])
-    allowed = {"measured", "column_mean", "unfilled"} | {f"knn_k{k}" for k in range(1, 16)}
+    # `missing`은 2026-08-05에 들어온 라벨이다 — 토양 결측을 채우지 않고 제외하기로
+    # 바뀌면서(`build_regional_score.FILL_MISSING=False`) 운영 산출물의 라벨은 실제로
+    # `measured`/`missing` 둘뿐이다. 대체 라벨들은 `fill=True`로 돌릴 때만 나온다.
+    allowed = {"measured", "missing", "column_mean", "unfilled"} | {
+        f"knn_k{k}" for k in range(1, 16)
+    }
     assert methods <= allowed, f"예상 밖 대체 방법 라벨: {methods - allowed}"
     borrowed = df[df["pH_impute_method"].str.startswith("knn_k")]
-    assert borrowed["pH_impute_source"].str.len().gt(0).all(), "대체했는데 출처가 비었다"
+    # 운영 산출물에는 빌려온 행이 0건이다(결측을 채우지 않는다) — 그때 출처 컬럼은 전부
+    # 비어 있고 pandas가 NaN(float)으로 읽어 `.str`이 안 먹는다. 빌린 행이 있을 때만 본다.
+    if not borrowed.empty:
+        assert borrowed["pH_impute_source"].str.len().gt(0).all(), "대체했는데 출처가 비었다"
 
 
 def main():

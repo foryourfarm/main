@@ -374,8 +374,9 @@ def impute(
     use_others: bool = True,
     detect_outliers: bool = True,
     replace_outliers: bool = True,
+    fill: bool = True,
 ) -> tuple[pd.DataFrame, dict]:
-    """원시 피처 결측·이상치를 KNN으로 채운다.
+    """원시 피처 결측·이상치를 KNN으로 채운다(`fill=False`면 탐지만 하고 채우지 않는다).
 
     Args:
         frame: 대상 컬럼(`targets`)을 담은 원시값 프레임.
@@ -389,6 +390,12 @@ def impute(
         replace_outliers: 탐지된 이상치를 결측 처리해 재대체할지. False면 플래그만 남기고
             값은 그대로 쓴다. 탐지된 값이 "데이터 오류"인지 "진짜 극단값"인지는 데이터마다
             다르다 — 판단은 호출부가 근거를 남기고 결정한다.
+        fill: 결측을 실제로 채울지. **False면 결측을 그대로 두고 탐지·플래그만 한다** —
+            이상치 탐지(이웃 대비 잔차)는 대체와 별개의 기능이라 하나를 끄려고 다른 하나를
+            버릴 필요가 없다. `{col}__impute_method`는 `measured` 또는 `missing`이 된다.
+            🔴 토양 데이터가 이 경로를 쓴다(2026-08-05 사용자 확정): 토양은 '리' 단위라
+            KNN으로 이웃에서 빌려올 수 있는 값이 아니고, 결측 지표는 채우는 대신 채점에서
+            제외하고 UI에 명시한다. KNN 대체는 기상 데이터에만 적용한다.
 
     Returns:
         (대체 후 프레임, 리포트 dict). 프레임에는 컬럼별 `{col}__impute_method`,
@@ -434,10 +441,15 @@ def impute(
     for col in targets:
         # 플래그는 치환 여부와 무관하게 항상 노출한다 — 근사·특이값 표기 의무(§18-4).
         frame[f"{col}__outlier"] = outliers[col]
-        filled, method, source = _fill_column(
-            frame, col, targets, base, labels, k_used, others_used
-        )
-        frame[col] = filled
+        if fill:
+            filled, method, source = _fill_column(
+                frame, col, targets, base, labels, k_used, others_used
+            )
+            frame[col] = filled
+        else:
+            # 값은 건드리지 않는다. 결측은 결측으로 남고 채점에서 제외된다.
+            method = frame[col].notna().map({True: "measured", False: "missing"})
+            source = pd.Series("", index=frame.index)
         frame[f"{col}__impute_method"] = method
         frame[f"{col}__impute_source"] = source
         report_cols[col] = {
@@ -456,6 +468,7 @@ def impute(
         "outlier_rule": f"이웃 대비 KNN 잔차 modified z > {OUTLIER_MODIFIED_Z}. row 단위 LOF 미사용 "
                         "— 한 행을 판정하면 그 행의 유효 측정값이 함께 버려진다. 원본값은 보존한다.",
         "outlier_replaced": bool(detect_outliers and replace_outliers),
+        "filled": bool(fill),
         "physical_range": {name: list(rng_) for name, rng_ in PHYSICAL_RANGE.items()},
         "columns": report_cols,
         "outliers": outlier_records,

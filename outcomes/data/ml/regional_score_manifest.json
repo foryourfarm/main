@@ -1,6 +1,6 @@
 {
-  "knowledge_version": "2026-08-04-v5",
-  "scoring_version": "2026-08-04-v5",
+  "knowledge_version": "2026-08-05-v6",
+  "scoring_version": "2026-08-05-v6",
   "weights": {
     "soil": 60,
     "temperature": 40,
@@ -9,87 +9,87 @@
   "weight_note": "2026-08-01 가중치 재설계(사용자 확인): 토양60/기온40/강수0. 종전 표기(45/30/25)는 강수 점수를 한 번도 산출한 적이 없어 실효 가중치(0.6/0.4)와 달랐다 — 실효값을 명시값으로 올린 것이라 총점 숫자는 바뀌지 않는다. precipitation=0은 '중요하지 않다'가 아니라 '작물별 optimal range 문헌이 없어 채점하지 않는다'는 뜻이다(memory/open-gaps.md 필요문헌 4번).",
   "percentile_note": "total_score_{crop}_percentile(2026-07-25 도입)은 크롭 내부 상대순위(0~100)일 뿐, 크롭간 절대 비교가 아니다. 크롭마다 문헌 기준의 엄격도가 실제로 다르므로(예: 상추 RDA 토양기준이 감자보다 훨씬 좁음, 전국 pH 중앙값 5.91이 상추 optimal 6.5~7.0과 구조적으로 어긋남) total_score_{crop} 절대값 자체는 그대로 둔다 — 가중치를 임의로 조정해 크롭간 점수를 맞추지 않는다(CLAUDE.md §2·§8).",
   "crop_band_precision_note": "크롭간 근거 정밀도가 비대칭이다. 2026-08-03 이후 5작물 전부 작물별 문헌 밴드로만 채점되지만(공유 밴드 삭제) 출처 계열이 다르다 — 사과·배는 RDA 교본(사과 표5-21 2018·2025 동일 / 배 표5-25), 감자·오이·상추는 RDA 비료사용처방 5차(2022, 각각 p83·p103·p169)이며 후자는 원문이 「시설재배토양」 표기인데 우리 실측은 노지다. `allowed`는 문헌 직접값이 있는 일부를 빼면 여전히 `optimal ±50%` 휴리스틱이다. 따라서 total_score_{crop} 절대값의 크롭간 비교는 어긋난다 — percentile(크롭 내 상대순위)만 크롭간 나란히 읽을 수 있다. 또한 같은 토양이 작물별로 정반대 판정을 받을 수 있다: 치환성 Ca를 사과 교본은 '5~6 cmol/kg 이상'(상한 없음 → 단측 밴드)으로, 배 교본은 '5~6'(양측)으로 써서 Ca 14.42 지역이 사과 100점·배 0점이 된다. 계산 오류가 아니라 두 교본의 표기 차이를 그대로 반영한 것이며, 어느 표기가 옳은지는 미확정이다([확인 필요], knowledge-base/registry.md §1).",
-  "imputation_rule": "2026-07-29 개정: 원시값 공간에서 거리역수 가중 KNN 대체(k=5, 홀드아웃 CV로 선택). 예측인자 = 공간(위경도→km 평면) + 기후 4피처 + 나머지 원시변수. 폴백: KNN 불가 → 컬럼 평균 → 점수 50.0. 이상치는 이웃 대비 KNN 잔차 modified z>3.5를 결측 처리해 재대체하고 원본값은 imputation_outliers.csv에 보존한다. 상세·베이스라인 비교는 imputation_validation.json.",
+  "imputation_rule": "🔴 2026-08-05 개정: **토양 결측은 대체하지 않고 채점에서 제외한다** (FILL_MISSING=False). 토양은 '리' 단위 API 조회라 이웃에서 빌려온 값이 그 필지의 값이라는 근거가 없다 — KNN 대체는 기상 데이터에만 적용한다(백엔드 climatology_service, k=3·고도 100m 필터·감률 0.65℃/100m). 종전(2026-07-29~08-04) 원시값 공간 KNN 대체 + 컬럼 평균 + 최종 점수 50.0 폴백은 폐기됐다: 백엔드 calculate_suitability가 처음부터 결측을 제외했으므로 같은 밭에 두 점수가 나왔고, 50점은 '모른다'가 아니라 '절반쯤 좋다'라 총점 min 구조에서 데이터 하나 없는 것만으로 그 지역을 C등급에 가둔다. 탐지는 유지: 이웃 대비 KNN 잔차 modified z>3.5를 {변수}_outlier로 플래그하고 치환하지 않으며 원본값은 imputation_outliers.csv에 보존한다(물리 범위 밖 값만 결측 처리). {변수}_impute_method는 measured/missing 둘 중 하나다. 한계: 지표 수가 지역마다 달라 총점의 비교 가능성이 균일하지 않다 — *_missing 플래그를 UI에 반드시 노출할 것.",
   "reliability_flag_rule": "soil_score_total_{crop}_missing = 그 작물 토양 총점을 구성한 지표(화학 + 물리성) 중 하나라도 원본 결측. total_score_{crop}_missing = 토양 결측 or 해당 작물 기온 결측. 대체값 자체는 그대로 쓰되(총점 계산엔 포함), 신뢰도만 별도 표시. 2026-08-03: 작물 무관 soil_score_total(_missing) 컬럼은 사라졌다.",
   "shared_band_removal_note": "2026-08-03 사용자 결정: 출처미상 공유 soil_rules(ph 6.0~7.0 / organic_matter 20~30 / available_p 300~550)를 채점에서 제거하고 5작물 전부 문헌 출처가 있는 작물별 밴드로 전환했다. 특히 available_p 300~550은 RDA 비료사용처방 5차(작물별 200~500)와 국가농업환경변동조사 등급표(최적 200~450) 양쪽에서 반증된 값이었다. 감자는 종전에 ph override가 없어 공유 6.0~7.0으로 채점됐는데 감자는 산성 토양 작물(교본 5.0~6.0)이라 방향이 반대였다 — 이번 개정의 최대 결함 수정이다. 코드는 필수 지표 밴드가 없는 작물을 만나면 폴백하지 않고 즉시 실패한다.",
   "physical_axis_note": "2026-08-03 신규: 물리성(경사 slope_pct, 자갈 gravel_pct)을 토양 총점 구성인자로 추가했다. 근거는 RDA 「작물별 비료사용처방」 5차(2022) 물리성 표(사과 경사 0-15% / 나머지 0-7%, 자갈은 감자만 0-35%)이고, 입력은 data/02_soil_physical_modified.csv의 등급코드를 _shared.json physical_code_maps로 등급 상한 %로 환산한 값이다. ⚠️근사·한계 3건: ① 등급 내 최악값(상한)을 대표로 쓴다 — 등급 내 실제 분포가 데이터에 없다. ② 자갈 최상위 등급('35% 이상')은 상한이 열려 있어 물리적 최대 100%로 둔다. ③ 등급이 3~6개뿐이라 해상도가 화학 지표보다 훨씬 거칠고, 자갈은 사실상 '코드 1·2 = 100점 / 코드 3 = 0점'으로 작동한다. 가중치(soil 60/temp 40)는 바꾸지 않았고 토양 총점 내부 균등 평균에 합류시켰다 — 물리성 배분 비율을 줄 문헌이 없기 때문이다(추측 금지).",
-  "texture_axis_note": "2026-08-03 신규(4차 리서치 유입): 심토토성(subsoil_texture)을 사과·배 토양 총점 구성인자로 추가했다. 종전엔 '처방 5차의 사양질~식양질 코드 순서 해석이 문헌으로 확정되지 않는다'는 이유로 미채점이었는데, 그 사유는 순서를 추정하려 했기 때문에 생긴 것이다. 심교문(2016) 「토양·기후요인을 종합적으로 고려한 과수 재배적지 구분」(국립농업과학원 영농기술정보)이 등급 이름 그대로 4등급 배점표(20/15/10/5)를 주므로 순서 추정이 불필요해졌다 — 등급코드를 키로 배점표를 직접 조회한다(scripts/ml/scoring.py category_score, 밴드 아님). 교차 확인: climate-soil-integrated-suitability-2021(PJ013548) 표11·표14와 일치. 🔴 사과와 배의 최적 토성이 정반대다 — 사과는 사양질·미사사양질(20점), 배는 식양질·미사식양질(20점). 같은 흙이 두 작물에서 100점/50점으로 갈리며 이는 계산 오류가 아니라 국가 배점표 자체의 작물별 차이다. 공통 토성 규칙을 쓰면 반드시 한쪽이 틀린다. 감자·오이·상추는 등급별 배점표가 없어 미채점 유지 (처방 5차엔 '사양질~식양질' 범위만 있다). 배점 20/15/10/5 → 100/75/50/25 환산은 국가 토양 적지평가가 항목당 20점 만점 합산이라는 사실의 산술 변환이며 휴리스틱이 아니다. ⚠️미채택 2건(문헌은 확보, 데이터가 없다): 같은 배점표의 배수등급은 「양호 20점 > 매우양호 15점」의 U자형(과배수도 감점)이고 유효토심 4등급도 있으나 data/02_soil_physical_modified.csv에 두 컬럼이 아예 없다(codebook 검색 0건) — 밴드를 만들지 않는다. 배 자갈은 배점표 최적 경계가 <10%인데 우리 최하 등급이 0-15%라 경계가 어긋나 분해되지 않는다. ⚠️미해결 충돌 1건: 사과 경사를 처방 5차는 단일 구간 0-15%로, 이 배점표는 0-7(20점)/7-15(15점) 4등급으로 준다 — 국가 자료 2건이 충돌해 기존 처방 5차 값을 유지했다 [확인 필요]. 사과·배 soil_score_total은 지표가 7→8개로 늘어 이전 산출과 직접 비교할 수 없다(scoring_version 2026-08-03-v3). ⚠️값 충돌 주의: 토성 결측(등급코드 없음 5지역, 99=기타)은 다른 지표와 같은 최종 폴백 UNFILLED_SCORE=50점을 받는데, 토성에서 50점은 '가능지'라는 **실제 등급값**이기도 하다 — 즉 subsoil_texture_score 50은 '가능지'와 '판정불가'가 같은 숫자로 나온다. 구분은 subsoil_texture_missing_{crop} 플래그로만 가능하고, 그 플래그는 soil_score_total_{crop}_missing으로도 전파된다. 점수만 읽고 등급을 역추론하면 안 된다.",
+  "texture_axis_note": "2026-08-03 신규(4차 리서치 유입): 심토토성(subsoil_texture)을 사과·배 토양 총점 구성인자로 추가했다. 종전엔 '처방 5차의 사양질~식양질 코드 순서 해석이 문헌으로 확정되지 않는다'는 이유로 미채점이었는데, 그 사유는 순서를 추정하려 했기 때문에 생긴 것이다. 심교문(2016) 「토양·기후요인을 종합적으로 고려한 과수 재배적지 구분」(국립농업과학원 영농기술정보)이 등급 이름 그대로 4등급 배점표(20/15/10/5)를 주므로 순서 추정이 불필요해졌다 — 등급코드를 키로 배점표를 직접 조회한다(scripts/ml/scoring.py category_score, 밴드 아님). 교차 확인: climate-soil-integrated-suitability-2021(PJ013548) 표11·표14와 일치. 🔴 사과와 배의 최적 토성이 정반대다 — 사과는 사양질·미사사양질(20점), 배는 식양질·미사식양질(20점). 같은 흙이 두 작물에서 100점/50점으로 갈리며 이는 계산 오류가 아니라 국가 배점표 자체의 작물별 차이다. 공통 토성 규칙을 쓰면 반드시 한쪽이 틀린다. 감자·오이·상추는 등급별 배점표가 없어 미채점 유지 (처방 5차엔 '사양질~식양질' 범위만 있다). 배점 20/15/10/5 → 100/75/50/25 환산은 국가 토양 적지평가가 항목당 20점 만점 합산이라는 사실의 산술 변환이며 휴리스틱이 아니다. ⚠️미채택 2건(문헌은 확보, 데이터가 없다): 같은 배점표의 배수등급은 「양호 20점 > 매우양호 15점」의 U자형(과배수도 감점)이고 유효토심 4등급도 있으나 data/02_soil_physical_modified.csv에 두 컬럼이 아예 없다(codebook 검색 0건) — 밴드를 만들지 않는다. 배 자갈은 배점표 최적 경계가 <10%인데 우리 최하 등급이 0-15%라 경계가 어긋나 분해되지 않는다. ⚠️미해결 충돌 1건: 사과 경사를 처방 5차는 단일 구간 0-15%로, 이 배점표는 0-7(20점)/7-15(15점) 4등급으로 준다 — 국가 자료 2건이 충돌해 기존 처방 5차 값을 유지했다 [확인 필요]. 사과·배 soil_score_total은 지표가 7→8개로 늘어 이전 산출과 직접 비교할 수 없다(scoring_version 2026-08-03-v3). 🔵 2026-08-05 해소: 토성 결측(등급코드 없음 5지역, 99=기타)이 종전엔 최종 폴백 50점을 받았고 토성에서 50점은 '가능지'라는 **실제 등급값**이기도 해서 '가능지'와 '판정불가'가 같은 숫자로 나왔다. 이제 결측은 NaN으로 남아 총점 계산에서 제외되므로 그 혼동이 사라졌다 — 점수 50은 '가능지' 하나만 뜻한다. 결측 여부는 subsoil_texture_missing_{crop} 플래그로 노출되고 soil_score_total_{crop}_missing으로도 전파된다.",
   "mlcm_note": "🔴 **2026-08-04: total_score_{crop}은 국가 적지평가 3단 구조다.** min(토양 총점, 기온 점수) — 토양은 요인별 점수제로 합산해 토양 등급을 내고, 기후는 최대저해인자법으로 묶고, 두 결과를 다시 최대저해인자법으로 통합한다(심교문 2016 영농기술정보 원문: '토양요인 … 요인별 점수제를 활용' / '기후요인 … 최대저해인자법을 활용' / '기후요인 결과값과 토양요인 결과값을 최대저해인자법으로 통합'). 종전 정의(가중평균)는 total_score_{crop}_weighted_mean으로 병기하고, 토양 지표 하나하나까지 한 번에 min하는 **평탄 min**은 total_score_{crop}_mlcm_flat으로 진단용 보존한다. 무엇이 총점을 정했는지는 limiting_factor_{crop}에 있다 — 토양이 결속했으면 그 안의 최악 지표명, 기온이 결속했으면 '기온'이다. 🔴 **구조 교체 경위(같은 날 두 번 바뀌었다)**: 오전에 평탄 min을 주 총점으로 올렸는데 실측에서 150지역 중 사과 138·상추 148·감자 143지역이 C등급이 됐다. 지표 8~10개 중 하나만 낮아도 총점이 그 값이 되기 때문이고, 국가가 합산으로 처리하는 층에 MLCM을 겹쳐 적용한 것이 원인이다. 등급 공간에서 min하는 안(FinalReport §3-1 ⓐ)은 **채택하지 않았다** — 등급 함수가 점수에 대해 단조라서 min∘등급 = 등급∘min이고 150지역×5작물 전수에서 등급 분포가 평탄 min과 완전히 일치했다(등급을 한 지역도 바꾸지 않는다). 사용자 결정으로 국가 3단 구조를 채택했다. 근거: 김호정 외(2016) 한국농림기상학회지 18(3):127-134이 MLCM을 '최악 인자 등급 채택'으로 정의, Kim & Shim(2019)이 MLCM(전국 적지 19.55%)이 AHP(99.08%)보다 실측 재배면적에 근접함을 확인, Boguszewska 2022에서 감자 고온 14.9% + 건조 23.2%의 복합 처리가 단순합 38.1%가 아니라 실제 29.2%(합산은 복합 스트레스를 과대평가한다). ⚠️근사·한계 4건: ① 원문은 등급(최적지·적지·가능지·저위생산지) 기반 min인데 여기서는 연속 점수의 min을 쓴다 — 국가 컷(토양 85/80/70)으로 이산화하지 않았다. ② 우리 토양 총점은 지표 균등평균이고 국가는 5항목 × 20점 합산이다. 둘 다 100점 만점 정규 척도라 같은 자리에 놓을 수 있지만 항목 집합이 다르다 — 국가 5항목(토성·경사·배수· 유효토심·자갈) 중 우리는 토성·경사만 갖고 배수·유효토심 컬럼이 없으며 대신 화학 6~7지표가 들어가 있다. ③ 기후는 기온 1축만 채점하므로 그 층의 min은 기온 점수 자신이다 — 강수는 채점되지 않아 min 대상에서도 빠진다(가중평균과 같은 누락). ④ 🔴 **기온이 사실상 총점에 기여하지 않는다.** national_minus_soil_mean 필드가 이걸 정량화한다 — 사과는 +0.00으로 주 총점이 토양 총점과 완전히 같다. 생육적온 18~28이 월평균 기온에는 거의 항상 만족돼(사과 기온 점수 평균 99.5, S 148/150) min에서 결속하지 않기 때문이다. 즉 현재 주 총점은 실질적으로 토양 총점이다 [확인 필요]. ⚠️토양60/기온40 가중치는 이 구조에서 쓰이지 않는다 — 최소값에 가중 개념이 없다. 두 상수는 _weighted_mean 산출에만 남는다. ⚠️컬럼 정의가 바뀌었으므로 종전 산출물과 같은 이름의 값을 직접 비교하면 안 된다.",
   "temp_grade_note": "temp_grade_{crop}_{name}_score(2026-08-04 신규, 사과만)는 **적지 등급** 기온이다. temp_{crop}_{name}_score(생육적온 18~28)와 같은 앵커월 기온을 쓰지만 다른 질문에 답한다 — 앞은 '이 작물이 자랄 수 있는 기온인가', 이쪽은 '국가 적지평가가 이 지역을 사과 적지로 보는가'다. 한 지표에 두 값을 겹쳐 쓰던 것이 성격 오인이었고 사용자 결정(2026-08-04 ⓒ)으로 분리했다. 밴드는 arccas 적지 14.5~18.5 / 가능지 13.5~19.5로 두 경계 모두 문헌값이다(휴리스틱 없음). 🔴 **주 총점의 min 대상에 넣지 않는다**(in_total=False). 실측: 앵커월 전국평균 20.67℃가 가능지 상한 19.5를 넘어 이 지표는 전국 평균 29.9점이고, min에 넣으면 사과 주 총점이 74.9 → 30 아래로 무너져 C등급이 130지역을 넘는다(평탄 min 138지역보다 나아지지 않는다). 그 숫자가 틀렸다는 뜻이 아니다 — 국가 기준으로는 한국 대부분이 이미 사과 적지가 아닐 수 있고, 그 판단은 문헌이 아니라 사람이 내려야 한다 [확인 필요]. 하드 페널티(게이트)도 두지 않았다 — 감점 폭을 줄 문헌이 없어 만들면 휴리스틱이 된다. 다른 작물은 적지/가능지 2단계 문헌이 없어 이 지표를 갖지 않는다.",
   "mlcm_vs_weighted": {
     "사과": {
-      "weighted_mean": 81.0,
-      "national_mean": 68.6,
+      "weighted_mean": 80.9,
+      "national_mean": 69.3,
       "national_zero_regions": 0,
-      "flat_mlcm_mean": 20.5,
+      "flat_mlcm_mean": 25.0,
       "flat_mlcm_zero_regions": 23,
-      "national_rank_spearman": 0.993,
-      "national_limiting_soil_regions": 150,
+      "national_rank_spearman": 0.992,
+      "national_limiting_soil_regions": 134,
       "national_minus_soil_mean": 0.0,
       "limiting_factor_top": {
-        "available_p_score": 47,
-        "ca_score": 38,
-        "ph_score": 15
+        "available_p_score": 49,
+        "ca_score": 24,
+        "subsoil_texture_score": 20
       }
     },
     "배": {
-      "weighted_mean": 78.9,
-      "national_mean": 66.6,
+      "weighted_mean": 79.0,
+      "national_mean": 67.3,
       "national_zero_regions": 1,
-      "flat_mlcm_mean": 18.6,
+      "flat_mlcm_mean": 24.6,
       "flat_mlcm_zero_regions": 37,
-      "national_rank_spearman": 0.977,
-      "national_limiting_soil_regions": 146,
-      "national_minus_soil_mean": -0.87,
+      "national_rank_spearman": 0.976,
+      "national_limiting_soil_regions": 129,
+      "national_minus_soil_mean": -0.95,
       "limiting_factor_top": {
-        "available_p_score": 39,
-        "ca_score": 35,
-        "slope_pct_score": 24
+        "available_p_score": 41,
+        "slope_pct_score": 25,
+        "ca_score": 22
       }
     },
     "상추": {
-      "weighted_mean": 72.7,
-      "national_mean": 65.6,
-      "national_zero_regions": 0,
-      "flat_mlcm_mean": 6.6,
-      "flat_mlcm_zero_regions": 69,
-      "national_rank_spearman": 0.972,
-      "national_limiting_soil_regions": 146,
-      "national_minus_soil_mean": -0.14,
+      "weighted_mean": 72.4,
+      "national_mean": 63.7,
+      "national_zero_regions": 3,
+      "flat_mlcm_mean": 15.6,
+      "flat_mlcm_zero_regions": 65,
+      "national_rank_spearman": 0.98,
+      "national_limiting_soil_regions": 119,
+      "national_minus_soil_mean": -1.35,
       "limiting_factor_top": {
-        "ph_score": 103,
-        "slope_pct_score": 14,
-        "k_score": 13
+        "ph_score": 82,
+        "slope_pct_score": 22,
+        "기온": 17
       }
     },
     "감자": {
-      "weighted_mean": 81.9,
-      "national_mean": 71.8,
-      "national_zero_regions": 1,
-      "flat_mlcm_mean": 15.0,
+      "weighted_mean": 82.0,
+      "national_mean": 72.9,
+      "national_zero_regions": 2,
+      "flat_mlcm_mean": 24.8,
       "flat_mlcm_zero_regions": 55,
-      "national_rank_spearman": 0.971,
-      "national_limiting_soil_regions": 139,
-      "national_minus_soil_mean": -1.61,
+      "national_rank_spearman": 0.978,
+      "national_limiting_soil_regions": 121,
+      "national_minus_soil_mean": -1.7,
       "limiting_factor_top": {
-        "ca_score": 48,
-        "slope_pct_score": 25,
-        "available_p_score": 21
+        "slope_pct_score": 39,
+        "ca_score": 29,
+        "available_p_score": 27
       }
     },
     "오이": {
-      "weighted_mean": 78.4,
-      "national_mean": 72.3,
-      "national_zero_regions": 0,
-      "flat_mlcm_mean": 16.2,
+      "weighted_mean": 78.1,
+      "national_mean": 70.4,
+      "national_zero_regions": 3,
+      "flat_mlcm_mean": 25.8,
       "flat_mlcm_zero_regions": 35,
-      "national_rank_spearman": 0.98,
-      "national_limiting_soil_regions": 139,
-      "national_minus_soil_mean": -0.46,
+      "national_rank_spearman": 0.984,
+      "national_limiting_soil_regions": 110,
+      "national_minus_soil_mean": -1.59,
       "limiting_factor_top": {
-        "ca_score": 45,
-        "available_p_score": 35,
-        "k_score": 24
+        "slope_pct_score": 33,
+        "ca_score": 32,
+        "available_p_score": 27
       }
     }
   },
@@ -355,6 +355,7 @@
     ],
     "outlier_rule": "이웃 대비 KNN 잔차 modified z > 3.5. row 단위 LOF 미사용 — 한 행을 판정하면 그 행의 유효 측정값이 함께 버려진다. 원본값은 보존한다.",
     "outlier_replaced": false,
+    "filled": false,
     "physical_range": {
       "pH": [
         0.0,
@@ -392,7 +393,7 @@
         "knn_outlier": 0,
         "method_counts": {
           "measured": 126,
-          "knn_k5": 24
+          "missing": 24
         }
       },
       "organic_matter": {
@@ -401,7 +402,7 @@
         "knn_outlier": 1,
         "method_counts": {
           "measured": 126,
-          "knn_k5": 24
+          "missing": 24
         }
       },
       "available_p": {
@@ -410,7 +411,7 @@
         "knn_outlier": 2,
         "method_counts": {
           "measured": 126,
-          "knn_k5": 24
+          "missing": 24
         }
       },
       "k": {
@@ -419,7 +420,7 @@
         "knn_outlier": 1,
         "method_counts": {
           "measured": 105,
-          "knn_k5": 45
+          "missing": 45
         }
       },
       "ca": {
@@ -428,7 +429,7 @@
         "knn_outlier": 4,
         "method_counts": {
           "measured": 103,
-          "knn_k5": 47
+          "missing": 47
         }
       },
       "mg": {
@@ -437,7 +438,7 @@
         "knn_outlier": 1,
         "method_counts": {
           "measured": 103,
-          "knn_k5": 47
+          "missing": 47
         }
       },
       "ec": {
@@ -446,7 +447,7 @@
         "knn_outlier": 8,
         "method_counts": {
           "measured": 103,
-          "knn_k5": 47
+          "missing": 47
         }
       },
       "temp_raw_09001": {
@@ -455,7 +456,7 @@
         "knn_outlier": 4,
         "method_counts": {
           "measured": 136,
-          "knn_k5": 14
+          "missing": 14
         }
       },
       "temp_raw_09011": {
@@ -464,7 +465,7 @@
         "knn_outlier": 4,
         "method_counts": {
           "measured": 136,
-          "knn_k5": 14
+          "missing": 14
         }
       },
       "temp_raw_07001": {
@@ -473,7 +474,7 @@
         "knn_outlier": 4,
         "method_counts": {
           "measured": 136,
-          "knn_k5": 14
+          "missing": 14
         }
       },
       "temp_raw_03001": {
@@ -482,7 +483,7 @@
         "knn_outlier": 2,
         "method_counts": {
           "measured": 136,
-          "knn_k5": 14
+          "missing": 14
         }
       },
       "temp_raw_04009": {
@@ -491,7 +492,7 @@
         "knn_outlier": 3,
         "method_counts": {
           "measured": 136,
-          "knn_k5": 14
+          "missing": 14
         }
       }
     }
