@@ -295,19 +295,32 @@ def build_temp(df, raw_missing, crop_indicator_cols):
         # 2026-08-03: 모든 작물이 작물별 토양 총점을 갖는다(공유 총점 폴백 없음).
         soil_col = f"soil_score_total_{crop_code}"
         soil_missing_col = f"{soil_col}_missing"
-        df[f"total_score_{crop_code}_{name}"] = (
+        # 종전 정의(가중평균). 2026-08-04부터 **주 총점이 아니다** — 회귀 진단과 기존
+        # 산출물 대조용으로 남긴다. 지우면 점수가 왜 달라졌는지 설명할 수 없다.
+        df[f"total_score_{crop_code}_{name}_weighted_mean"] = (
             df[soil_col] * SOIL_FRAC + df[f"temp_{crop_code}_{name}_score"] * TEMP_FRAC
         ).round(1)
         df[f"total_score_{crop_code}_{name}_missing"] = (
             df[soil_missing_col] | df[f"temp_{crop_code}_{name}_missing"]
         )
 
-        # 제한요인(MLCM) 병행 점수(2026-08-02). 기존 가중평균 컬럼은 그대로 두고 옆에 낸다 —
-        # 채택 결정 자체가 "우선 채택, 최종 확정 아님"이므로 임의 교체하지 않는다.
+        # 🔴 **주 총점 = 최대저해인자법(MLCM)**(2026-08-04, FinalReport §1-10 ⓐ).
+        # 2026-08-02에 병행 컬럼으로 도입해 두었던 것을 사용자 결정으로 승격한다.
         # 구성 인자 = 그 작물의 토양 지표들 + 해당 작물 기온. 강수는 애초에 채점되지 않아
         # min 대상에서도 빠진다(가중평균과 같은 누락, 숨기지 않고 manifest에 명시).
+        #
+        # 근거 4건이 한 방향이다: 감자 복합 스트레스가 단순합 38.1%가 아니라 실제 29.2%
+        # (Boguszewska 2022), 국가 적지평가도 기후·통합은 최대저해인자법(심교문 2016),
+        # 배 적지 연구에서 MLCM 적지 19.55% vs AHP 99.08%(AHP는 변별력 사실상 없음).
+        #
+        # ⚠️ SOIL_FRAC/TEMP_FRAC(60/40)은 MLCM에서 쓰이지 않는다 — 최소값에는 가중 개념이
+        # 없다. 두 상수는 위 `_weighted_mean` 산출에만 남는다.
         factor_cols = crop_indicator_cols[crop_code] + [f"temp_{crop_code}_{name}_score"]
-        df[f"total_score_{crop_code}_{name}_mlcm"] = df[factor_cols].min(axis=1).round(1)
+        df[f"total_score_{crop_code}_{name}"] = df[factor_cols].min(axis=1).round(1)
+        # 무엇이 총점을 끌어내렸는지. MLCM에서는 이 지표가 곧 총점이라 없으면 설명이 불가능하다.
+        df[f"limiting_factor_{crop_code}_{name}"] = (
+            df[factor_cols].idxmin(axis=1).str.replace(f"_{crop_code}$", "", regex=True)
+        )
     return df
 
 
@@ -359,11 +372,11 @@ def main():
     for crop_code, name in CROPS.items():
         assert df[f"total_score_{crop_code}_{name}"].between(0, 100).all(), f"{name} 총점 범위 위반"
         assert df[f"total_score_{crop_code}_{name}_percentile"].between(0, 100).all(), f"{name} percentile 범위 위반"
-        # MLCM은 구성 인자의 min이므로 그 인자들의 가중평균보다 높을 수 없다(구조적 불변).
-        mlcm = df[f"total_score_{crop_code}_{name}_mlcm"]
-        assert mlcm.between(0, 100).all(), f"{name} MLCM 범위 위반"
-        assert (mlcm <= df[f"total_score_{crop_code}_{name}"] + 0.05).all(), \
-            f"{name} MLCM이 가중평균 총점보다 높다 — min 정의 위반"
+        # 주 총점(MLCM)은 구성 인자의 min이므로 그 인자들의 가중평균보다 높을 수 없다(구조적 불변).
+        weighted = df[f"total_score_{crop_code}_{name}_weighted_mean"]
+        assert weighted.between(0, 100).all(), f"{name} 가중평균 범위 위반"
+        assert (df[f"total_score_{crop_code}_{name}"] <= weighted + 0.05).all(), \
+            f"{name} MLCM 총점이 가중평균보다 높다 — min 정의 위반"
     for crop_code in CROPS:
         assert f"soil_score_total_{crop_code}" in df.columns, f"{crop_code} 토양 총점 컬럼 누락"
     assert "soil_score_total" not in df.columns, \
@@ -372,11 +385,12 @@ def main():
 
     df.to_csv(OUT, index=False, encoding="utf-8")
 
-    # 가중평균 vs MLCM 분포 비교(교체 판단 자료, 임의 교체 안 함).
+    # 가중평균 vs MLCM 분포 비교. 2026-08-04에 MLCM이 주 총점이 됐으므로 이제 이 표는
+    # "교체 판단 자료"가 아니라 **교체로 무엇이 얼마나 달라졌는가의 기록**이다.
     mlcm_compare = {}
     for crop_code, name in CROPS.items():
-        w = df[f"total_score_{crop_code}_{name}"]
-        m = df[f"total_score_{crop_code}_{name}_mlcm"]
+        w = df[f"total_score_{crop_code}_{name}_weighted_mean"]
+        m = df[f"total_score_{crop_code}_{name}"]
         mlcm_compare[name] = {
             "weighted_mean": round(float(w.mean()), 1),
             "mlcm_mean": round(float(m.mean()), 1),
@@ -444,17 +458,24 @@ def main():
                             "채점하지 않는다 [확인 필요]. 유효토심·배수등급은 데이터 컬럼 자체가 없다. "
                             "가중치(soil 60/temp 40)는 바꾸지 않았고 토양 총점 내부 균등 평균에 합류시켰다 "
                             "— 물리성 배분 비율을 줄 문헌이 없기 때문이다(추측 금지).",
-        "mlcm_note": "total_score_{crop}_mlcm(2026-08-02 신규)은 제한요인법(MLCM, 최대저해인자법) "
-                      "병행 점수다 — 그 작물의 토양 지표 점수들과 기온 점수 중 **최솟값**. 근거: "
-                      "김호정 외(2016) 한국농림기상학회지 18(3):127-134이 MLCM을 '최악 인자 등급 채택'"
-                      "으로 정의하고, Kim & Shim(2019)이 MLCM(전국 적지 19.55%)이 AHP(99.08%)보다 "
-                      "실측 재배면적에 근접함을 보였다. 사용자 결정(2026-08-01)은 'MLCM 우선 채택, "
-                      "최종 확정 아님'이므로 기존 가중평균 total_score_{crop}을 **교체하지 않고 병행**한다. "
+        "mlcm_note": "🔴 **2026-08-04 승격: total_score_{crop}이 이제 MLCM(최대저해인자법)이다.** "
+                      "그 작물의 토양 지표 점수들과 기온 점수 중 **최솟값**이며, 종전 정의(가중평균)는 "
+                      "total_score_{crop}_weighted_mean으로 옮겨 병기한다. 무엇이 총점을 끌어내렸는지는 "
+                      "limiting_factor_{crop} 컬럼에 있다 — MLCM에서는 그 지표가 곧 총점이라 없으면 "
+                      "설명이 불가능하다. 2026-08-02에 _mlcm 병행 컬럼으로 도입했던 것을 사용자 결정으로 "
+                      "주 총점으로 올린 것이며, 컬럼명이 바뀌었으므로 종전 산출물과 같은 이름의 값을 "
+                      "직접 비교하면 안 된다. "
+                      "근거 4건: 김호정 외(2016) 한국농림기상학회지 18(3):127-134이 MLCM을 '최악 인자 "
+                      "등급 채택'으로 정의, Kim & Shim(2019)이 MLCM(전국 적지 19.55%)이 AHP(99.08%)보다 "
+                      "실측 재배면적에 근접함을 확인, 심교문 2016에서 국가 적지평가도 기후·통합 단계에 "
+                      "최대저해인자법 사용, Boguszewska 2022에서 감자 고온 14.9% + 건조 23.2%의 복합 "
+                      "처리가 단순합 38.1%가 아니라 실제 29.2%(합산은 복합 스트레스를 과대평가한다). "
                       "⚠️근사 2건: ① 원문 MLCM은 등급(S1~N1) 기반 min인데 여기서는 연속 점수의 min을 "
                       "쓴다(정의의 근사, CLAUDE.md §4 근사 표기 의무) ② 강수는 애초에 채점되지 않아 "
-                      "min 대상에서도 빠진다(가중평균과 같은 누락). ⚠️MLCM은 가중치(토양45/기온30)를 "
-                      "쓰지 않는다 — 구조적으로 min이 가중평균보다 높을 수 없어 점수 수준 자체가 낮다. "
-                      "두 값을 같은 척도로 비교하면 안 된다.",
+                      "min 대상에서도 빠진다(가중평균과 같은 누락). ⚠️MLCM은 가중치(토양60/기온40)를 "
+                      "쓰지 않는다 — 최소값에는 가중 개념이 없다. 두 상수는 _weighted_mean 산출에만 남는다. "
+                      "⚠️**총점 하락은 회귀가 아니다** — 한 지표라도 낮으면 총점이 그 값으로 내려간다. "
+                      "'평균은 괜찮은데 한 요인이 치명적인 밭'을 종전 방식이 괜찮다고 판정하던 것을 고친다.",
         "mlcm_vs_weighted": mlcm_compare,
         "imputation": {k: v for k, v in impute_report.items() if k != "outliers"},
         "soil_score_total_missing_count": {

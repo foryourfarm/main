@@ -38,14 +38,38 @@ def test_crop_anchors_new_entries():
     assert "09011" in CROP_ANCHORS, "'09011' (배) missing from CROP_ANCHORS"
 
     # 3. Apple and pear use official suitable/possible growing-temperature bands.
+    #    사과는 2026-08-04에 optimal이 RDA 농사로 생육적온 18~28℃로 교체됐다(FinalReport §1-4 ⓐ).
+    #    allowed_min 13.5는 arccas 「가능지」 하한을 그대로 남긴 것이라 두 경계의 성격이 다르다 —
+    #    그래서 allowed_min_kind/allowed_max_kind가 갈린다. 이 비대칭이 사라지면 실패해야 한다.
     apple_temp = CROP_ANCHORS["09001"]["temp"]
     assert apple_temp["months"] == [4, 5, 6, 7, 8, 9, 10]
-    assert (apple_temp["optimal_min"], apple_temp["optimal_max"], apple_temp["allowed_min"], apple_temp["allowed_max"]) == (14.5, 18.5, 13.5, 19.5)
-    assert "농업·농촌 기후정보시스템" in apple_temp["source"]
+    assert (apple_temp["optimal_min"], apple_temp["optimal_max"], apple_temp["allowed_min"], apple_temp["allowed_max"]) == (18.0, 28.0, 13.5, 33.0)
+    assert apple_temp["allowed_min_kind"] == "cultivable_range"
+    assert apple_temp["allowed_max_kind"] == "heuristic"
+    assert "농사로" in apple_temp["source"] and "농업·농촌 기후정보시스템" in apple_temp["source"]
     pear_temp = CROP_ANCHORS["09011"]["temp"]
     assert pear_temp["months"] == [4, 5, 6, 7, 8, 9, 10]
     assert (pear_temp["optimal_min"], pear_temp["optimal_max"], pear_temp["allowed_min"], pear_temp["allowed_max"]) == (18.5, 21.5, 17.0, 23.0)
     assert "농업·농촌 기후정보시스템" in pear_temp["source"]
+
+    # 4. 허용경계 성격이 모든 작물에 붙어 있어야 한다(2026-08-04). 빠지면 그 경계는 조용히
+    #    60점으로 채점되는데, 생리적 절대한계인 지표(오이·상추·감자 기온)는 0점이어야 한다.
+    for code, anchor in CROP_ANCHORS.items():
+        temp = anchor.get("temp")
+        if temp is None:
+            continue
+        for side in ("allowed_min", "allowed_max"):
+            if temp.get(side) is None:
+                continue
+            kind = temp.get(f"{side}_kind")
+            assert kind in {
+                "heuristic", "literature_limit", "literature_threshold",
+                "cultivable_range", "derived", "unverified", "not_applicable",
+            }, f"{code} {side}_kind가 없거나 모르는 값이다: {kind!r}"
+    # 문헌이 '생육 중지/정지' 온도를 직접 준 세 작물은 literature_limit이라 경계가 0점이다.
+    assert CROP_ANCHORS["04009"]["temp"]["allowed_max_kind"] == "literature_limit"  # 오이 35℃
+    assert CROP_ANCHORS["07001"]["temp"]["allowed_max_kind"] == "literature_limit"  # 상추 36℃
+    assert CROP_ANCHORS["03001"]["temp"]["allowed_max_kind"] == "literature_limit"  # 감자 27℃ 수량 0
 
     # 4. Assert non-empty documented_rules and all leaf range dicts have a valid "source" key
     def check_sources(node, path="documented_rules"):

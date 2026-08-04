@@ -17,7 +17,10 @@
       "allowed_min": 17.0,
       "allowed_max": 23.0,
       "method": "지역 월평균 대기기온의 4~10월 산술평균(data/03_weather_monthly_modified.csv). [확인 필요] 사과와 동일 — 원 출처의 기준기간·관측고도·공간해상도 미확인.",
-      "source": "농업·농촌 기후정보시스템 재배적지 정보(https://www.arccas.or.kr/farming/landlimit/viewinfo.do) 배 재배적지 지표: 생육기기온 적지 18.5~21.5℃, 가능지 17.0~18.5·21.5~23.0℃, 그 밖 부적지. 생육기 달력월 4~10월은 농촌진흥청 과수재배적지도(https://weather.rda.go.kr/ftrMap.do)가 명시."
+      "source": "농업·농촌 기후정보시스템 재배적지 정보(https://www.arccas.or.kr/farming/landlimit/viewinfo.do) 배 재배적지 지표: 생육기기온 적지 18.5~21.5℃, 가능지 17.0~18.5·21.5~23.0℃, 그 밖 부적지. 생육기 달력월 4~10월은 농촌진흥청 과수재배적지도(https://weather.rda.go.kr/ftrMap.do)가 명시.",
+      "allowed_min_kind": "cultivable_range",
+      "allowed_max_kind": "cultivable_range",
+      "cultivation_type": "open_field"
     }
   ],
   "precipitation_guides": [],
@@ -29,7 +32,11 @@
       "allowed_min": 150.0,
       "allowed_max": 350.0,
       "method": "unknown [확인 필요] — 교본이 추출법을 명시하지 않는다. RDA 비료사용처방 Bray-1(30~50)과 약 6배 갈리는 원인일 가능성이 높다.",
-      "source": "RDA 교본 개량목표(원문 대조 검증됨). knowledge-base/papers/pear/rda-pear-handbook-indicators.md 표5-21·5-25. 공유 밴드(available_p 300~550)는 출처 미확인이라 검증된 교본값을 크롭 전용으로 우선한다(2026-08-01). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 전국 실측 평균은 사과 615 mg/kg(2002)·배 801.9 mg/kg(1992)로 목표를 크게 초과(축적 진행)."
+      "source": "RDA 교본 개량목표(원문 대조 검증됨). knowledge-base/papers/pear/rda-pear-handbook-indicators.md 표5-21·5-25. 공유 밴드(available_p 300~550)는 출처 미확인이라 검증된 교본값을 크롭 전용으로 우선한다(2026-08-01). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 전국 실측 평균은 사과 615 mg/kg(2002)·배 801.9 mg/kg(1992)로 목표를 크게 초과(축적 진행).",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "lancaster"
     },
     "organic_matter": {
       "optimal_min": 25.0,
@@ -37,7 +44,11 @@
       "allowed_min": 20.0,
       "allowed_max": 40.0,
       "method": "unknown [확인 필요] — 정량법 미명시. 단위 g/kg 확인.",
-      "source": "RDA 교본 개량목표(원문 대조 검증됨). knowledge-base/papers/pear/rda-pear-handbook-indicators.md 표5-21·5-25. 공유 밴드(available_p 300~550)는 출처 미확인이라 검증된 교본값을 크롭 전용으로 우선한다(2026-08-01). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 전국 실측은 사과 21.9 g/kg(2002)·배 24.1 g/kg(1992)로 목표 미달."
+      "source": "RDA 교본 개량목표(원문 대조 검증됨). knowledge-base/papers/pear/rda-pear-handbook-indicators.md 표5-21·5-25. 공유 밴드(available_p 300~550)는 출처 미확인이라 검증된 교본값을 크롭 전용으로 우선한다(2026-08-01). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 전국 실측은 사과 21.9 g/kg(2002)·배 24.1 g/kg(1992)로 목표 미달.",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "tyurin"
     },
     "ph": {
       "optimal_min": 6.0,
@@ -45,7 +56,11 @@
       "allowed_min": 5.75,
       "allowed_max": 6.75,
       "method": "unknown [확인 필요] — 교본이 pH 추출비를 명시하지 않는다.",
-      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. [확인 필요] 표 목표는 6.0~6.5이나 본문 서술은 5.5~6.5."
+      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. [확인 필요] 표 목표는 6.0~6.5이나 본문 서술은 5.5~6.5.",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "1to5_h2o"
     },
     "k": {
       "optimal_min": 0.3,
@@ -53,7 +68,11 @@
       "allowed_min": 0.15,
       "allowed_max": 0.75,
       "method": "unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.",
-      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 칼리. [확인 필요] 전국 실측 평균 1.13 cmol/kg로 목표 상한의 약 2배(과다). 사과 목표(0.6~0.9)와 두 배 차이나는 이유 미확인."
+      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 칼리. [확인 필요] 전국 실측 평균 1.13 cmol/kg로 목표 상한의 약 2배(과다). 사과 목표(0.6~0.9)와 두 배 차이나는 이유 미확인.",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "nh4oac"
     },
     "ca": {
       "optimal_min": 5.0,
@@ -61,7 +80,11 @@
       "allowed_min": 4.5,
       "allowed_max": 6.5,
       "method": "unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.",
-      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 칼슘(석회). 양이온 목표비 Ca 65%:Mg 15%:K 5%. [확인 필요] 전국 토양 실측 중앙값 7.23 cmol/kg로 목표 상한 초과."
+      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 칼슘(석회). 양이온 목표비 Ca 65%:Mg 15%:K 5%. [확인 필요] 전국 토양 실측 중앙값 7.23 cmol/kg로 목표 상한 초과.",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "nh4oac"
     },
     "mg": {
       "optimal_min": 1.5,
@@ -69,14 +92,25 @@
       "allowed_min": 1.25,
       "allowed_max": 2.25,
       "method": "unknown [확인 필요] — 교본이 치환성 양이온 침출액(1N NH4OAc 등)을 명시하지 않는다. 단위 cmol/kg만 확인.",
-      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 고토(마그네슘). Mg/K 당량비 2 이상 목표. 전국 실측 중앙값 1.86 cmol/kg로 목표 구간 내. 2026-08-03 교차 확인: RDA 「작물별 비료사용처방」 5차(2022) p278이 배 pH 6.0~6.5·유기물 25~35·유효인산 200~300·K 0.30~0.60·Ca 5.0~6.0·Mg 1.5~2.0으로 이 교본 표5-25와 전 지표 일치한다 — 5작물 중 유일하게 국가 자료 2건이 완전히 겹치는 작물이다."
+      "source": "RDA 교본 개량목표 표5-25(원문 대조 검증됨, knowledge-base/papers/pear/rda-pear-handbook-indicators.md). allowed_min/max는 완충구간 문헌이 없어 optimal 폭 ±50% 휴리스틱(CLAUDE.md §8) [확인 필요]. 치환성 고토(마그네슘). Mg/K 당량비 2 이상 목표. 전국 실측 중앙값 1.86 cmol/kg로 목표 구간 내. 2026-08-03 교차 확인: RDA 「작물별 비료사용처방」 5차(2022) p278이 배 pH 6.0~6.5·유기물 25~35·유효인산 200~300·K 0.30~0.60·Ca 5.0~6.0·Mg 1.5~2.0으로 이 교본 표5-25와 전 지표 일치한다 — 5작물 중 유일하게 국가 자료 2건이 완전히 겹치는 작물이다.",
+      "allowed_min_kind": "heuristic",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "nh4oac"
     }
   },
   "physical_overrides": {
     "slope_pct": {
-      "optimal_min": 0.0, "optimal_max": 7.0, "allowed_min": 0.0, "allowed_max": 10.5,
+      "optimal_min": 0.0,
+      "optimal_max": 7.0,
+      "allowed_min": 0.0,
+      "allowed_max": 10.5,
       "method": "지역 대표 경사 등급코드(data/02_soil_physical_modified.csv slope_code)를 그 등급 구간의 상한 %로 환산(_shared.json physical_code_maps). 등급 내 최악값 대표라는 보수적 근사 [확인 필요].",
-      "source": "RDA 「작물별 비료사용처방」 5차(2022) 물리성 표: 배 경사 0-7% — 같은 과수인데 사과(0-15%)와 다르다(knowledge-base/papers/common/rda-fertilizer-prescription-5th-2022.md). allowed_max는 붕괴점 문헌이 없어 optimal 폭(7.0)의 ±50%(3.5) 휴리스틱 [확인 필요]. 유효토심 80cm 이상·배수 양호~약간양호 기준도 같은 표에 있으나 해당 데이터 컬럼이 없어 채점하지 않는다."
+      "source": "RDA 「작물별 비료사용처방」 5차(2022) 물리성 표: 배 경사 0-7% — 같은 과수인데 사과(0-15%)와 다르다(knowledge-base/papers/common/rda-fertilizer-prescription-5th-2022.md). allowed_max는 붕괴점 문헌이 없어 optimal 폭(7.0)의 ±50%(3.5) 휴리스틱 [확인 필요]. 유효토심 80cm 이상·배수 양호~약간양호 기준도 같은 표에 있으나 해당 데이터 컬럼이 없어 채점하지 않는다.",
+      "allowed_min_kind": "not_applicable",
+      "allowed_max_kind": "heuristic",
+      "cultivation_type": "open_field",
+      "method_code": "grade_code"
     }
   }
 }

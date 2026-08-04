@@ -3,9 +3,18 @@
 
 ANCHOR = {
     "name": "사과",
-    "temp": {"months": [4, 5, 6, 7, 8, 9, 10], "optimal_min": 14.5, "optimal_max": 18.5,
-             "allowed_min": 13.5, "allowed_max": 19.5,
-             "source": "농업·농촌 기후정보시스템 https://www.arccas.or.kr/farming/landlimit/viewinfo.do (생육기기온 적지 14.5~18.5℃, 가능지 13.5~19.5℃) + 기후변화 시나리오 활용사례집 https://www.climate.go.kr/home/CCS/_image/web_manual/climate_ref.pdf (4~10월)."},
+    # 2026-08-04 교체(FinalReport §1-4 ⓐ). 종전 optimal 14.5~18.5는 arccas 「적지」였는데
+    # 앵커월 전국평균이 20.63℃라 상한 밖으로 밀려 기온 점수가 평균 22.3점으로 무너져 있었다.
+    # 🔴 allowed_min 13.5만 arccas 「가능지」 문헌값으로 남기고 allowed_max는 ±50% 휴리스틱이다
+    # — 두 경계의 성격이 다르므로 apple.json이 allowed_min_kind/allowed_max_kind로 구분한다.
+    "temp": {"allowed_min_kind": "cultivable_range", "allowed_max_kind": "heuristic", "months": [4, 5, 6, 7, 8, 9, 10], "optimal_min": 18.0, "optimal_max": 28.0,
+             "allowed_min": 13.5, "allowed_max": 33.0,
+             "source": "RDA 농사로 주요작물 영농순기표 p.141 사과 생육적온 18~28℃ (2026-08-04 채택). "
+                       "allowed_min 13.5는 농업·농촌 기후정보시스템 https://www.arccas.or.kr/farming/landlimit/viewinfo.do 의 가능지 하한(문헌값), "
+                       "allowed_max 33.0은 optimal 폭(10) ±50% 휴리스틱 [확인 필요]. "
+                       "종전 적지 14.5~18.5·가능지 13.5~19.5는 국가 적지평가의 2단계가 optimal/allowed에 정확히 대응하는 구조였다 — "
+                       "생육적온을 월평균 기온 적합구간으로 쓰는 것은 성격 오인일 수 있다 [확인 필요]. "
+                       "생육기 달력월 4~10월은 기후변화 시나리오 활용사례집 https://www.climate.go.kr/home/CCS/_image/web_manual/climate_ref.pdf 을 그대로 유지."},
     "documented_rules": {
         "temperature": {"optimal_min": 14.5, "optimal_max": 18.5,
                         "allowed_min": 13.5, "allowed_max": 19.5,

@@ -34,6 +34,9 @@ import pandas as pd
 ALLOWED_BOUNDARY_SCORE = 60.0
 OPTIMAL_EXIT_SCORE = 95.0
 DECAY_CURVATURE = 9.0
+# 🔴 이 성격의 허용경계만 0점이 된다(2026-08-04). 백엔드 `suitability_service`의
+# 같은 이름 상수와 반드시 같아야 한다 — 두 구현의 점수가 갈리면 안 되는 계약이다.
+LITERATURE_LIMIT_KIND = "literature_limit"
 
 
 def _log_falloff(x):
@@ -41,23 +44,43 @@ def _log_falloff(x):
     return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
 
 
-def _allowed_score(nearness):
-    """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계)."""
-    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
-        nearness
-    )
+def boundary_score(kind):
+    """허용경계에 줄 점수. 그 경계의 **성격**이 정한다.
+
+    종전에는 성격과 무관하게 일괄 60점(B등급 하한)이었다. 그런데 그 칸에는 ±50% 휴리스틱과
+    **문헌이 준 생리적 절대한계**가 섞여 있었고, 후자는 생장이 완전히 멈추는 점인데 60점을
+    받고 있었다. `literature_limit`만 0점으로 내린다 — 나머지 성격은 60점을 유지한다
+    (2026-08-04 사용자 결정: *"literature_limit만 0점, 나머지 60점 유지"*).
+
+    성격은 밴드 JSON의 `allowed_min_kind`/`allowed_max_kind`에 **방향별로** 적혀 있다.
+    한 밴드 안에서 두 경계의 성격이 갈리기 때문이다 — 사과 기온은 하한이 arccas 가능지
+    문헌값이고 상한은 ±50% 휴리스틱이다.
+    """
+    return 0.0 if kind == LITERATURE_LIMIT_KIND else ALLOWED_BOUNDARY_SCORE
 
 
-def _risk_score(overshoot, buffer, risk_width=None):
+def _allowed_score(nearness, boundary=ALLOWED_BOUNDARY_SCORE):
+    """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
+
+    `boundary`가 0이면 곡선이 0→95로 펴져 척도가 넓어진다(감쇠 척도가 60~95에 압축돼
+    너무 납작하다는 지적에 대한 답).
+    """
+    return boundary + (OPTIMAL_EXIT_SCORE - boundary) * _log_falloff(nearness)
+
+
+def _risk_score(overshoot, buffer, risk_width=None, boundary=ALLOWED_BOUNDARY_SCORE):
     """허용구간 밖 감쇠. 감쇠폭은 `risk_width`(전국 실측 산포도 기반)를 우선 쓰고,
-    없으면 완충폭 1배로 폴백한다. 둘 다 없으면 척도를 정할 수 없어 종전대로 0점."""
+    없으면 완충폭 1배로 폴백한다. 둘 다 없으면 척도를 정할 수 없어 종전대로 0점.
+
+    `boundary`가 0(생리적 절대한계)이면 이 구간 전체가 0이다 — 생장이 멈춘 지점을 이미
+    지났으므로 그 밖에 감쇠할 여지가 없다."""
     width = risk_width if risk_width and risk_width > 0 else buffer
     if width <= 0:
         return 0.0
     t = overshoot / width
     if t >= 1:
         return 0.0
-    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+    return boundary * (1 - _log_falloff(t))
 
 
 def band_score(value, rule):
@@ -81,11 +104,15 @@ def band_score(value, rule):
     if lo is not None and value < lo:
         if alo is None:
             return 0.0
+        # 경계 점수는 그 **방향**의 성격이 정한다(2026-08-04). 키가 없으면 60점 —
+        # 성격 표기가 없는 밴드의 채점을 종전과 동일하게 유지한다.
+        boundary = boundary_score(rule.get("allowed_min_kind"))
         if value >= alo:
-            return _allowed_score((value - alo) / (lo - alo))
-        return _risk_score(alo - value, lo - alo, risk_width)
+            return _allowed_score((value - alo) / (lo - alo), boundary)
+        return _risk_score(alo - value, lo - alo, risk_width, boundary)
     if ahi is None:
         return 0.0
+    boundary = boundary_score(rule.get("allowed_max_kind"))
     if value <= ahi:
-        return _allowed_score((ahi - value) / (ahi - hi))
-    return _risk_score(value - ahi, ahi - hi, risk_width)
+        return _allowed_score((ahi - value) / (ahi - hi), boundary)
+    return _risk_score(value - ahi, ahi - hi, risk_width, boundary)
