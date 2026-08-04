@@ -28,6 +28,10 @@ OPTIMAL_EXIT_SCORE = 95.0
 # 허용구간(완만→급락)과 위험구간(급락→완만)에 같은 곡률을 반대로 걸어 전체가 정규분포
 # 한쪽 날개 모양이 된다. 2026-07-27 사용자 선택(선형·이차·로그 중 로그).
 DECAY_CURVATURE = 9.0
+# 🔴 이 성격의 허용경계만 점수가 0이 된다(0032 `allowed_*_kind`). 문헌이 준 생리적 절대한계 =
+# 생장이 완전히 멈추는 점인데 종전엔 B등급 하한(60)을 받고 있었다(FinalReport §1-9·§2-2).
+# 나머지 성격은 60을 유지한다 — 근거 없는 새 숫자를 만들지 않는다(2026-08-04 사용자 결정).
+LITERATURE_LIMIT_KIND = "literature_limit"
 
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
@@ -71,6 +75,14 @@ OUTLOOK_APPLIED_LIMITATION = (
 )
 OUTLOOK_MISSING_LIMITATION = (
     "기상청 3개월전망이 적재되지 않아 보정 없이 과거 평균만 사용했습니다."
+)
+# 총점 정의가 2026-08-04에 바뀌었다(FinalReport §1-10 ⓐ). 숨기면 사용자는 점수가 왜
+# 내려갔는지 알 방법이 없고, 평균이라고 오해한 채 "지표 하나만 나쁜데 총점이 왜 이러냐"고
+# 읽게 된다 — 그 오해가 정확히 이 방식이 고치려는 것이다(§18-4).
+MLCM_LIMITATION = (
+    "총점은 지표 점수의 평균이 아니라 **가장 낮은 지표의 점수**입니다(최대저해인자법). "
+    "다른 조건이 좋아도 한 요인이 나쁘면 그 요인이 수확을 결정한다는 국가 적지평가 방식과 "
+    "같습니다. 참고용 가중평균은 `score_weighted_mean`으로 함께 제공합니다."
 )
 
 # 지표 한글명. `risk_flags`의 `<지표>:missing`을 사람 말로 옮길 때 쓴다.
@@ -130,7 +142,15 @@ INDICATOR_SOURCE_FIELDS: dict[str, str | None] = {
 
 
 def load_guides(db: Session, crop_id: int, growth_stage: str) -> list[CropGrowthGuide]:
-    """요청 단계 지침과 전 기간 공통 지침을 함께 로드한다."""
+    """요청 단계 지침과 전 기간 공통 지침을 함께 로드한다.
+
+    같은 (단계, 지표)에 재배형이 다른 두 행이 있으면 **`open_field`를 고른다**(0032·0033).
+    우리 1차 목표가 노지이고 채점 입력도 노지 실측이기 때문이다 — 노지 밴드가 있으면 그것이
+    맞고, 없으면 시설 밴드가 유일한 선택지라 그대로 쓴다.
+
+    현재 이 분기가 실제로 갈리는 것은 **감자 pH 한 지표뿐**이다(노지 5.5~7.0 / 시설 5.5~6.2).
+    나머지는 재배형 행이 하나씩이라 무엇을 고르든 같은 행이 나온다.
+    """
     stmt = select(CropGrowthGuide).where(
         CropGrowthGuide.crop_id == crop_id,
         or_(
@@ -138,7 +158,24 @@ def load_guides(db: Session, crop_id: int, growth_stage: str) -> list[CropGrowth
             CropGrowthGuide.growth_stage.is_(None),
         ),
     )
-    return list(db.scalars(stmt))
+    return _pick_cultivation_type(db.scalars(stmt))
+
+
+def _pick_cultivation_type(guides: Iterable[CropGrowthGuide]) -> list[CropGrowthGuide]:
+    """(단계, 지표)마다 한 행만 남긴다 — `open_field` 우선.
+
+    조용한 중복 제거가 아니다: 두 행을 다 넘기면 같은 지표가 가중평균에 두 번 들어가고,
+    MLCM에서는 시설 밴드가 만든 낮은 점수가 노지 결과를 덮어쓴다.
+    """
+    chosen: dict[tuple[str | None, str], CropGrowthGuide] = {}
+    for guide in guides:
+        key = (guide.growth_stage, guide.indicator)
+        current = chosen.get(key)
+        if current is None or (
+            current.cultivation_type != "open_field" and guide.cultivation_type == "open_field"
+        ):
+            chosen[key] = guide
+    return list(chosen.values())
 
 
 # 장기 탭에 데이터원이 없는 지표. 평년치는 월 단위라 일 강수량이 채워질 길이 없는데
@@ -157,18 +194,40 @@ def _log_falloff(x: float) -> float:
     return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
 
 
-def _allowed_score(nearness: float) -> float:
+def boundary_score(kind: str | None) -> float:
+    """허용경계에 줄 점수. 그 경계의 **성격**(0032 `allowed_*_kind`)이 정한다.
+
+    종전에는 성격과 무관하게 일괄 60점(B등급 하한)이었다. 그런데 그 칸에는 ±50% 휴리스틱과
+    **문헌이 준 생리적 절대한계**가 섞여 있었고, 후자는 생장이 완전히 멈추는 점인데 60점을
+    받고 있었다(FinalReport §1-9·§2-2). `literature_limit`만 0점으로 내린다.
+
+    나머지 성격(`heuristic`·`cultivable_range`·`literature_threshold`·`derived`·`unverified`·
+    `not_applicable`)은 60점을 유지한다 — 근거 없는 새 숫자를 만들지 않기 위해서다
+    (2026-08-04 사용자 결정: *"literature_limit만 0점, 나머지 60점 유지"*).
+
+    실제로 대상이 되는 것은 **상추 기온 2.5·36℃ 한 행**이다(발아 한계·복합장해 온도).
+    """
+    return 0.0 if kind == LITERATURE_LIMIT_KIND else ALLOWED_BOUNDARY_SCORE
+
+
+def _allowed_score(nearness: float, boundary: float = ALLOWED_BOUNDARY_SCORE) -> float:
     """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
 
     최적 근처에서는 거의 안 깎이고 허용경계에 다가갈수록 가파르게 떨어진다 — 소폭 이탈은
     실제로 해가 적고 내성 한계에 가까울수록 위험이 커진다는 쪽에 맞춘 곡선.
+
+    `boundary`는 허용경계에서의 점수다. 0이면 곡선이 0→95로 펴져 척도가 넓어진다
+    (FinalReport §1-9 "감쇠 곡선의 척도가 너무 납작하다"에 대한 답).
     """
-    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
-        nearness
-    )
+    return boundary + (OPTIMAL_EXIT_SCORE - boundary) * _log_falloff(nearness)
 
 
-def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None) -> float:
+def _risk_score(
+    overshoot: float,
+    buffer: float,
+    risk_width: float | None = None,
+    boundary: float = ALLOWED_BOUNDARY_SCORE,
+) -> float:
     """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
 
     절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
@@ -188,7 +247,9 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     t = overshoot / width
     if t >= 1:
         return 0.0
-    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+    # boundary=0(생리적 절대한계)이면 이 구간 전체가 0이다 — 생장이 멈춘 지점을 이미
+    # 지났으므로 그 밖에 감쇠할 여지가 없다.
+    return boundary * (1 - _log_falloff(t))
 
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
@@ -206,16 +267,20 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
+        # 경계 점수는 그 **방향**의 성격이 정한다(0032). 한 행 안에서 두 경계의 성격이
+        # 갈리기 때문이다 — 사과 착과기 기온은 하한이 휴리스틱, 상한은 출처 미특정이다.
+        boundary = boundary_score(guide.allowed_min_kind)
         if value >= edge:
-            return _allowed_score((value - edge) / (lo - edge)), "allowed"
-        return _risk_score(edge - value, lo - edge, risk_width), "risk"
+            return _allowed_score((value - edge) / (lo - edge), boundary), "allowed"
+        return _risk_score(edge - value, lo - edge, risk_width, boundary), "risk"
     # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
+    boundary = boundary_score(guide.allowed_max_kind)
     if value <= edge:
-        return _allowed_score((edge - value) / (edge - hi)), "allowed"
-    return _risk_score(value - edge, edge - hi, risk_width), "risk"
+        return _allowed_score((edge - value) / (edge - hi), boundary), "allowed"
+    return _risk_score(value - edge, edge - hi, risk_width, boundary), "risk"
 
 
 def _is_valid(indicator: str, value: float) -> bool:
@@ -252,13 +317,34 @@ def calculate_suitability(
     values: Mapping[str, float | Decimal | None],
     applied: Mapping[str, tuple[Decimal, Decimal]] | None = None,
 ) -> dict[str, object]:
-    """결측/이상 지표는 제외하고 나머지 가중평균을 반환한다.
+    """결측/이상 지표는 제외하고 나머지를 **최대저해인자법(MLCM)**으로 합성한다.
+
+    🔴 **2026-08-04 개정 — 총점 정의가 바뀌었다**(FinalReport §1-10 ⓐ). 종전 `score`는
+    지표 점수의 가중평균이었다. 이제 **채점된 지표 점수의 최소값**이며, 등급도 이 값으로
+    판정한다. 종전 가중평균은 `score_weighted_mean`으로 함께 낸다 — 지우면 종전 산출물과
+    왜 달라졌는지 설명할 수 없다.
+
+    **왜 바꾸는가**: 요인별 감점을 단순 합산(가중평균)하면 복합 스트레스를 과대평가한다.
+    감자 실측에서 고온 단독 14.9% + 건조 단독 23.2%인데 동시 처리는 단순합 38.1%가 아니라
+    **29.2%**였다(Boguszewska 2022). 국가 적지평가도 기후·통합 단계에서 최대저해인자법을
+    쓰고(심교문 2016), 배 적지 연구에서 MLCM은 적지 19.55%인 반면 AHP는 99.08%로 **변별력이
+    사실상 없었다**(2019). 근거 4건이 한 방향이다.
+
+    **어떤 값이 어떻게 달라지는가**: 한 지표라도 낮으면 총점이 그 값으로 내려간다. 즉
+    총점이 전반적으로 하락하는데 **이것은 회귀가 아니라 설계된 결과**다 — "평균은 괜찮은데
+    한 요인이 치명적인 밭"을 종전 방식은 괜찮다고 판정했다.
+
+    ⚠️ `weight`는 MLCM에서 쓰이지 않는다(최소값에는 가중 개념이 없다). 컬럼은 그대로 두고
+    `score_weighted_mean` 산출에만 쓴다 — FinalReport §1-11 ⓒ(현행 weight 유지) 결정과
+    충돌하지 않는다.
 
     `applied`는 장기예보 보정 내역 {지표: (baseline, 보정치)} — 넘기면 breakdown에
     평년치·보정치를 분해해 기록한다(근거 제시, DB.md §8.1-5).
     """
     breakdown: dict[str, dict[str, object]] = {}
     risk_flags: list[str] = []
+    scored: list[float] = []
+    limiting_indicator: str | None = None
     weighted_sum = 0.0
     weight_sum = 0.0
 
@@ -308,15 +394,30 @@ def calculate_suitability(
         breakdown[indicator] = entry
         if status == "risk":
             risk_flags.append(f"{indicator}:outside_allowed")
+        if not scored or score < min(scored):
+            limiting_indicator = indicator
+        scored.append(score)
         weighted_sum += score * weight
         weight_sum += weight
 
     if weight_sum == 0:
-        return {"score": None, "grade": None, "breakdown": breakdown, "risk_flags": risk_flags}
-    score = round(weighted_sum / weight_sum, 1)
+        return {
+            "score": None,
+            "grade": None,
+            "score_weighted_mean": None,
+            "limiting_indicator": None,
+            "breakdown": breakdown,
+            "risk_flags": risk_flags,
+        }
+    score = round(min(scored), 1)
     return {
         "score": score,
         "grade": _grade(score),
+        # 총점을 무엇이 끌어내렸는지. MLCM에서 이 값이 곧 총점이라 "왜 이 점수인가"에
+        # 답하려면 반드시 함께 내려야 한다 — 없으면 사용자는 지표 목록을 눈으로 훑어야 한다.
+        "limiting_indicator": limiting_indicator,
+        # 종전 정의(가중평균). 회귀 진단·기존 산출물 대조용으로 남긴다.
+        "score_weighted_mean": round(weighted_sum / weight_sum, 1),
         "breakdown": breakdown,
         "risk_flags": risk_flags,
     }
@@ -441,7 +542,7 @@ def compute_farm_suitability(
             if sunlight_result.is_calculated:
                 result["breakdown"]["sunlight"]["confidence"] = sunlight_result.confidence
 
-    limitations = [TEMP_DAY_LIMITATION, CLIMATOLOGY_PERIOD_LIMITATION]
+    limitations = [MLCM_LIMITATION, TEMP_DAY_LIMITATION, CLIMATOLOGY_PERIOD_LIMITATION]
     coverage = coverage_limitation([result["breakdown"]])
     if coverage is not None:
         limitations.insert(0, coverage)
@@ -480,12 +581,16 @@ def compute_farm_suitability(
 def _guides_for_stage(
     all_guides: Sequence[CropGrowthGuide], stage: str | None
 ) -> list[CropGrowthGuide]:
-    """단계 지침 + 전 기간 공통(NULL) 지침. load_guides의 SQL 필터를 메모리에서 재현한다."""
-    return [
+    """단계 지침 + 전 기간 공통(NULL) 지침. load_guides의 SQL 필터를 메모리에서 재현한다.
+
+    재배형 선택(0032)도 함께 재현한다 — 여기서 빠뜨리면 월별 전망만 감자 pH를 두 번
+    채점해 밭 상세와 점수가 갈린다.
+    """
+    return _pick_cultivation_type(
         g
         for g in all_guides
         if (g.growth_stage == stage or g.growth_stage is None) and usable_seasonal(g)
-    ]
+    )
 
 
 def dominant_stage(
@@ -665,6 +770,7 @@ def compute_monthly_outlook(
     )
 
     limitations = [
+        MLCM_LIMITATION,
         TEMP_DAY_LIMITATION,
         MONTHLY_CLIMATOLOGY_LIMITATION,
         CLIMATOLOGY_PERIOD_LIMITATION,

@@ -23,6 +23,7 @@ from app.infra.public_api.forecast_client import (
 from app.models import CropGrowthGuide, RegionGrid, SoilState, UserFarm, WeatherSnapshot
 from app.services.growth_stage_service import resolve_growth_stage
 from app.services.suitability_service import (
+    MLCM_LIMITATION,
     SUITABILITY_LABEL,
     WEATHER_INDICATORS,
     calculate_suitability,
@@ -239,7 +240,7 @@ def compute_short_term(
             }
         )
 
-    limitations = [FORECAST_LIMITATION, SOIL_LIMITATION]
+    limitations = [MLCM_LIMITATION, FORECAST_LIMITATION, SOIL_LIMITATION]
     coverage = coverage_limitation(breakdowns)
     if coverage is not None:
         limitations.insert(0, coverage)
