@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     # 기본은 ollama — vLLM 전환은 이 값 + llm_base_url(:8000)만 바꾸면 되고 재배포가 필요 없다
     # (`--update-env-vars`, docs/vllm.md §5-4). 되돌리기도 같은 방법이라 롤백이 싸다.
     llm_backend: str = "ollama"
+    # Qwen3 계열의 "생각 모드"를 끈다. **켜두면 답변이 아예 안 나온다** — L4 vLLM 0.26 실측
+    # (2026-08-04): 미지정 시 `content`가 `<think>\nOkay, the user is asking...`로 시작해
+    # `max_tokens` 200을 전부 내부 사고(영어)에 쓰고 `finish_reason=length`로 끝났다. 즉 유저는
+    # 사고 과정만 보고 답변은 0자다. Ollama에서 `think:false`로 겪은 것과 같은 증상이다.
+    # 껐을 때: `completion_tokens=28`, `finish_reason=stop`, 정상 한국어 답변.
+    #
+    # 모델별로 달라 설정으로 뺀다 — EXAONE엔 무의미하지만 무해하다(모르는 인자는 chat
+    # template이 무시한다). Ollama 경로에서는 쓰이지 않는다(그쪽은 `think` 필드가 별도다).
+    llm_disable_thinking: bool = True
     llm_model: str = "exaone3.5:7.8b"
     # 8초였으나 실측(Cloud Run + GPU VM, 2026-07-26)상 콜드로드(모델이 VRAM에 없을 때)가
     # exaone3.5:7.8b 67초, bge-m3 18초까지 걸려 첫 요청이 타임아웃으로 죽었다. VM 부팅 시
