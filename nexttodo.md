@@ -648,33 +648,48 @@ today`를 **상한 없이** 전부 돌려준다(`short_term_service.py:96`).
 (단기예보는 미래만 준다). 관측 API 경로가 없어 `is_imputed`로 계속 고지한다. 옛 캐시 행(0032
 이전)은 `hourly_temp`가 없어 합칠 재료가 없다 — 효과는 앞으로 수집되는 발표분부터.
 
-#### C. 카카오 로그인 추가 — **미착수(다음)**
+#### C. 카카오 로그인 추가 — **코드 완료(WIP 브랜치), 문서·실연동 검증 남음** (2026-08-05)
 
-지금은 이메일+비밀번호뿐이고, `users.email`·`password_hash`가 둘 다 NOT NULL이다
-(`models/user.py:14`). 토큰은 분리형(access 본문 / refresh httpOnly 쿠키, path 스코프 —
-`api/auth.py:29`). **새 인증 축을 만들지 않고 이 발급 경로를 그대로 재사용한다.**
+`feat/kakao-login`(스택: `feat/pet-quest` → 이 브랜치, PR 아직 안 엶 — 아래 이유). 계획 1~6은
+그대로 구현됐고, 세부만 계획과 달랐다.
 
-1. **마이그레이션 0036**: `users.kakao_id BIGINT UNIQUE NULL` 추가, `password_hash`·`email`을
-   NULL 허용으로 완화. 이메일을 NULL 허용하는 이유 — 카카오는 이메일 동의항목 검수 전에는 주지
-   않는다. Postgres UNIQUE는 NULL 중복을 허용하므로 제약은 그대로 둔다.
-2. **`infra/oauth/kakao_client.py`**: `code` → 토큰(`kauth.kakao.com/oauth/token`) → `/v2/user/me`.
-   실패는 예외로 올려 라우터가 매핑(§12 경계 방어). 비밀은 env
-   `KAKAO_CLIENT_ID`/`KAKAO_CLIENT_SECRET`/`KAKAO_REDIRECT_URI` — `.env.example`도 같이 갱신해야
-   한다(`test_env_example_matches_settings.py`가 잡는다).
-3. **`POST /api/v1/auth/kakao`** `{code, redirect_uri}` → `kakao_id`로 upsert → 기존
-   `_set_refresh_cookie` + `LoginResponse` 그대로 반환. **새 응답 스키마 없음** → FE 토큰 처리
-   코드가 그대로 돌아간다.
-4. **FE**: 로그인 페이지에 카카오 버튼(카카오 인가 URL로 이동, `client_id`는 공개값이라
-   `NEXT_PUBLIC_`) + `/login/kakao` 콜백 페이지가 `code`를 백엔드로 POST. `state`는
-   sessionStorage 랜덤값 비교(CSRF).
-   - `redirect_uri`를 **FE**로 두는 이유: access를 메모리에만 두는 정책이라(`lib/auth.ts`)
-     백엔드가 리다이렉트로 받으면 토큰을 FE 메모리로 넘길 길이 없다.
-5. **하지 않을 것**: 같은 이메일의 기존 계정과 자동 연결. 카카오 이메일은 미인증일 수 있어
-   계정 탈취 경로가 된다 — 별개 계정으로 두고, 필요해지면 로그인 후 명시적 연결 화면으로.
-6. 테스트 2건: `kakao_client` 응답 파싱(모킹) · `kakao_id` 신규/기존 upsert.
-7. 문서: `docs/auth-security.md`에 카카오 섹션(§3-7 FE 인계 필수).
+1. **마이그레이션**: 계획한 0036이 아니라 **0037**로 갔다 — 0036은 이미 펫·퀘스트(#106)가
+   씀. `dev`의 head가 0035라 카카오를 0036으로 만들면 alembic head가 둘로 갈린다. 그래서 이
+   브랜치를 `feat/pet-quest` 위에 스택했다 — #106이 먼저 머지되면 이 브랜치를 `dev`로
+   리베이스하고 diff는 카카오만 남는다. **머지 순서가 106 → 이 브랜치로 고정된다.**
+2. **`infra/oauth/kakao_client.py`**: 계획대로 `code` → 토큰 → 회원정보. 계획엔 없던 것—
+   실패를 `KakaoAuthError`(인가코드 문제, 401)와 `KakaoError`(카카오 장애, 502)로 나눴다.
+   장애를 401로 내면 "다시 로그인하라"는 잘못된 안내가 간다.
+3. **env 이름이 계획과 다르다**: `KAKAO_CLIENT_ID`가 아니라 **`KAKAO_REST_API_KEY`**로 갔다 —
+   카카오 개발자센터의 실제 항목명이 그거다. `.env.example` 갱신 + 그 위에 프론트
+   `NEXT_PUBLIC_KAKAO_REST_API_KEY`/`NEXT_PUBLIC_KAKAO_REDIRECT_URI` 안내를 **주석으로만**
+   남겼다 — `KEY=값` 형태로 적으면 백엔드가 안 읽는 이름이라 §17 검증 테스트
+   (`test_env_example_matches_settings.py`)가 잡는다(실제로 한 번 잡혔다).
+4. **`POST /api/v1/auth/kakao`**: 계획대로 새 스키마 없이 기존 `LoginResponse` 반환. 키
+   미설정은 503 `KAKAO_NOT_CONFIGURED`로 죽는다(fail closed) — 이메일 로그인엔 무해.
+   `test_route_auth_guard.py`의 화이트리스트에도 추가했다(로그인 엔드포인트는 인증을 요구할
+   수 없다 — 그 가드 설계가 원래 그렇다).
+5. **FE**: 계획대로 로그인 페이지 버튼 + `/login/kakao` 콜백. 계획에 없던 것 —
+   `useSearchParams`는 Next 16에서 `Suspense` 경계가 필수다(`node_modules/next/dist/docs`
+   확인, AGENTS.md 지침). 인가코드가 1회용이라 개발 모드 StrictMode 이중 실행에서 두 번째
+   교환이 반드시 실패해, `useRef`로 코드당 한 번만 보내게 막았다.
+6. **`authenticate()` 방어 추가(계획에 없던 것)**: `password_hash`가 NULL(카카오 계정)이면
+   `verify_password`가 그 None을 받아 500이 난다 — 먼저 막고 테스트로 고정.
+7. **테스트 31건**(계획 2건 → 확장): 클라이언트 경계 19(장애/인가실패 구분·필드 결측·닉네임
+   폴백·길이 초과 등) + 계정·엔드포인트 12(계정 자동연결 안 함·중복 로그인 계정 안 늘어남·
+   refresh가 본문에 안 실림·httpOnly 확인 등).
 
-[확인 필요] 카카오 앱 키 발급 주체, 운영 도메인 `redirect_uri` 등록, 이메일 동의항목 검수 여부.
+**남은 것** (다음 세션):
+- `docs/auth-security.md`에 카카오 섹션(§3-7 FE 인계 필수) — 아직 안 씀. **PR을 열기 전에
+  이걸 먼저 쓴다** — 백엔드 작업은 문서 없이 "완료"로 안 친다(CLAUDE.md §3-7).
+- 실제 카카오 앱 키로 end-to-end 미확인(로컬엔 키가 없다) — 카카오 개발자센터 앱 등록,
+  `KAKAO_REST_API_KEY` 발급, 로컬 `redirect_uri` 등록 후 브라우저로 실제 로그인 확인 필요.
+- 0037 마이그레이션 실 DB 미적용(0036도 아직 로컬/dev 확인만, 운영 미적용).
+- 하지 않은 것(계획대로 유지): 같은 이메일 기존 계정 자동 연결. 카카오 이메일은 미인증일 수
+  있어 탈취 경로가 된다 — 필요해지면 로그인 후 명시적 연결 화면으로.
+
+[확인 필요] 카카오 앱 키 발급 주체, 운영 도메인 `redirect_uri` 등록, 이메일 동의항목 검수 여부
+(여전히 미결 — 코드는 키가 없어도 502/503으로 안전하게 죽는다는 것만 확인했다).
 
 ### 🔥 프로덕션 데이터 전수 점검 — **미착수, 최우선** (2026-08-03 배포에서 드러남)
 
