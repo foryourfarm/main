@@ -65,6 +65,23 @@ export async function login(email: string, password: string): Promise<User> {
   return data.user;
 }
 
+/**
+ * 카카오 인가코드로 로그인(계정이 없으면 서버가 만든다 — 별도 가입 절차 없음).
+ *
+ * 응답이 `login()`과 동일한 `{access_token, user}`라 토큰 처리가 그대로 재사용된다.
+ * `redirect_uri`는 보내지 않는다 — 서버가 자기 설정값을 쓴다(값이 갈리면 카카오가 거절하므로
+ * 한 곳에서만 정하는 편이 낫다).
+ */
+export async function loginWithKakao(code: string): Promise<User> {
+  const data = await api<{ access_token: string; user: User }>("/api/v1/auth/kakao", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+  accessToken = data.access_token;
+  accessIssuedAt = Date.now();
+  return data.user;
+}
+
 export async function refresh(): Promise<string> {
   // 본문 없음 — 브라우저가 refresh 쿠키 자동 첨부. 실패(401)면 AuthError → 재로그인 강제.
   const data = await api<{ access_token: string }>("/api/v1/auth/refresh", { method: "POST" });

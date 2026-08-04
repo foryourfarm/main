@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { buildKakaoAuthUrl, isKakaoEnabled } from "@/lib/kakao";
 import styles from "@/components/auth.module.css";
 
 export default function LoginPage() {
@@ -60,6 +61,25 @@ export default function LoginPage() {
         <button className={styles.submit} type="submit" disabled={busy}>
           {busy ? "로그인 중…" : "로그인"}
         </button>
+
+        {isKakaoEnabled && (
+          <>
+            <p className={styles.divider}>또는</p>
+            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서 form
+                안이지만 submit이 되지 않게 type="button"이고, state를 남긴 뒤 이동한다. */}
+            <button
+              type="button"
+              className={styles.kakao}
+              onClick={() => {
+                window.location.href = buildKakaoAuthUrl();
+              }}
+            >
+              {/* 색만으로 카카오임을 알리지 않는다 — 텍스트로 명시(§8). */}
+              카카오로 로그인
+            </button>
+          </>
+        )}
+
         <p className={styles.alt}>
           계정이 없으신가요? <Link href="/signup">회원가입</Link>
         </p>

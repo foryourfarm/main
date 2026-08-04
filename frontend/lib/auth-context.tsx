@@ -2,13 +2,19 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-import { login as apiLogin, logout as apiLogout, me } from "@/lib/auth";
+import {
+  login as apiLogin,
+  loginWithKakao as apiLoginWithKakao,
+  logout as apiLogout,
+  me,
+} from "@/lib/auth";
 import type { User } from "@/types/auth";
 
 interface AuthState {
   user: User | null;
   loading: boolean; // 최초 세션 복구 중
   login: (email: string, password: string) => Promise<void>;
+  loginWithKakao: (code: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -30,12 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setUser(await apiLogin(email, password));
   };
+  const loginWithKakao = async (code: string) => {
+    setUser(await apiLoginWithKakao(code));
+  };
   const logout = async () => {
     await apiLogout();
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, login, loginWithKakao, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthState {
