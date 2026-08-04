@@ -7,13 +7,20 @@ Postgres/pgvector 없이 sqlite 인메모리에 chat_message 테이블만 만들
 """
 
 import unittest
+from datetime import UTC, datetime
 
 from sqlalchemy import BigInteger, create_engine
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 
 from app.models import ChatMessage
-from app.services.chat_service import load_history, save_turn
+from app.services.chat_service import (
+    delete_session,
+    list_sessions,
+    load_history,
+    prune_old_messages,
+    save_turn,
+)
 
 
 # BIGINT PK는 sqlite에서 rowid로 autoincrement되지 않는다(Postgres는 BIGSERIAL로 정상).
@@ -65,6 +72,48 @@ class TestChatPersistence(unittest.TestCase):
 
     def test_empty_history_when_none(self):
         self.assertEqual(load_history(self.db, 1, "nope", limit=6), [])
+
+    def test_list_sessions_newest_first_with_title_from_first_question(self):
+        save_turn(self.db, 1, "s1", "물 언제 줘요?", "아침에요")
+        save_turn(self.db, 1, "s1", "비료는요?", "주 1회요")
+        save_turn(self.db, 1, "s2", "진딧물 어떡해요?", "제거하세요")
+        sessions = list_sessions(self.db, 1, limit=10)
+        self.assertEqual([s["session_id"] for s in sessions], ["s2", "s1"])  # 최근 활동 순
+        # 제목은 그 스레드의 첫 질문(두 번째 질문이 아니다)
+        self.assertEqual(sessions[1]["title"], "물 언제 줘요?")
+        self.assertEqual(sessions[1]["message_count"], 4)
+
+    def test_list_sessions_scoped_to_owner(self):
+        save_turn(self.db, 1, "s1", "내 것", "답")
+        self.assertEqual(list_sessions(self.db, 2, limit=10), [])
+
+    def test_delete_session_removes_only_that_thread(self):
+        save_turn(self.db, 1, "s1", "q1", "a1")
+        save_turn(self.db, 1, "s2", "q2", "a2")
+        self.assertEqual(delete_session(self.db, 1, "s1"), 2)
+        self.assertEqual([s["session_id"] for s in list_sessions(self.db, 1, limit=10)], ["s2"])
+
+    def test_delete_session_of_other_user_is_noop(self):
+        save_turn(self.db, 1, "s1", "비밀", "답")
+        self.assertEqual(delete_session(self.db, 2, "s1"), 0)  # 남의 것은 못 지운다(§11)
+        self.assertEqual(len(load_history(self.db, 1, "s1", limit=6)), 2)
+
+    def test_prune_deletes_only_older_than_cutoff(self):
+        old = datetime(2025, 1, 1, tzinfo=UTC)
+        save_turn(self.db, 1, "old", "작년 질문", "작년 답")
+        # created_at은 server_default라 직접 과거로 되돌려 "오래된 행"을 만든다.
+        self.db.query(ChatMessage).update({ChatMessage.created_at: old})
+        self.db.commit()
+        save_turn(self.db, 1, "new", "오늘 질문", "오늘 답")
+
+        deleted = prune_old_messages(self.db, datetime(2025, 6, 1, tzinfo=UTC))
+        self.assertEqual(deleted, 2)
+        self.assertEqual([s["session_id"] for s in list_sessions(self.db, 1, limit=10)], ["new"])
+
+    def test_prune_with_nothing_old_deletes_nothing(self):
+        save_turn(self.db, 1, "s1", "q", "a")
+        self.assertEqual(prune_old_messages(self.db, datetime(2020, 1, 1, tzinfo=UTC)), 0)
+        self.assertEqual(len(load_history(self.db, 1, "s1", limit=6)), 2)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
+
+# 대화 스레드 키 형식(uuid4). 요청 body와 히스토리 조회 쿼리가 같은 검증을 쓰도록 한 곳에 둔다.
+SESSION_ID_PATTERN = r"^[0-9a-fA-F-]{8,64}$"
 
 
 class ChatMessage(BaseModel):
@@ -23,4 +28,21 @@ class ChatRequest(BaseModel):
     # 대화 스레드 키(클라가 만든 uuid4). 로그인+session_id면 서버가 DB에서 history 로드/저장하고
     # 요청 body의 history는 무시한다. 게스트/미지정이면 지금처럼 클라 history를 쓴다.
     # 소유권은 (user_id, session_id) 스코프로 강제 — 남의 session_id를 넣어도 빈 히스토리만 나온다(§11).
-    session_id: str | None = Field(default=None, pattern=r"^[0-9a-fA-F-]{8,64}$")
+    session_id: str | None = Field(default=None, pattern=SESSION_ID_PATTERN)
+
+
+class ChatSessionSummary(BaseModel):
+    """대화 스레드 한 줄(목록용). 세션 테이블은 없고 `chat_message` 집계에서 나온다."""
+
+    session_id: str
+    title: str  # 그 스레드의 첫 질문을 자른 것
+    message_count: int
+    last_at: datetime
+
+
+class ChatHistoryMessage(BaseModel):
+    """저장된 대화 한 줄(응답 전용). `ChatMessage`의 길이 제한을 물려받지 않는다 —
+    그건 입력 방어용 캡이고, 이미 저장된 긴 답변에 걸면 조회가 500으로 죽는다."""
+
+    role: Literal["user", "assistant"]
+    content: str

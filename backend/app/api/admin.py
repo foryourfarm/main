@@ -11,7 +11,7 @@ ETL 코드가 이미 들어 있다. Job으로 빼면 새 배포 대상·Cloud SQ
 """
 
 import secrets
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from app.db.session import get_db
 from app.infra.public_api.outlook_client import OutlookFetchError
 from app.schemas.admin import OutlookIngestResult
 from app.schemas.common import ApiResponse
+from app.services import chat_service
 from app.services.outlook_ingest_service import ingest_latest_outlook
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -39,6 +40,22 @@ def require_admin_token(x_admin_token: str = Header(default="")) -> None:
         x_admin_token.encode("utf-8"), settings.admin_task_token.encode("utf-8")
     ):
         raise AppError(401, "UNAUTHORIZED", "인증이 필요합니다.")
+
+
+@router.post("/chat-retention", dependencies=[Depends(require_admin_token)])
+def prune_chat_messages(db: Session = Depends(get_db)) -> ApiResponse[int]:
+    """보존 기한(`chat_retention_days`)이 지난 대화를 지운다. 스케줄러가 매일 1회 부른다.
+
+    **왜 지우는가**: 저장은 싸지만 무한하지 않고, 이 데이터는 가치가 빠르게 떨어진다 —
+    프롬프트는 최근 6개만 쓰고, 유저가 작년 대화를 다시 여는 일은 드물다. 남겨서 얻는 것보다
+    백업·복원 시간과 비용이 먼저 커진다(실측 근거: docs/llm-integration.md §11.2).
+
+    `chat_retention_days = 0`이면 삭제하지 않는다(기능 끄기).
+    """
+    if settings.chat_retention_days <= 0:
+        return ApiResponse.ok(0)
+    cutoff = datetime.now(UTC) - timedelta(days=settings.chat_retention_days)
+    return ApiResponse.ok(chat_service.prune_old_messages(db, cutoff))
 
 
 @router.post("/weather-outlooks", dependencies=[Depends(require_admin_token)])

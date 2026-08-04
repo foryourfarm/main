@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
 
+import ChatDock from "@/components/ChatDock";
 import Header from "@/components/Header";
 import Navigation from "@/components/Navigation";
 import { AuthProvider } from "@/lib/auth-context";
@@ -38,6 +39,8 @@ export default function RootLayout({
           <Header />
           <Navigation />
           <main className="appMain">{children}</main>
+          {/* 우하단 상담 버튼. /chat에서는 스스로 숨는다(같은 챗봇 중복 방지). */}
+          <ChatDock />
         </AuthProvider>
       </body>
     </html>
