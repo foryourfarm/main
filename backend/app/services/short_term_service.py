@@ -156,7 +156,7 @@ def get_forecast_rows(
                 "sunlight": stmt.excluded.sunlight,
                 "hourly_temp": stmt.excluded.hourly_temp,
                 # 같은 발표분을 다시 받으면 부분성 판정도 같이 갱신돼야 한다. 갱신 목록에서
-                # 빠뜨리면 0031 이전 캐시가 남은 구역에서 NULL/false가 굳는다.
+                # 빠뜨리면 0032 이전 캐시가 남은 구역에서 NULL/false가 굳는다.
                 "is_imputed": stmt.excluded.is_imputed,
             },
         )

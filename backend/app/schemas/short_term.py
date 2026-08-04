@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class HourlyTemp(BaseModel):
-    """시간별 기온 한 점. 날짜 상세 모달의 기온 곡선용(0031)."""
+    """시간별 기온 한 점. 날짜 상세 모달의 기온 곡선용(0032)."""
 
     h: int
     """시각(0~23)."""
@@ -31,11 +31,11 @@ class ShortTermDay(BaseModel):
     temp_avg: Decimal | None
     """일평균기온 — **점수의 근거**. 카드의 낮 최고기온이 아니다."""
     temp_max: Decimal | None
-    """일최고기온 — 카드 표시값. 0031 이전 캐시에는 없어 null일 수 있다."""
+    """일최고기온 — 카드 표시값. 0032 이전 캐시에는 없어 null일 수 있다."""
     temp_night_min: Decimal | None
     rainfall: Decimal | None
     hourly_temp: list[HourlyTemp] | None
-    """시각 오름차순. 0031 이전 캐시에는 없어 null일 수 있다."""
+    """시각 오름차순. 0032 이전 캐시에는 없어 null일 수 있다."""
     is_imputed: bool
     """그날 예보 표본이 하루를 온전히 덮지 못함 — 집계값이 편향돼 있다(첫날·지평 끝날)."""
     risk_flags: list[str]

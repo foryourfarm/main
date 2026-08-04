@@ -111,7 +111,7 @@ export interface IndicatorBreakdown {
   allowed_max?: number | null;
 }
 
-/** 단기 탭 하루치. 계약: PR #33 + 0031(표시·채점 기온 분리).
+/** 단기 탭 하루치. 계약: PR #33 + 0032(표시·채점 기온 분리).
  *
  * **기온 필드 3개의 쓰임이 다르다.** `temp_max`가 카드에 보이는 "낮 최고기온"이고,
  * `temp_avg`는 점수를 매긴 근거다(지표 `temp_day`). 종전엔 `temp_avg` 하나를 "낮 기온"이라
@@ -125,11 +125,11 @@ export interface ShortTermDay {
   grade: Grade | null;
   /** 일평균기온 — **점수의 근거**. 카드에 "낮 기온"으로 띄우면 안 된다. */
   temp_avg: string | null;
-  /** 일최고기온 — 카드 표시값. 0031 이전 캐시에는 없어 null일 수 있다. */
+  /** 일최고기온 — 카드 표시값. 0032 이전 캐시에는 없어 null일 수 있다. */
   temp_max: string | null;
   temp_night_min: string | null;
   rainfall: string | null;
-  /** 시각 오름차순. 0031 이전 캐시에는 없어 null일 수 있다. */
+  /** 시각 오름차순. 0032 이전 캐시에는 없어 null일 수 있다. */
   hourly_temp: HourlyTemp[] | null;
   /** 그날 예보 표본이 하루를 온전히 덮지 못함(첫날·예보 지평 끝날) — 집계값이 편향돼 있다. */
   is_imputed: boolean;
