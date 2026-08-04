@@ -92,17 +92,50 @@ export interface MonthlyOutlookEntry {
   outlook_published_at: string | null;
 }
 
-/** 단기 탭 하루치. 계약: docs/long-term-tab-api.md + PR #33 */
+/** 시간별 기온 한 점(날짜 상세 모달 그래프용). */
+export interface HourlyTemp {
+  /** 시각 0~23. */
+  h: number;
+  /** 그 시각 예보 기온(℃). 백엔드가 Decimal을 문자열로 준다. */
+  t: string;
+}
+
+/** 지표별 채점 내역. 밴드 경계는 지침에 없으면 null이다. */
+export interface IndicatorBreakdown {
+  value?: number | null;
+  score?: number | null;
+  status?: string | null;
+  optimal_min?: number | null;
+  optimal_max?: number | null;
+  allowed_min?: number | null;
+  allowed_max?: number | null;
+}
+
+/** 단기 탭 하루치. 계약: PR #33 + 0032(표시·채점 기온 분리).
+ *
+ * **기온 필드 3개의 쓰임이 다르다.** `temp_max`가 카드에 보이는 "낮 최고기온"이고,
+ * `temp_avg`는 점수를 매긴 근거다(지표 `temp_day`). 종전엔 `temp_avg` 하나를 "낮 기온"이라
+ * 부르며 카드에 띄웠는데, 실측에서 일평균 31.3℃ vs 일최고 38℃로 6.7℃ 벌어졌다.
+ */
 export interface ShortTermDay {
   target_date: string;
   growth_stage: string | null;
   status: SuitabilityStatus;
   score: number | null;
   grade: Grade | null;
+  /** 일평균기온 — **점수의 근거**. 카드에 "낮 기온"으로 띄우면 안 된다. */
   temp_avg: string | null;
+  /** 일최고기온 — 카드 표시값. 0032 이전 캐시에는 없어 null일 수 있다. */
+  temp_max: string | null;
   temp_night_min: string | null;
   rainfall: string | null;
+  /** 시각 오름차순. 0032 이전 캐시에는 없어 null일 수 있다. */
+  hourly_temp: HourlyTemp[] | null;
+  /** 그날 예보 표본이 하루를 온전히 덮지 못함(첫날·예보 지평 끝날) — 집계값이 편향돼 있다. */
+  is_imputed: boolean;
   risk_flags: string[];
+  /** 지표별 채점 내역. 그래프의 적정·허용 구간 음영과 근거 표에 쓴다. */
+  breakdown?: Record<string, IndicatorBreakdown> | null;
 }
 
 /** 연속 지속되는 기상 위험. 하루짜리 노이즈와 구분된 선제 경보 대상. */
@@ -178,7 +211,11 @@ export function statusLabel(status: SuitabilityStatus): string {
 
 /** risk_flags("지표:사유") → 사람이 읽는 문구. 전문 용어를 눈높이로 바꾼다(§4.4 요구). */
 const INDICATOR_NAMES: Record<string, string> = {
-  temp_day: "낮 기온",
+  // **"낮 기온"이 아니다.** 이 지표에 들어가는 값은 단기 탭에선 그날 시간별 기온의 평균,
+  // 장기 탭에선 월 평균기온이다. 카드가 따로 "낮 최고기온"(일최고)을 보여주게 되면서, 이름을
+  // 구분하지 않으면 경고 문구("낮 기온이 31.3℃로…")가 카드 숫자(38℃)와 어긋난다.
+  // 백엔드 `suitability_service.INDICATOR_NAMES`와 같은 표기를 유지한다.
+  temp_day: "일 평균기온",
   temp_night_min: "야간 최저기온",
   // 강수는 단위별로 지표가 나뉜다(월평년 vs 예보 일누적). 단위를 문구에 드러내
   // "비 안 온 날이 과습 위험"으로 읽히는 혼동을 막는다.
@@ -192,15 +229,22 @@ const INDICATOR_NAMES: Record<string, string> = {
 };
 
 const REASON_NAMES: Record<string, string> = {
-  outside_allowed: "권장 범위를 크게 벗어남",
+  // "크게"를 빼둔다 — 이 사유는 허용경계를 0.01℃만 넘어도 붙는다(백엔드 `_indicator_score`의
+  // "risk" 상태). 백엔드 문구도 "허용 범위(…)를 벗어납니다"라 용어를 맞춘다.
+  outside_allowed: "허용 범위를 벗어남",
   missing: "데이터 없음",
   invalid: "값이 이상함",
   invalid_guide: "기준 정보 미비",
 };
 
+/** 지표 키 → 한글명. 매핑에 없으면 키를 그대로 보여준다(0024의 k/ca/mg처럼 누락될 수 있다). */
+export function indicatorName(indicator: string): string {
+  return INDICATOR_NAMES[indicator] ?? indicator;
+}
+
 export function describeRiskFlag(flag: string): string {
   const [indicator, reason] = flag.split(":");
-  const name = INDICATOR_NAMES[indicator] ?? indicator;
+  const name = indicatorName(indicator);
   const why = REASON_NAMES[reason] ?? reason;
   return `${name} — ${why}`;
 }

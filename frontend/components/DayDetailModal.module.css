@@ -1,0 +1,145 @@
+/* 팔레트는 Modal.module.css .content가 내려준다(--primary/--good/--warn/--bad/--muted). */
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.grade {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.score {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.meta {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 부분 표본 배지. 색만으로 구분하지 않고 문구를 그대로 읽게 둔다(§8) */
+.partialTag {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 16px 0 0;
+}
+
+.metrics > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--card);
+}
+
+.metrics dt {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.metrics dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* "점수 기준" 꼬리표 — 일 평균기온이 왜 여기 있는지 알려준다 */
+.hint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.sectionTitle {
+  margin: 20px 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.risks {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--bad);
+}
+
+.risks li + li {
+  margin-top: 4px;
+}
+
+/* 지표가 많으면(토양까지 최대 10개) 좁은 화면에서 표가 넘친다 — 표만 가로 스크롤한다 */
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.table th,
+.table td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--card);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.table thead th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.table tbody th {
+  font-weight: 600;
+}
+
+.statusTag {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (min-width: 640px) {
+  .metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .metrics > div {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+  }
+}
