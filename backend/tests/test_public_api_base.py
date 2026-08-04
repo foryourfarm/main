@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 from app.infra.public_api.base import PublicApiError, fetch_items
 from app.infra.public_api.soil_exam_client import get_soil_exam, get_soil_exam_list
+from app.infra.public_api import soil_profile_client, weather_client
 from app.infra.public_api.soil_profile_client import get_soil_profile
-from app.infra.public_api import weather_client
 from app.infra.public_api.weather_client import WeatherObservation
 
 SUCCESS_XML = """<response>
@@ -31,12 +31,15 @@ SOIL_PROFILE_XML = """<?xml version="1.0" encoding="UTF-8" standalone="true"?>
 <response>
 <header><Result_Code>200</Result_Code><Result_Msg>OK</Result_Msg></header>
 <body><items><item>
-<PNU_Code>4215034022100050000</PNU_Code>
-<Deepsoil_Qlt_Code>04</Deepsoil_Qlt_Code>
-<Deepsoil_Ston_Code>02</Deepsoil_Ston_Code>
-<Soilslope_Code>03</Soilslope_Code>
+<PNU_Cd>4215034022100050000</PNU_Cd>
+<Deepsoil_Qlt_Cd>04</Deepsoil_Qlt_Cd>
+<Deepsoil_Ston_Cd>02</Deepsoil_Ston_Cd>
+<Soilslope_Cd>03</Soilslope_Cd>
 </item></items></body>
 </response>"""
+# 🔴 이 픽스처는 2026-08-05까지 `*_Code`로 적혀 있었다. 실제 응답은 `*_Cd`인데 픽스처가 코드의
+# 오해를 그대로 베껴 써서, **운영에서 전 호출이 결측으로 새는 동안 테스트는 계속 초록이었다.**
+# 위 XML은 실호출 응답을 그대로 옮긴 것이다(PNU 4215034022100050000, 2026-08-05).
 
 # 기술명세서 ver1.0, getSoilExam 응답 예제 그대로
 SOIL_EXAM_XML = """<?xml version="1.0" encoding="UTF-8" standalone="true"?>
@@ -216,9 +219,18 @@ class TestSoilProfileClient(unittest.TestCase):
         with patch("httpx.get", return_value=FakeResponse(SOIL_PROFILE_XML)):
             profile = get_soil_profile("4215034022100050000")
         self.assertIsNotNone(profile)
+        self.assertEqual(profile.pnu_code, "4215034022100050000")
         self.assertEqual(profile.deepsoil_texture, "식양질")  # 04
         self.assertEqual(profile.deepsoil_gravel, "있음_15-35%")  # 02
         self.assertEqual(profile.soil_slope, "경사_7-15%")  # 03
+
+    def test_url_carries_the_v2_segment(self):
+        """`/V2` 없는 경로는 NO_OPENAPI_SERVICE_ERROR다 — 실호출로 확인(2026-08-05).
+
+        명세서(`soilV3_API-Guide.md`)는 `/V3`로 적지만 `/V3`도 응답하지 않는다. 명세서를 근거로
+        되돌리는 것을 막기 위해 경로를 테스트로 못박는다.
+        """
+        self.assertIn("/SoilCharacSctnn/V2/", soil_profile_client.BASE_URL)
 
 
 class TestSoilExamClient(unittest.TestCase):
