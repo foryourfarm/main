@@ -1,7 +1,7 @@
 import { ensureAccessToken } from "@/lib/auth";
 import type { ChatMessage } from "@/types/chat";
 
-// 백엔드 챗봇 SSE 계약: docs/llm-integration.md §10.
+// 백엔드 챗봇 SSE 계약: docs/llm-integration.md §11.
 // 스트림은 `data: {"token":"..."}\n\n` 프레임 연속 + 종료 `data: [DONE]\n\n`.
 // ApiResponse 래퍼를 쓰지 않으므로(§6 스트리밍 예외) EventSource(GET전용) 대신 fetch로 직접 파싱한다.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";

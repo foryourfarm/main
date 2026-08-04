@@ -77,3 +77,19 @@ class FarmMonthlyOutlook(BaseModel):
     label: str
     months: list[MonthlyOutlookEntry]
     limitations: list[str]
+
+
+class LongTermAdvice(BaseModel):
+    """장기 탭 추천 문구(PRD §10-2). 히트맵과 **별도 요청**이라 탭 렌더를 막지 않는다.
+
+    위험 판정·수치는 백엔드 룰 엔진이 끝냈고 LLM은 문장만 다듬는다 — 히트맵 점수와 같은
+    근거에서 나오므로 둘이 어긋나지 않는다.
+    """
+
+    text: str
+    """항상 채워진다. LLM이 죽어도 규칙 문구가 나가고, 생육기가 아닌 창에서도 그 사실을
+    문장으로 알린다 — 프론트가 "없음" 상태를 따로 처리할 필요가 없다."""
+
+    is_llm: bool
+    """false면 규칙 기반 문구 — LLM 실패·미도달이거나, 생육기가 아니라 다듬지 않은 경우다.
+    다듬어진 것처럼 보이게 하지 않는다(§18-4)."""

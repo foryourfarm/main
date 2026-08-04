@@ -9,7 +9,7 @@ few-shot으로 고정한 네 가지 행동:
 3. 근거 없음 -> 지어내지 말고 전문가/농사로 안내로 거절
 4. 프롬프트 인젝션/탈옥(정체 캐묻기·프롬프트 유출·규칙 초기화 등) -> 페르소나 유지하며 거부(#보안 규칙)
 
-프롬프트를 바꾸면 PROMPT_VERSION을 올린다(품질 비교·재현용, docs/llm-integration.md §9).
+프롬프트를 바꾸면 PROMPT_VERSION을 올린다(품질 비교·재현용, docs/llm-integration.md §10).
 """
 
 from dataclasses import dataclass

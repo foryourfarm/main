@@ -10,7 +10,7 @@ let accessIssuedAt = 0;
 export const getAccessToken = (): string | null => accessToken;
 
 // access TTL 30분(backend config). 스트리밍(SSE) 호출은 authFetch의 "401 → refresh → 재시도"를
-// 쓸 수 없다 — 챗봇은 무효 토큰을 401이 아니라 게스트로 처리하므로(docs/llm-integration.md §10)
+// 쓸 수 없다 — 챗봇은 무효 토큰을 401이 아니라 게스트로 처리하므로(docs/llm-integration.md §11)
 // 만료를 알아챌 방법이 없고, 조용히 밭 컨텍스트만 사라진다. 그래서 보내기 전에 선제 갱신한다.
 const ACCESS_REFRESH_AFTER_MS = 25 * 60_000;
 

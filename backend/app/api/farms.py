@@ -12,8 +12,14 @@ from app.models import Crop, District, Region, SoilState, User, UserFarm
 from app.schemas.common import ApiResponse
 from app.schemas.farm import CropOut, DistrictOut, FarmCreate, FarmOut, FarmUpdate, RegionOut
 from app.schemas.short_term import DailyAdvice, FarmShortTerm
-from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability
-from app.services import advice_service, farm_service, short_term_service, suitability_service
+from app.schemas.suitability import FarmMonthlyOutlook, FarmSuitability, LongTermAdvice
+from app.services import (
+    advice_service,
+    farm_service,
+    long_term_advice_service,
+    short_term_service,
+    suitability_service,
+)
 from app.services.dashboard_service import stage_label
 from app.services.district_soil_service import effective_source
 
@@ -149,6 +155,51 @@ def get_farm_monthly_outlook(
     return ApiResponse.ok(FarmMonthlyOutlook(**data))
 
 
+@router.get("/farms/{farm_id}/long-term-advice")
+def get_farm_long_term_advice(
+    farm_id: int,
+    background: BackgroundTasks,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[LongTermAdvice]:
+    """장기 탭 추천 문구(PRD §10-2). 히트맵과 **별도 요청**이라 탭 렌더를 막지 않는다.
+
+    `/advice`가 `compute_short_term`을 다시 부르는 것과 같은 이유로 여기서도
+    `compute_monthly_outlook`을 다시 부른다 — 위험 판정 로직이 한 곳에 머물러 히트맵과
+    문구가 어긋나지 않는다.
+    """
+    data = suitability_service.compute_monthly_outlook(
+        db, current.id, farm_id, date.today()
+    )
+    months: list[dict[str, object]] = data["months"]  # type: ignore[assignment]
+    crop = db.get(Crop, data["crop_id"])
+    crop_name = crop.name if crop else ""
+    # 창 첫 달의 단계를 대표로 쓴다 — 위험이 없을 때 "지금 무슨 시기인가"를 알려주는 용도다.
+    label = stage_label(months[0]["growth_stage"], months[0]["status"]) if months else None
+
+    text, is_llm, needs_polish, input_hash = long_term_advice_service.get_or_create(
+        db,
+        farm_id=farm_id,
+        crop_id=int(data["crop_id"]),  # type: ignore[call-overload]
+        crop_name=crop_name,
+        outlook=data,
+        stage_label=label,
+        # 동기 재시도는 짧은 타임아웃으로 — 유저가 기다리는 경로다(config 주석).
+        llm=OllamaClient(timeout_s=settings.advice_llm_timeout_s),
+    )
+    if needs_polish:
+        # 응답을 보낸 뒤 다듬는다. Cloud Run 스로틀링으로 완주 못 하면 다음 조회가 메운다.
+        background.add_task(
+            long_term_advice_service.polish_in_background,
+            farm_id,
+            crop_name,
+            input_hash,
+            text,
+            OllamaClient(),
+        )
+    return ApiResponse.ok(LongTermAdvice(text=text, is_llm=is_llm))
+
+
 @router.get("/farms/{farm_id}/short-term")
 def get_farm_short_term(
     farm_id: int,
@@ -188,7 +239,7 @@ def get_farm_advice(
     crop_name = crop.name if crop else ""
     label = stage_label(days[0]["growth_stage"], days[0]["status"]) if days else None
 
-    text, is_llm, needs_polish = advice_service.get_or_create(
+    text, is_llm, needs_polish, input_hash = advice_service.get_or_create(
         db,
         farm_id=farm_id,
         crop_name=crop_name,
@@ -206,6 +257,7 @@ def get_farm_advice(
             farm_id,
             crop_name,
             now.date(),
+            input_hash,
             text,
             make_llm_client(),
         )

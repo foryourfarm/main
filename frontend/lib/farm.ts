@@ -9,6 +9,7 @@ import type {
   FarmMonthlyOutlook,
   FarmShortTerm,
   FarmUpdateInput,
+  LongTermAdvice,
   Region,
 } from "@/types/farm";
 
@@ -21,6 +22,11 @@ export function fetchDashboard(): Promise<DashboardResponse> {
 
 export function fetchMonthlyOutlook(farmId: number): Promise<FarmMonthlyOutlook> {
   return authFetch<FarmMonthlyOutlook>(`/api/v1/farms/${farmId}/monthly-outlook`);
+}
+
+/** 장기 탭 추천 문구. 히트맵과 **따로** 부른다 — LLM 지연이 탭 렌더를 막지 않도록. */
+export function fetchLongTermAdvice(farmId: number): Promise<LongTermAdvice> {
+  return authFetch<LongTermAdvice>(`/api/v1/farms/${farmId}/long-term-advice`);
 }
 
 export function fetchShortTerm(farmId: number): Promise<FarmShortTerm> {

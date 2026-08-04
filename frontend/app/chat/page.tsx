@@ -30,7 +30,7 @@ function ChatView() {
   });
   const { user } = useAuth();
   // 밭 기준 답변: /farm/[farmId]에서 "이 밭 상담하기"로 들어오면 farmId가 붙는다.
-  // 없으면 백엔드가 밭이 하나뿐일 때 그 밭을 자동 선택한다(docs/llm-integration.md §10).
+  // 없으면 백엔드가 밭이 하나뿐일 때 그 밭을 자동 선택한다(docs/llm-integration.md §11).
   const farmIdParam = Number(useSearchParams().get("farmId"));
   const farmId = Number.isInteger(farmIdParam) && farmIdParam > 0 ? farmIdParam : undefined;
 

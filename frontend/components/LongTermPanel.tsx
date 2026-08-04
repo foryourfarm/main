@@ -6,8 +6,8 @@ import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
 import styles from "@/components/farm.module.css";
-import { fetchMonthlyOutlook } from "@/lib/farm";
-import type { FarmMonthlyOutlook, MonthlyOutlookEntry } from "@/types/farm";
+import { fetchLongTermAdvice, fetchMonthlyOutlook } from "@/lib/farm";
+import type { FarmMonthlyOutlook, LongTermAdvice, MonthlyOutlookEntry } from "@/types/farm";
 import { describeRiskFlag, stageLabel, statusLabel } from "@/types/farm";
 
 /** 창이 해를 넘기면 "11월 · 12월 · 1월"이 되어 1월이 앞선 달로 읽힌다. 연도가 바뀌는
@@ -31,6 +31,43 @@ function MonthCell({ entry, label }: { entry: MonthlyOutlookEntry; label: string
       {/* 어느 칸이 전망 반영인지 구분해 보여준다 — 나머지는 평년치만 쓴 칸이다. */}
       {entry.outlook_applied && <div className={styles.cellOutlook}>전망 반영</div>}
     </div>
+  );
+}
+
+/**
+ * 앞으로 3개월을 어떻게 대비할지 한 문단(PRD §10-2).
+ *
+ * 히트맵과 **따로** 부른다. 단기 탭에서 한 응답에 묶었다가 LLM 동기 재시도가 탭 전체를
+ * 12초 막은 실측이 있어 같은 방식을 피한다 — 히트맵은 즉시 뜨고 이 카드만 기다린다.
+ *
+ * 아래 RiskSummary와 역할이 갈린다: 이 카드는 **무엇을 준비하나**, 목록은 **어느 달에 무슨
+ * 지표가 걸리나**다. 같은 risk_flags에서 나오지만 목록은 사실 확인용이라 남겨 둔다.
+ *
+ * is_llm=false를 숨기지 않는다(§18-4).
+ */
+function AdviceCard({ farmId }: { farmId: number }) {
+  const [advice, setAdvice] = useState<LongTermAdvice | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetchLongTermAdvice(farmId).then(setAdvice).catch(() => setFailed(true));
+  }, [farmId]);
+
+  // 추천 실패가 탭을 망치지 않는다 — 이 블록만 빠지고 히트맵·위험 목록은 그대로 보인다(§18-5).
+  if (failed) return null;
+
+  return (
+    <section className={styles.adviceCard} aria-label="3개월 대비 안내">
+      <p className={styles.adviceTitle}>
+        앞으로 3개월, 이렇게 준비하세요
+        {advice && !advice.is_llm && <span className={styles.adviceTag}>자동 생성 문구</span>}
+      </p>
+      {advice === null ? (
+        <p className={styles.adviceLoading}>3개월 안내를 준비하고 있어요…</p>
+      ) : (
+        <p className={styles.adviceText}>{advice.text}</p>
+      )}
+    </section>
   );
 }
 
@@ -86,6 +123,8 @@ export default function LongTermPanel({ farmId }: { farmId: number }) {
       <p className={styles.sub}>
         {range} · {data.label}
       </p>
+      {/* 단기 탭도 `.sub` 아래·데이터 그리드 위에 추천 카드를 둔다 — 두 탭을 같은 리듬으로. */}
+      <AdviceCard farmId={farmId} />
       <div className={styles.heatmap}>
         {data.months.map((m, i) => (
           // 창이 해를 넘기면 month만으로는 키가 겹칠 수 있다(12개월 초과 시).

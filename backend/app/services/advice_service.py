@@ -26,21 +26,27 @@ from sqlalchemy.orm import Session
 
 from app.infra.llm_client import LlmClient
 from app.models import DailyRecommendation, District, UserFarm
-from app.prompts.daily_advice import build_prompt
+from app.prompts.daily_advice import PROMPT_VERSION, build_prompt
+
+# 캐시 지문·문구 조립 헬퍼는 장기 추천과 공용이다. 두 탭의 말투와 캐시 판정이 갈리지 않게
+# 한 곳에 둔다 — 재수출하는 이유는 기존 호출부·테스트를 그대로 두기 위해서다.
+from app.services.advice_cache import prompt_fingerprint
+from app.services.advice_text import RISK_SUFFIX, UNITS, bound_phrase, num, subject_josa
 from app.services.suitability_service import INDICATOR_NAMES, WEATHER_INDICATORS
 
 _log = logging.getLogger(__name__)
 
-# 지표 단위. 표기용이라 농업 기준값이 아니다(기준값은 crop_growth_guide, §18-2).
-UNITS: dict[str, str] = {
-    "temp_day": "℃",
-    "temp_night_min": "℃",
-    "rainfall_daily": "mm",
-    "rainfall_monthly": "mm",
-    "sunlight": "시간",
-}
-
-RISK_SUFFIX = ":outside_allowed"
+__all__ = [
+    "RISK_SUFFIX",
+    "UNITS",
+    "RiskLine",
+    "get_or_create",
+    "polish",
+    "polish_in_background",
+    "rule_advice",
+    "soil_advice",
+    "summarize_risks",
+]
 
 
 @dataclass(frozen=True)
@@ -88,36 +94,6 @@ def summarize_risks(
     return sorted(first_seen.values(), key=lambda r: (r.target_date, r.indicator))
 
 
-def _num(value: float) -> str:
-    """소수점 꼬리 정리. 3.0 -> "3", 3.20 -> "3.2"."""
-    text = f"{value:.1f}"
-    return text[:-2] if text.endswith(".0") else text
-
-
-def _subject_josa(word: str) -> str:
-    """주격 조사 — 받침 있으면 "이", 없으면 "가".
-
-    "이(가)"로 뭉개지 않는 이유: 규칙 문구는 LLM 실패 시 **그대로 유저에게 나가는** 최종
-    문구다. 지표 한글명이 시드가 아니라 코드 상수(INDICATOR_NAMES)라 받침이 고정이므로
-    한글 음절 계산으로 정확히 고를 수 있다.
-    """
-    # 괄호 병기는 떼고 본 이름으로 고른다 — "토양 산도(pH)이"가 아니라 "토양 산도가"다.
-    stem = word.split("(")[0].strip() or word
-    last = stem[-1]
-    if "가" <= last <= "힣":
-        return "이" if (ord(last) - 0xAC00) % 28 else "가"
-    return "이"  # 숫자·영문으로 끝나면 판정 불가 — 덜 어색한 쪽으로 고정
-
-
-def _bound_phrase(line: RiskLine, unit: str) -> str | None:
-    """어느 쪽 경계를 벗어났는지. 지침에 그 경계가 없으면 None(범위를 지어내지 않는다)."""
-    if line.allowed_min is not None and line.value < line.allowed_min:
-        return f"허용 범위({_num(line.allowed_min)}{unit} 이상)"
-    if line.allowed_max is not None and line.value > line.allowed_max:
-        return f"허용 범위({_num(line.allowed_max)}{unit} 이하)"
-    return None
-
-
 def rule_advice(risks: list[RiskLine], stage_label: str | None, horizon_days: int) -> str:
     """규칙 기반 문구. **LLM 없이도 이것만으로 완결되어야 한다** — 품질 하한선이다.
 
@@ -136,14 +112,14 @@ def rule_advice(risks: list[RiskLine], stage_label: str | None, horizon_days: in
         unit = UNITS.get(line.indicator, "")
         name = INDICATOR_NAMES.get(line.indicator, line.indicator)
         when = f"{line.target_date.month}월 {line.target_date.day}일"
-        bound = _bound_phrase(line, unit)
-        josa = _subject_josa(name)
+        bound = bound_phrase(line, unit)
+        josa = subject_josa(name)
         if bound is None:
             # 허용 경계가 지침에 없는데 위험 판정이 났다 — 값만 알리고 기준은 말하지 않는다.
-            parts.append(f"{when} {name}{josa} {_num(line.value)}{unit}로 주의가 필요합니다.")
+            parts.append(f"{when} {name}{josa} {num(line.value)}{unit}로 주의가 필요합니다.")
         else:
             parts.append(
-                f"{when} {name}{josa} {_num(line.value)}{unit}로 {bound}를 벗어납니다."
+                f"{when} {name}{josa} {num(line.value)}{unit}로 {bound}를 벗어납니다."
             )
         if line.streak_days >= 2:
             parts.append(f"{line.streak_days}일 연속입니다.")
@@ -187,18 +163,18 @@ def soil_advice(
         if entry is None or entry.get("value") is None:
             continue
         name = INDICATOR_NAMES.get(indicator, indicator)
-        josa = _subject_josa(name)
+        josa = subject_josa(name)
         value, lo, hi = entry["value"], entry.get("allowed_min"), entry.get("allowed_max")
         # 지표마다 한 문장으로 끊는다 — 목록으로 이어붙이면 괄호 뒤에 조사가 붙어 읽기 나쁘다.
         if lo is not None and value < lo:
             has_low = True
             sentences.append(
-                f"{name}{josa} {_num(value)}로 권장 범위({_num(lo)} 이상)에 못 미칩니다."
+                f"{name}{josa} {num(value)}로 권장 범위({num(lo)} 이상)에 못 미칩니다."
             )
         elif hi is not None and value > hi:
             has_high = True
             sentences.append(
-                f"{name}{josa} {_num(value)}로 권장 범위({_num(hi)} 이하)를 넘습니다."
+                f"{name}{josa} {num(value)}로 권장 범위({num(hi)} 이하)를 넘습니다."
             )
     if not sentences:
         return None
@@ -241,6 +217,7 @@ def _upsert(
     db: Session,
     farm_id: int,
     target_date: date,
+    input_hash: str,
     text: str,
     is_llm: bool,
     risk_flags: list[str],
@@ -248,10 +225,12 @@ def _upsert(
     """uq_daily 기준 멱등 upsert. 같은 날 몇 번 불려도 행이 하나다(DB.md §3.14).
 
     `risk_flags`를 함께 남긴다 — "이 문구가 왜 나왔나"를 나중에 되짚을 수 있어야 한다.
+    `input_hash`는 그날 안에서 예보가 갱신됐을 때 이 문구가 낡았는지 판정한다(`0034`).
     """
     stmt = insert(DailyRecommendation).values(
         user_farm_id=farm_id,
         target_date=target_date,
+        input_hash=input_hash,
         advice_text=text,
         is_llm=is_llm,
         risk_flags=risk_flags,
@@ -260,6 +239,7 @@ def _upsert(
         stmt.on_conflict_do_update(
             constraint="uq_daily",
             set_={
+                "input_hash": stmt.excluded.input_hash,
                 "advice_text": stmt.excluded.advice_text,
                 "is_llm": stmt.excluded.is_llm,
                 "risk_flags": stmt.excluded.risk_flags,
@@ -279,18 +259,31 @@ def get_or_create(
     stage_label: str | None,
     today: date,
     llm: LlmClient | None,
-) -> tuple[str, bool, bool]:
-    """(문구, is_llm, 백그라운드 다듬기 필요 여부).
+) -> tuple[str, bool, bool, str]:
+    """(문구, is_llm, 백그라운드 다듬기 필요 여부, 입력 지문).
+
+    **규칙 문구를 먼저 만들고 나서 캐시를 본다.** 순서가 중요하다 — 지문이 규칙 문구에서
+    나오므로 그것 없이는 캐시 히트를 판정할 수 없다. `summarize_risks`·`rule_advice`는 순수
+    함수라 이 순서로 바꿔도 비용이 없다(예보는 이미 계산돼 인자로 들어와 있다).
 
     세 갈래다:
 
-    1. 다듬어진 캐시가 있으면 그대로 — LLM을 다시 부르지 않는다.
-    2. 규칙 문구만 저장된 캐시가 있으면 **짧은 타임아웃으로 동기 재시도**. Cloud Run은 응답
-       후 CPU를 스로틀링해 백그라운드 작업이 끝나지 않을 수 있어(기본 설정), 그 경우
+    1. **지문이 같고** 다듬어진 캐시가 있으면 그대로 — LLM을 다시 부르지 않는다.
+    2. 지문은 같은데 규칙 문구만 저장돼 있으면 **짧은 타임아웃으로 동기 재시도**. Cloud Run은
+       응답 후 CPU를 스로틀링해 백그라운드 작업이 끝나지 않을 수 있어(기본 설정), 그 경우
        `is_llm=false` 행이 영구히 남는다. 다음 조회가 그걸 메운다.
-    3. 캐시가 없으면 규칙 문구를 **즉시** 저장·반환하고 다듬기는 호출부가 백그라운드로 돌린다.
-       그날 첫 조회가 LLM 콜드 로드(최악 67초)를 기다리지 않게 한다.
+    3. 지문이 다르거나(예보 갱신으로 위험이 바뀜) 캐시가 없으면 규칙 문구를 **즉시**
+       저장·반환하고 다듬기는 호출부가 백그라운드로 돌린다. 그날 첫 조회가 LLM 콜드
+       로드(최악 67초)를 기다리지 않게 한다.
+
+    ①에 지문 비교가 없던 것이 `0034` 이전의 버그다 — 단기예보는 3시간마다 갱신되는데
+    날짜로만 캐시를 잡아, 새벽에 저장한 "위험 없음"이 오후 폭우 예보에도 그대로 나갔다.
     """
+    risks = summarize_risks(days, persistent)
+    base = rule_advice(risks, stage_label, len(days))
+    flags = [f"{r.indicator}{RISK_SUFFIX}" for r in risks]
+    input_hash = prompt_fingerprint(PROMPT_VERSION, crop_name, base)
+
     cached = (
         db.query(DailyRecommendation)
         .filter(
@@ -299,27 +292,30 @@ def get_or_create(
         )
         .first()
     )
-    if cached is not None and cached.is_llm and cached.advice_text:
-        return cached.advice_text, True, False
+    fresh = cached is not None and cached.input_hash == input_hash
 
-    risks = summarize_risks(days, persistent)
-    base = rule_advice(risks, stage_label, len(days))
-    flags = [f"{r.indicator}{RISK_SUFFIX}" for r in risks]
+    if fresh and cached.is_llm and cached.advice_text:
+        return cached.advice_text, True, False, input_hash
 
-    if cached is not None:
-        # ② 규칙 문구만 있던 행 — 지금 짧게 한 번 더 시도한다.
+    if fresh:
+        # ② 같은 예보인데 규칙 문구만 있던 행 — 지금 짧게 한 번 더 시도한다.
         polished = polish(base, crop_name, llm) if llm is not None else None
         text = polished or base
-        _upsert(db, farm_id, today, text, polished is not None, flags)
-        return text, polished is not None, False
+        _upsert(db, farm_id, today, input_hash, text, polished is not None, flags)
+        return text, polished is not None, False, input_hash
 
-    # ③ 첫 조회 — 규칙 문구로 즉시 응답하고 다듬기는 뒤로 넘긴다.
-    _upsert(db, farm_id, today, base, False, flags)
-    return base, False, True
+    # ③ 첫 조회이거나 예보가 갱신됐다 — 규칙 문구로 즉시 응답하고 다듬기는 뒤로 넘긴다.
+    _upsert(db, farm_id, today, input_hash, base, False, flags)
+    return base, False, True, input_hash
 
 
 def polish_in_background(
-    farm_id: int, crop_name: str, target_date: date, base_text: str, llm: LlmClient
+    farm_id: int,
+    crop_name: str,
+    target_date: date,
+    input_hash: str,
+    base_text: str,
+    llm: LlmClient,
 ) -> None:
     """응답을 보낸 뒤 도는 다듬기. **자체 세션을 연다** — 요청 스코프 세션은 이미 닫혔다.
 
@@ -341,8 +337,9 @@ def polish_in_background(
             )
             .first()
         )
-        # 그 사이 다른 요청이 이미 다듬었으면 덮지 않는다.
-        if row is not None and not row.is_llm:
+        # 그 사이 다른 요청이 이미 다듬었으면 덮지 않는다. **지문도 확인한다** — 다듬는
+        # 동안 새 예보가 들어왔으면 이 문구는 이미 지난 발표분의 것이다(0034).
+        if row is not None and not row.is_llm and row.input_hash == input_hash:
             row.advice_text = polished
             row.is_llm = True
             db.commit()
