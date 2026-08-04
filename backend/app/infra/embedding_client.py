@@ -13,7 +13,9 @@ EMBED_DIM = 1024  # bge-m3 dense. knowledge_chunk.embedding = vector(1024)과 �
 
 class EmbeddingClient:
     def __init__(self, base_url: str | None = None, model: str | None = None, timeout_s: float | None = None) -> None:
-        self.base_url = base_url or settings.llm_base_url
+        # 생성 서버와 다를 수 있다 — vLLM 전환 시 생성만 :8000으로 옮기고 임베딩은 Ollama에
+        # 남긴다(재임베딩 회피, docs/vllm.md §4). 기본값은 llm_base_url과 같아 동작 불변.
+        self.base_url = base_url or settings.embedding_base_effective
         self.model = model or settings.embedding_model
         self.timeout_s = timeout_s if timeout_s is not None else settings.llm_timeout_s
 
