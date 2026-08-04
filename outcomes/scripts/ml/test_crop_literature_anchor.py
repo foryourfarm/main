@@ -16,11 +16,23 @@ from pathlib import Path
 
 import pandas as pd
 
-# 1. Path setup matching scripts/ml execution convention
-ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS_ML = ROOT / "scripts" / "ml"
+# 1. Path setup matching scripts/ml execution convention.
+# 깊이를 parents[2]로 박으면 `outcomes/scripts/ml/` 사본에서 ROOT가 `outcomes/`를 가리켜
+# 두 사본이 반드시 갈린다 — 실제로 이 파일의 데이터 경로 한 줄이 갈려 있었다.
+# 위로 올라가며 CLAUDE.md를 찾으면 원본·사본 어느 위치에서 실행해도 같은 코드가 통한다.
+SCRIPTS_ML = Path(__file__).resolve().parent
 if str(SCRIPTS_ML) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ML))
+
+
+def _repo_root():
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "CLAUDE.md").exists():
+            return parent
+    return Path(__file__).resolve().parents[2]
+
+
+ROOT = _repo_root()
 
 from crop_literature_anchor_experiment import CROP_ANCHORS
 
@@ -38,14 +50,38 @@ def test_crop_anchors_new_entries():
     assert "09011" in CROP_ANCHORS, "'09011' (배) missing from CROP_ANCHORS"
 
     # 3. Apple and pear use official suitable/possible growing-temperature bands.
+    #    사과는 2026-08-04에 optimal이 RDA 농사로 생육적온 18~28℃로 교체됐다(FinalReport §1-4 ⓐ).
+    #    allowed_min 13.5는 arccas 「가능지」 하한을 그대로 남긴 것이라 두 경계의 성격이 다르다 —
+    #    그래서 allowed_min_kind/allowed_max_kind가 갈린다. 이 비대칭이 사라지면 실패해야 한다.
     apple_temp = CROP_ANCHORS["09001"]["temp"]
     assert apple_temp["months"] == [4, 5, 6, 7, 8, 9, 10]
-    assert (apple_temp["optimal_min"], apple_temp["optimal_max"], apple_temp["allowed_min"], apple_temp["allowed_max"]) == (14.5, 18.5, 13.5, 19.5)
-    assert "농업·농촌 기후정보시스템" in apple_temp["source"]
+    assert (apple_temp["optimal_min"], apple_temp["optimal_max"], apple_temp["allowed_min"], apple_temp["allowed_max"]) == (18.0, 28.0, 13.5, 33.0)
+    assert apple_temp["allowed_min_kind"] == "cultivable_range"
+    assert apple_temp["allowed_max_kind"] == "heuristic"
+    assert "농사로" in apple_temp["source"] and "농업·농촌 기후정보시스템" in apple_temp["source"]
     pear_temp = CROP_ANCHORS["09011"]["temp"]
     assert pear_temp["months"] == [4, 5, 6, 7, 8, 9, 10]
     assert (pear_temp["optimal_min"], pear_temp["optimal_max"], pear_temp["allowed_min"], pear_temp["allowed_max"]) == (18.5, 21.5, 17.0, 23.0)
     assert "농업·농촌 기후정보시스템" in pear_temp["source"]
+
+    # 4. 허용경계 성격이 모든 작물에 붙어 있어야 한다(2026-08-04). 빠지면 그 경계는 조용히
+    #    60점으로 채점되는데, 생리적 절대한계인 지표(오이·상추·감자 기온)는 0점이어야 한다.
+    for code, anchor in CROP_ANCHORS.items():
+        temp = anchor.get("temp")
+        if temp is None:
+            continue
+        for side in ("allowed_min", "allowed_max"):
+            if temp.get(side) is None:
+                continue
+            kind = temp.get(f"{side}_kind")
+            assert kind in {
+                "heuristic", "literature_limit", "literature_threshold",
+                "cultivable_range", "derived", "unverified", "not_applicable",
+            }, f"{code} {side}_kind가 없거나 모르는 값이다: {kind!r}"
+    # 문헌이 '생육 중지/정지' 온도를 직접 준 세 작물은 literature_limit이라 경계가 0점이다.
+    assert CROP_ANCHORS["04009"]["temp"]["allowed_max_kind"] == "literature_limit"  # 오이 35℃
+    assert CROP_ANCHORS["07001"]["temp"]["allowed_max_kind"] == "literature_limit"  # 상추 36℃
+    assert CROP_ANCHORS["03001"]["temp"]["allowed_max_kind"] == "literature_limit"  # 감자 27℃ 수량 0
 
     # 4. Assert non-empty documented_rules and all leaf range dicts have a valid "source" key
     def check_sources(node, path="documented_rules"):
@@ -154,11 +190,29 @@ def test_band_score_curve():
         assert band_score(v, wide) >= band_score(v, narrow), f"넓은 감쇠폭이 더 박하다: {v}"
     assert pd.isna(band_score(None, rule)), "결측은 NaN 유지(강제 대체 금지)"
 
+    # 단측 밴드(2026-08-02): 문헌이 한쪽 경계만 주는 지표(RDA 사과 교본 Ca "5~6 이상").
+    # 그 방향엔 감점을 두지 않는다 — 없는 상한을 휴리스틱으로 만들지 않기 위함이다.
+    upper_open = {"optimal_min": 5.0, "optimal_max": None, "allowed_min": 4.5, "allowed_max": None}
+    assert band_score(5.0, upper_open) == 100.0, "단측 밴드 하한 경계는 만점"
+    assert band_score(14.42, upper_open) == 100.0, "상한 None인데 상한 감점이 걸렸다"
+    assert round(band_score(4.5, upper_open), 1) == 60.0, "단측 밴드도 하한 taper는 살아 있어야 한다"
+    assert band_score(4.9, upper_open) < 100.0, "하한 이탈이 만점으로 처리됐다"
+    lower_open = {"optimal_min": None, "optimal_max": 2.0, "allowed_min": None, "allowed_max": 2.25}
+    assert band_score(0.1, lower_open) == 100.0, "하한 None인데 하한 감점이 걸렸다"
+    assert round(band_score(2.25, lower_open), 1) == 60.0, "단측 밴드 상한 taper 미작동"
+    # 양쪽 다 없는 규칙은 조용히 만점을 주지 않고 실패한다.
+    try:
+        band_score(1.0, {"optimal_min": None, "optimal_max": None})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("optimal 양쪽 None인 규칙이 조용히 채점됐다")
+
 
 def test_output_csv_integrity():
     # 8. Output CSV integrity checks
     # 데이터는 레포 루트 /data에 있다(outcomes/data는 이관되지 않음) — 산출 스크립트와 동일 경로.
-    experiment_csv = ROOT.parent / "data" / "ml" / "crop_literature_anchor_experiment.csv"
+    experiment_csv = ROOT / "data" / "ml" / "crop_literature_anchor_experiment.csv"
     answer_data_csv = ROOT / "AnswerData.csv"
     regional_score_csv = ROOT / "RegionalScore.csv"
 

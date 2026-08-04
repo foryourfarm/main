@@ -55,6 +55,7 @@ PHYSICAL_RANGE = {
     "k": (0.0, None),
     "ca": (0.0, None),
     "mg": (0.0, None),
+    "ec": (0.0, None),
 }
 
 # 이웃 대비 robust 잔차 임계. Iglewicz-Hoaglin(1993)의 modified z-score 관례값 3.5.

@@ -60,7 +60,35 @@ def month_label(months):
 SOIL_UNITS = {"ph": "-", "organic_matter": "g/kg", "available_p": "mg/kg",
               "k": "cmol/kg", "ca": "cmol/kg", "mg": "cmol/kg", "ec": "dS/m"}
 # 물리성(2026-08-03). 등급코드가 아니라 등급 상한 %로 환산한 값의 밴드다(_shared physical_code_maps).
-PHYSICAL_UNITS = {"slope_pct": "%", "gravel_pct": "%"}
+PHYSICAL_UNITS = {"slope_pct": "%", "gravel_pct": "%",
+                  # 범주형은 %로 환산하지 않는다 — 등급코드 자체가 배점표의 키다.
+                  "subsoil_texture": "등급코드"}
+
+
+def category_row(variable, rule, unit, source, scope):
+    """범주형 배점표 행(2026-08-03). 밴드 컬럼(ideal_*)은 전부 null로 둔다.
+
+    최고배점 등급코드를 ideal_min/max에 채우고 싶은 유혹이 있으나 그러면 안 된다 — 소비자가
+    그 두 값을 연속 밴드로 읽고 band 곡선에 태우면 중간 등급(예: 사과 식양질 75점)이 곡선
+    감점으로 잘못 계산된다. 값이 없음을 명시적으로 null로 노출하는 편이 조용히 틀린 숫자를
+    주는 것보다 정직하다(CLAUDE.md §6 `available=False` 표기 원칙과 같은 성격).
+    배점표 실물은 method에 직렬화해 싣는다.
+    """
+    table = ", ".join(
+        f"{code}={'미채점' if score is None else f'{score:g}점'}"
+        for code, score in rule["code_scores"].items()
+    )
+    return {
+        "variable": variable,
+        "ideal_value": None,
+        "ideal_min": None,
+        "ideal_max": None,
+        "unit": unit,
+        "method": f"범주형 배점표(밴드 아님) — 등급코드→점수: {table}. "
+                  f"{rule.get('method', 'unknown [확인 필요] — method 필드 미기재')}",
+        "source": source,
+        "scope": scope,
+    }
 
 
 def main():
@@ -70,8 +98,8 @@ def main():
 
     # 2026-08-03: 작물 무관 공유 soil_rules 블록이 사라졌다(출처 미확인으로 삭제). 라벨 정의도
     # 전부 작물별 문헌 밴드에서만 나온다 — 어느 문헌 기준인지 말할 수 없는 행을 싣지 않는다.
-    assert "soil_rules" not in shared, \
-        "_shared.json에 soil_rules가 되살아났다 — 공유 밴드는 2026-08-03에 삭제됐다"
+    if "soil_rules" in shared:
+        raise ValueError("_shared.json에 soil_rules가 되살아났다 — 공유 밴드는 2026-08-03에 삭제됐다")
 
     for crop_code, crop in crops.items():
         name = crop["name"]
@@ -98,17 +126,25 @@ def main():
                 f"crop:{crop_code}:{name}:soil",
             ))
         for var, rule in crop.get("physical_overrides", {}).items():
-            rows.append(band_row(
+            # 범주형(배점표)과 연속형(밴드)은 행 형태가 다르다 — 섞어 내면 소비자가 등급코드를
+            # 연속 밴드로 오독한다(category_row docstring).
+            row = category_row if "code_scores" in rule else band_row
+            kind = "물리성 배점표" if "code_scores" in rule else "물리성 밴드"
+            rows.append(row(
                 f"physical_{var}_{crop_code}",
-                rule, PHYSICAL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} 물리성 밴드, {shared['knowledge_version']})",
+                rule, PHYSICAL_UNITS.get(var, "-"), f"memory/crop_rules/{crop_code} ({name} {kind}, {shared['knowledge_version']})",
                 f"crop:{crop_code}:{name}:physical",
             ))
 
     df = pd.DataFrame(rows)
-    assert df["variable"].is_unique, "AnswerData 변수명 중복"
-    assert not df.empty, "AnswerData 비어있음"
+    # 무결성 검증은 raise로 둔다 — assert는 `python -O`에서 통째로 사라져 검증 없이 CSV가 써진다.
+    if not df["variable"].is_unique:
+        raise ValueError("AnswerData 변수명 중복")
+    if df.empty:
+        raise ValueError("AnswerData 비어있음")
     # 측정법 미기재 밴드가 조용히 섞이지 않게 강제한다 — unknown이어도 "확인 결과 미상"임을 적어야 한다.
-    assert df["method"].notna().all() and (df["method"].str.strip() != "").all(), "method 비어있는 밴드 존재"
+    if not (df["method"].notna().all() and (df["method"].str.strip() != "").all()):
+        raise ValueError("method 비어있는 밴드 존재")
 
     df.to_csv(OUT, index=False, encoding="utf-8")
     print(f"{OUT.name}: {len(df)} rows (crops={len(crops)}, "

@@ -32,8 +32,13 @@ def _with_width(rule: dict, width: float | None) -> dict:
 
 
 def soil_rule(rule: dict, indicator: str) -> dict:
-    """토양 지표 규칙 + risk_width. `indicator`는 ph/organic_matter/available_p/k/ca/mg."""
-    return _with_width(rule, load()["soil"].get(indicator, {}).get("risk_width"))
+    """토양 지표 규칙 + risk_width. `indicator`는 ph/organic_matter/available_p/k/ca/mg/ec.
+
+    `physical_rule`과 같은 0-폭 가드를 둔다. 화학 지표도 표본이 균질하면 MAD가 0이 되어
+    risk_width 0이 나올 수 있고, 0을 감쇠폭으로 쓰면 허용경계 밖이 즉시 0점(절벽)이 된다.
+    """
+    width = load()["soil"].get(indicator, {}).get("risk_width")
+    return _with_width(rule, width or None)
 
 
 def physical_rule(rule: dict, indicator: str) -> dict:
@@ -54,10 +59,17 @@ def _climate_offset() -> float:
     문헌 재배적지 기준은 기상청 평년(1991~2020)을 전제로 쓰였는데 우리 채점 입력은 최근
     연도 관측이라 그대로 비교하면 계통 편차가 들어간다. `_shared.json.climate_baseline`에
     **측정된** 차이(관측 전국평균 − 평년 전국평균)를 두고 여기서 읽는다 — 추정값이 아니다.
-    필드가 없으면 0.0(보정 안 함)으로 폴백한다: 조용히 값을 만들어내지 않는다.
+    `climate_baseline` 절 자체가 없으면 실패한다 — "보정하지 않기로 했다"와 "필드를 잃어버렸다"가
+    같은 0.0으로 뭉개지면 어떤 척도로 채점된 산출물인지 알 수 없게 된다. 절은 있는데 `offset_c`만
+    없는 경우만 0.0(보정 안 함)으로 본다.
     """
     shared = json.loads((ROOT / "memory" / "crop_rules" / "_shared.json").read_text(encoding="utf-8"))
-    return float(shared.get("climate_baseline", {}).get("offset_c", 0.0))
+    if "climate_baseline" not in shared:
+        raise KeyError(
+            "_shared.json에 climate_baseline 절이 없다 — 평년/관측 척도 보정 여부를 알 수 없는 "
+            "채로 기온을 채점하지 않는다. 보정하지 않으려면 offset_c: 0.0을 명시한다."
+        )
+    return float(shared["climate_baseline"].get("offset_c", 0.0))
 
 
 def temp_rule(rule: dict, crop_code: str) -> dict:
@@ -72,4 +84,5 @@ def temp_rule(rule: dict, crop_code: str) -> dict:
         rule = {**rule, **{k: rule[k] + offset
                            for k in ("optimal_min", "optimal_max", "allowed_min", "allowed_max")
                            if rule.get(k) is not None}}
-    return _with_width(rule, load()["temp_by_crop"].get(crop_code, {}).get("risk_width"))
+    width = load()["temp_by_crop"].get(crop_code, {}).get("risk_width")
+    return _with_width(rule, width or None)
