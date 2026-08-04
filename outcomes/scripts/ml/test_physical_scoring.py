@@ -24,7 +24,7 @@ if str(SCRIPTS_ML) not in sys.path:
 ROOT = SCRIPTS_ML.parents[1]
 CROP_RULES_DIR = ROOT / "memory" / "crop_rules"
 
-from scoring import band_score  # noqa: E402
+from scoring import band_score, category_score  # noqa: E402
 
 
 def _shared():
@@ -95,6 +95,62 @@ def test_ec_band_and_coverage():
     assert measured >= 100, f"EC 실측 커버리지 급감({measured}/150) — 시군구 폴백 확인"
 
 
+def test_subsoil_texture_table_matches_literature():
+    """심교문(2016) 국가 과수 적지 배점표를 그대로 옮겼는가 — 사과·배가 정반대여야 한다.
+
+    문헌(knowledge-base/papers/common/rda-fruit-suitability-integration-shim-2016.md):
+      사과 20점 사양질·미사사양질 / 15점 식양질 / 10점 미사식양질·식질 / 5점 사질·역질·사력질
+      배   20점 식양질·미사식양질 / 15점 사양질·미사사양질 / 10점 식질 / 5점 사질·역질·사력질
+    배점 20/15/10/5는 항목 만점 20으로 나눠 100/75/50/25로 싣는다.
+    """
+    apple = _crop("apple")["physical_overrides"]["subsoil_texture"]
+    pear = _crop("pear")["physical_overrides"]["subsoil_texture"]
+    # codebook: 1=사질 2=사양질 3=미사사양질 4=식양질 5=미사식양질 6=식질
+    assert apple["code_scores"] == {"1": 25.0, "2": 100.0, "3": 100.0, "4": 75.0,
+                                    "5": 50.0, "6": 50.0, "99": None}, "사과 배점표가 문헌과 다르다"
+    assert pear["code_scores"] == {"1": 25.0, "2": 75.0, "3": 75.0, "4": 100.0,
+                                   "5": 100.0, "6": 50.0, "99": None}, "배 배점표가 문헌과 다르다"
+
+    # 🔴 순위 역전이 실제 점수로 나타나야 한다 — 공통 규칙으로 되돌아가면 여기서 잡힌다.
+    assert category_score(2, apple) == 100.0 and category_score(2, pear) == 75.0, \
+        "사양질에서 사과·배 점수가 갈리지 않는다"
+    assert category_score(5, apple) == 50.0 and category_score(5, pear) == 100.0, \
+        "미사식양질에서 사과·배 점수가 갈리지 않는다"
+
+    # 등급 이름이 codebook과 어긋나면 배점표 매핑 자체가 무의미해진다.
+    codebook = pd.read_csv(ROOT / "data" / "99_codebook_modified.csv")
+    texture = codebook[codebook["code_type"] == "subsoil_texture"]
+    names = dict(zip(texture["code"].astype(int), texture["label"]))
+    assert names[2] == "사양질" and names[3] == "미사사양질", f"codebook 등급 이름 변경: {names}"
+    assert names[4] == "식양질" and names[5] == "미사식양질", f"codebook 등급 이름 변경: {names}"
+    assert set(names) == {int(c) for c in apple["code_scores"]}, \
+        f"codebook 코드 집합 {set(names)}과 배점표 키가 다르다"
+
+
+def test_category_score_never_invents_values():
+    """범주형은 표에 없는 코드·결측을 0점이 아니라 NaN으로 둔다(판정불가 != 부적합)."""
+    apple = _crop("apple")["physical_overrides"]["subsoil_texture"]
+    assert pd.isna(category_score(99, apple)), "99(기타)가 점수를 받았다 — 추측 금지 위반"
+    assert pd.isna(category_score(None, apple)), "결측이 점수를 받았다"
+    assert pd.isna(category_score(7, apple)), "표에 없는 코드가 점수를 받았다"
+    # 밴드 지표와 경로가 섞이면 안 된다 — 배점표 규칙엔 optimal_min이 아예 없다.
+    assert "optimal_min" not in apple, "범주형 규칙에 밴드 필드가 섞였다"
+
+
+def test_texture_scored_only_where_literature_gives_a_table():
+    """배점표가 있는 사과·배만 채점한다. 감자·오이·상추는 순서 추정 없이 점수를 만들 수 없다."""
+    have = {name for name in ("apple", "pear", "potato", "cucumber", "lettuce")
+            if "subsoil_texture" in _crop(name).get("physical_overrides", {})}
+    assert have == {"apple", "pear"}, f"토성 채점 작물 집합이 다르다: {have}"
+
+    maps = _shared()["physical_code_maps"]
+    # 범주형은 %/순위 환산표를 갖지 않는다 — 가지면 누군가 단조 순위를 되살린 것이다.
+    assert "subsoil_texture" in maps["category_source_column"], "범주형 source 컬럼 등록 누락"
+    assert "subsoil_texture" not in maps["source_column"], \
+        "토성이 연속형 경로에 등록됐다 — %/순위 환산은 사과·배 중 한쪽을 반드시 틀리게 한다"
+    assert "subsoil_texture" not in maps, "토성 코드→% 환산표가 생겼다(순위 가정 부활)"
+
+
 def test_no_shared_soil_band_fallback():
     """공유 soil_rules는 삭제됐고, 필수 지표가 없는 작물은 즉시 실패한다."""
     shared = _shared()
@@ -125,6 +181,40 @@ def test_no_shared_soil_band_fallback():
         raise AssertionError("필수 지표 없는 작물에서 실패하지 않았다 — 조용한 폴백이 남아 있다")
     finally:
         probe.unlink()
+
+
+def test_apple_ca_is_two_sided_with_derived_upper():
+    """사과 치환성 Ca는 양측 밴드이고 상한 성격이 `derived`다(2026-08-04 사용자 결정).
+
+    이 밴드는 2026-08-02에 단측(상한 null)으로 갔다가 이번에 되돌아왔다. 두 번 뒤집힌
+    필드라 조용히 다시 null이 되면 아무도 모른다 — 전국 중앙값 7.23이 상한 6.5 밖이어서
+    상한 유무가 사과 총점 평균을 68.6 ↔ 74.9로 흔든다.
+
+    상한 6.5는 문헌값이 아니라 우리 역산치(염기포화도 80% × CEC 10)라 `derived`여야 한다.
+    `heuristic`으로 적으면 ±50% 기계 산출과 구분이 사라지고, 문헌 kind로 적으면 없는
+    문헌을 있는 척하게 된다.
+    """
+    ca = _crop("apple")["soil_overrides"]["ca"]
+    assert (ca["optimal_min"], ca["optimal_max"]) == (5.0, 6.0), f"사과 ca optimal 변경됨: {ca}"
+    assert (ca["allowed_min"], ca["allowed_max"]) == (4.5, 6.5), f"사과 ca allowed 변경됨: {ca}"
+    assert ca["allowed_max_kind"] == "derived", (
+        f"상한 6.5는 우리 역산치다. kind가 {ca['allowed_max_kind']!r}면 출처 성격이 사라진다"
+    )
+    # 상한 초과 구간의 감점 기울기에는 근거가 없다(FinalReport §3-1: 국내외 0건).
+    # 그 사실이 source에서 사라지면 「문헌 기반 점수」로 오표기될 수 있다.
+    assert "기준 초과" in ca["source"], "상한 초과 구간을 「기준 초과」로만 표기하라는 단서가 사라졌다"
+
+
+def test_potato_ph_stays_open_field():
+    """감자 pH는 노지 밴드를 쓴다(2026-08-04 사용자 결정, decision.md §1-1 우선).
+
+    답변 파일이 §1-1(노지)과 §2-4 ⓐ(시설 5.5~6.2)로 갈렸고 사용자가 노지를 택했다.
+    5작물 중 재배형이 지표별로 갈리는 유일한 작물이라(감자 pH·온도만 노지, 나머지 화학성은
+    시설) 일괄 치환에 휩쓸리기 쉽다.
+    """
+    ph = _crop("potato")["soil_overrides"]["ph"]
+    assert (ph["optimal_min"], ph["optimal_max"]) == (5.5, 7.0), f"감자 pH 밴드 변경됨: {ph}"
+    assert ph["cultivation_type"] == "open_field", f"감자 pH가 노지 기준이 아니다: {ph['cultivation_type']!r}"
 
 
 if __name__ == "__main__":

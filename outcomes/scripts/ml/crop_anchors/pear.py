@@ -3,7 +3,7 @@
 
 ANCHOR = {
     "name": "배",
-    "temp": {"months": [4, 5, 6, 7, 8, 9, 10], "optimal_min": 18.5, "optimal_max": 21.5,
+    "temp": {"allowed_min_kind": "cultivable_range", "allowed_max_kind": "cultivable_range", "months": [4, 5, 6, 7, 8, 9, 10], "optimal_min": 18.5, "optimal_max": 21.5,
              "allowed_min": 17.0, "allowed_max": 23.0,
              "source": "농업·농촌 기후정보시스템 https://www.arccas.or.kr/farming/landlimit/viewinfo.do (생육기기온 적지 18.5~21.5℃, 가능지 17~23℃) + 농촌진흥청 과수재배적지도 https://weather.rda.go.kr/ftrMap.do (4~10월)."},
     "documented_rules": {

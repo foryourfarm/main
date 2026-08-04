@@ -5,7 +5,7 @@ cucumber-field-cultivation-literature.md) 기반. P14(강소라, 시설 22-28)�
 
 ANCHOR = {
     "name": "오이",
-    "temp": {"optimal_min": 25.0, "optimal_max": 28.0, "allowed_min": 5.0, "allowed_max": 35.0,
+    "temp": {"allowed_min_kind": "literature_limit", "allowed_max_kind": "literature_limit", "optimal_min": 25.0, "optimal_max": 28.0, "allowed_min": 5.0, "allowed_max": 35.0,
              "months": [4, 5, 6, 7, 8, 9],
              "flag": "2026-07-25 사용자 확인으로 P14(시설, 22~28) → 제주 농업기술원 노지 문헌(25~28)으로 "
                      "교체 — crop_code 04009가 코드북상 노지재배인데 시설값을 외기 근사하던 기존 [확인 필요]가 "
