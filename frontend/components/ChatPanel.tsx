@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
-import { usePet } from "@/lib/pet";
+import { GUEST_PET, petImage } from "@/lib/pet";
 import {
   chatSessionId,
   deleteChatSession,
@@ -95,8 +96,6 @@ export default function ChatPanel({
   initialFarmId?: number;
   embedded?: boolean;
 }) {
-  // 펫 이름·이미지·성격은 더미 설정(lib/pet) — 펫 관리 창에서 바꾸면 즉시 반영된다.
-  const pet = usePet();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -232,22 +231,34 @@ export default function ChatPanel({
     }
   }
 
+  // 펫 표시는 전부 서버 값이다(진실 하나). 게스트·세션 복구 중에는 진행도가 없어 중립 표기로 떨어진다.
+  const petName = progress?.pet.name ?? GUEST_PET.name;
+  const petImageSrc = petImage(progress?.pet.code);
+
   return (
     <div className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
       <header className={styles.header}>
         {/* 펫이 곧 텃밭이의 외형이다 — 레벨에 따라 이 자리가 자란다(게스트는 기본 얼굴). */}
         <span className={styles.avatar} aria-hidden>
-          {/* 자산 계약은 lib/pet의 더미 이미지다 — 서버 펫의 emoji는 일러스트가 나오기 전
-              임시 표기라(docs/quest-pet-api.md §4) 이미지 자리를 이쪽으로 잡아둔다.
-              레벨·단계·펫 교체는 바로 아래 PetQuestBar가 서버 값으로 보여준다.
-              next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={pet.image} alt="" width={32} height={32} className={styles.avatarImg} />
+          {/* 일러스트가 준비된 펫만 이미지로, 나머지는 서버가 주는 emoji로 보여준다
+              (lib/pet의 PET_IMAGE — quest-pet-api.md §4: emoji는 일러스트 전 임시 표기). */}
+          {petImageSrc !== null ? (
+            <Image
+              src={petImageSrc}
+              alt=""
+              width={32}
+              height={32}
+              className={styles.avatarImg}
+            />
+          ) : (
+            (progress?.pet.emoji ?? "🌱")
+          )}
         </span>
         <div>
           {/* 도크로 얹힐 때는 그 페이지에 이미 h1이 있다 — 문서에 h1을 둘 두지 않는다. */}
-          {embedded ? <h2>{pet.name}</h2> : <h1>{pet.name}</h1>}
-          <p>{pet.personality}</p>
+          {embedded ? <h2>{petName}</h2> : <h1>{petName}</h1>}
+          {/* 게스트에겐 레벨·단계가 없다 — 없는 진행도를 암시하지 않고 중립 문구를 쓴다. */}
+          <p>{progress === null ? GUEST_PET.line : `Lv.${progress.level} · ${progress.pet.stage_label}`}</p>
         </div>
       </header>
 

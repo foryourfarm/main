@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { usePet } from "@/lib/pet";
+import { LAUNCHER_ICON } from "@/lib/pet";
 
 import ChatPanel from "./ChatPanel";
 import styles from "./ChatDock.module.css";
@@ -21,8 +22,6 @@ export default function ChatDock() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  // 펫 이름·이미지는 더미 설정(lib/pet) — 펫 관리 창에서 바꾸면 즉시 반영된다.
-  const pet = usePet();
 
   // /chat은 그 자체가 상담 화면이다 — 같은 챗봇을 두 개 띄우지 않는다.
   const hidden = pathname === "/chat";
@@ -46,11 +45,17 @@ export default function ChatDock() {
         type="button"
         className={styles.launcher}
         onClick={() => setOpen(true)}
-        aria-label={`${pet.name}에게 상담하기`}
+        aria-label="농사 상담 열기"
       >
-        {/* next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={pet.image} alt="" width={56} height={56} className={styles.launcherIcon} />
+        {/* 펫 단계와 무관한 앱 아이콘이다 — 어느 펫인지·몇 레벨인지는 패널을 열면
+            PetQuestBar가 서버 값으로 보여준다. 게스트도 이 버튼으로 상담에 들어간다. */}
+        <Image
+          src={LAUNCHER_ICON}
+          alt=""
+          width={56}
+          height={56}
+          className={styles.launcherIcon}
+        />
       </button>
 
       <dialog
