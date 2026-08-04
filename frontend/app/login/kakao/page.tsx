@@ -49,7 +49,9 @@ function KakaoCallback() {
     }
 
     loginWithKakao(code)
-      .then(() => router.replace("/dashboard"))
+      // 처음 온 사람은 이름부터 정하게 한다 — 카카오가 닉네임을 주지 않아 계정이
+      // "카카오 사용자"로 시작하고, 그게 헤더에 그대로 나간다. 이름을 정하면 밭 등록으로 이어진다.
+      .then((isNewUser) => router.replace(isNewUser ? "/onboarding/nickname" : "/dashboard"))
       .catch(() => setError("카카오 로그인에 실패했습니다. 다시 시도해 주세요."));
   }, [params, router, loginWithKakao]);
 

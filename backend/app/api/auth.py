@@ -21,6 +21,7 @@ from app.schemas.auth import (
     KakaoLoginRequest,
     LoginRequest,
     LoginResponse,
+    NicknameUpdateRequest,
     SignupRequest,
     UserResponse,
 )
@@ -122,10 +123,16 @@ def kakao_login(
             "카카오와 통신할 수 없습니다. 잠시 후 다시 시도해 주세요.",
         )
 
-    user = auth_service.upsert_kakao_user(db, kakao_id, nickname)
+    user, is_new = auth_service.upsert_kakao_user(db, kakao_id, nickname)
     _set_refresh_cookie(response, create_refresh_token(user.id))
     return ApiResponse.ok(
-        LoginResponse(access_token=create_access_token(user.id), user=_user_response(user))
+        LoginResponse(
+            access_token=create_access_token(user.id),
+            user=_user_response(user),
+            # 카카오는 닉네임을 주지 않아 기본값으로 시작한다 — 처음 온 사람은 FE가 닉네임
+            # 화면으로 보낸다. 그 판단 근거를 FE가 문자열 비교로 추측하지 않게 서버가 알려준다.
+            is_new_user=is_new,
+        )
     )
 
 
@@ -154,3 +161,19 @@ def logout(response: Response) -> ApiResponse[str]:
 @router.get("/me")
 def me(current: User = Depends(get_current_user)) -> ApiResponse[UserResponse]:
     return ApiResponse.ok(_user_response(current))
+
+
+@router.patch("/me")
+def update_me(
+    req: NicknameUpdateRequest,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[UserResponse]:
+    """닉네임 변경. 인증된 유저가 **자기 것만** 바꾼다 — 대상 id를 받지 않으므로 남의 계정을
+    가리킬 방법이 없다(§11 소유권).
+
+    이메일·비밀번호는 여기서 바꾸지 않는다. 이메일은 계정 식별자라 변경에 재검증이 필요하고,
+    비밀번호는 현재 비밀번호 확인이 필요해 별개 흐름이다(§2 YAGNI — 요구가 생기면 그때).
+    """
+    user = auth_service.update_nickname(db, current, req.nickname)
+    return ApiResponse.ok(_user_response(user))

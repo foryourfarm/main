@@ -27,9 +27,18 @@ class UserResponse(BaseModel):
     nickname: str
 
 
+class NicknameUpdateRequest(BaseModel):
+    """닉네임 변경. 가입 때와 같은 제약을 쓴다 — 두 경로가 다르면 한쪽으로만 이상한 값이 들어온다."""
+
+    nickname: str = Field(min_length=1, max_length=50)
+
+
 class LoginResponse(BaseModel):
     access_token: str
     user: UserResponse
+    is_new_user: bool = False
+    """이 로그인에서 계정이 **새로 만들어졌나**. 카카오는 로그인이 곧 가입이라 FE가 이걸로
+    "닉네임부터 받는 화면"으로 보낸다. 이메일 로그인은 항상 False(가입이 별도 단계다)."""
 
 
 class AccessTokenResponse(BaseModel):
