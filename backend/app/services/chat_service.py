@@ -37,6 +37,43 @@ def _sse(text: str) -> str:
     return f"data: {json.dumps({'token': text}, ensure_ascii=False)}\n\n"
 
 
+def strip_markdown_stream(tokens: Iterator[str]) -> Iterator[str]:
+    """스트림에서 마크다운 강조 기호(`*`)를 걷어낸다.
+
+    **왜 프롬프트가 아니라 후처리인가**: exaone3.5:7.8b가 마크다운 금지 지시를 지키지 않는다.
+    실측(2026-08-04, 로컬 Ollama, num_ctx 8192로 프롬프트 절단이 없는 조건):
+
+        현재 프롬프트(chatbot-v6)      3회 중 3회 위반 — 별표 10~12개
+        #출력형식에 마크다운 금지 명시  3회 중 3회 위반 — 별표 10~12개
+
+    두 방식 6회 전부 실패했다. 프론트는 마크다운을 렌더하지 않고 `white-space: pre-wrap`으로
+    평문 출력하므로(`frontend/app/chat/chat.module.css`) `**노균병**`이 별표까지 화면에
+    그대로 보인다. 모델을 설득하는 대신 결정론적으로 지운다 — 같은 입력이면 같은 출력(§2).
+
+    **번호·글머리 목록은 남긴다.** 유저 요청이 "`**1.**` 대신 그냥 `1.`"이라 목록 자체는 문제가
+    아니고, 지우면 문장이 뭉개져 오히려 읽기 나빠진다.
+
+    **홀드백이 필요하다** — 스트리밍이라 `**`가 두 토큰으로 쪼개져 올 수 있다(`*` + `*`).
+    마지막 `*`는 다음 토큰이 올 때까지 내보내지 않고 들고 있는다. 끝나면 흘려보낸다
+    (`*`로 끝나는 정상 한국어 문장은 없어 잔여물을 버려도 되지만, 버리면 그게 곧 데이터
+    손실이라 남긴다).
+    """
+    pending = ""
+    for token in tokens:
+        buf = pending + token
+        # **먼저 지우고 나서 보류한다.** 순서를 뒤집으면(`*` 보류 → replace) `**`가 온전히 한
+        # 토큰으로 와도 마지막 `*`가 떼어져 `replace("**")`가 못 잡는다 — 테스트가 잡은 버그다.
+        buf = buf.replace("**", "").replace("__", "")
+        pending = ""
+        if buf.endswith("*") or buf.endswith("_"):
+            # 지운 뒤에도 남은 홀 기호는 다음 토큰과 합쳐 `**`가 될 수 있으니 보류한다.
+            buf, pending = buf[:-1], buf[-1]
+        if buf:
+            yield buf
+    if pending:
+        yield pending
+
+
 def retrieve_chunks(
     db: Session, query_embedding: list[float], crop_id: int | None = None, top_k: int | None = None
 ) -> list[str]:
@@ -172,7 +209,9 @@ def stream_from_chunks(
     prompt = build_chat_prompt(question, chunks, history=history, crop_name=crop_name, farm=farm)
     produced = False
     try:
-        for token in llm.generate_stream(prompt):
+        # 마크다운 제거를 sink보다 **앞에** 둔다 — 저장되는 대화이력도 깨끗해야 한다.
+        # 그러지 않으면 다음 턴 프롬프트의 [이전 대화]에 별표가 들어가 모델이 그 형식을 따라한다.
+        for token in strip_markdown_stream(llm.generate_stream(prompt)):
             if token:
                 produced = True
                 if sink is not None:
