@@ -117,6 +117,83 @@
   outline-offset: 1px;
 }
 
+/* 펫·레벨·데일리 퀘스트(PetQuestBar). 기본은 접힌 상태 — 대화 공간을 뺏지 않는다. */
+.questBox {
+  border-bottom: 1px solid var(--card);
+  padding: 8px 20px 10px;
+  font-size: 13px;
+}
+.questSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.questCount {
+  margin-left: auto;
+  opacity: 0.75;
+  font-size: 12px;
+}
+.expBar {
+  height: 6px;
+  margin: 8px 0;
+  border-radius: 3px;
+  background: var(--card);
+  overflow: hidden;
+}
+.expFill {
+  height: 100%;
+  background: var(--primary);
+}
+.questList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.questList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 완료 표시는 ✅ 아이콘 + "완료" 라벨이 하고, 흐림 처리는 거들 뿐이다(색만으로 구분 금지, §8). */
+.questDone {
+  opacity: 0.6;
+}
+.questExp {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 700;
+}
+.petPick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+.petButton {
+  padding: 4px 10px;
+  border: 1px solid #d6d3cd;
+  border-radius: 999px;
+  background: var(--bg);
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+.petButton:disabled {
+  /* 현재 펫 = 이미 선택됨. 테두리를 진하게 해 눌린 상태를 색 없이도 구분한다. */
+  border-color: var(--primary);
+  font-weight: 700;
+  cursor: default;
+  opacity: 1;
+}
+
 .messages {
   flex: 1;
   min-height: 0;
