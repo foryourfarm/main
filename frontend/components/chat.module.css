@@ -26,7 +26,8 @@
   font-size: 32px;
   line-height: 1;
 }
-.header h1 {
+.header h1,
+.header h2 {
   font-size: 18px;
   margin: 0;
   color: var(--primary);
@@ -35,6 +36,85 @@
   font-size: 13px;
   margin: 2px 0 0;
   opacity: 0.8;
+}
+
+/* 도크(우측 서랍)로 얹힐 때. 페이지 중앙 정렬용 max-width를 풀어 서랍 폭을 다 쓴다. */
+.embedded {
+  max-width: none;
+  margin: 0;
+}
+.embedded .header {
+  /* 닫기 버튼(우상단 32px)과 겹치지 않게 오른쪽만 비운다. */
+  padding-right: 52px;
+}
+
+/* 어느 밭 기준인지 고르는 줄. 입력창 바로 위에 붙는다(질문 쓰기 직전에 손이 가는 자리). */
+.farmPicker,
+.farmNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px 0;
+  font-size: 13px;
+  background: var(--bg);
+}
+.farmPicker label {
+  flex: none;
+  opacity: 0.85;
+}
+.farmSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #d6d3cd;
+  border-radius: 8px;
+}
+.farmSelect:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* 대화 스레드 선택. 어느 대화를 보고 있는지가 헤더 바로 아래에서 보여야 한다. */
+.sessionBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--card);
+  font-size: 12px;
+}
+.sessionSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #d6d3cd;
+  border-radius: 8px;
+}
+.sessionButton {
+  flex: none;
+  padding: 5px 10px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #d6d3cd;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.sessionButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sessionSelect:focus-visible,
+.sessionButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
 }
 
 .messages {
