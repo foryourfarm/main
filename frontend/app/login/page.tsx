@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { buildKakaoAuthUrl, isKakaoEnabled } from "@/lib/kakao";
 import styles from "@/components/auth.module.css";
 
 export default function LoginPage() {
@@ -70,11 +71,27 @@ export default function LoginPage() {
             {busy ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        <div className={styles.divider} aria-hidden="true">
-          또는
-        </div>
-        {/* 카카오 로그인 버튼 자리(FrontEnd.md §6-13) — 백엔드 OAuth 준비 전에는
-            동작하는 척하는 버튼을 렌더하지 않는다. 준비되면 이 divider 아래에 추가. */}
+        {/* 재편 때는 백엔드 OAuth가 없어 이 자리를 비워뒀다(§6-13). 이제 준비됐으니
+            실제 버튼을 넣는다. 구분선은 아래에 버튼이 있을 때만 — 빈 구분선을 두지 않는다. */}
+        {isKakaoEnabled && (
+          <>
+            <div className={styles.divider} aria-hidden="true">
+              또는
+            </div>
+            {/* 카카오 인가 화면으로 **페이지 전체가 이동**한다(fetch가 아니다) — 그래서 form
+                밖의 button이고, state를 남긴 뒤 이동한다. */}
+            <button
+              type="button"
+              className={styles.kakao}
+              onClick={() => {
+                window.location.href = buildKakaoAuthUrl();
+              }}
+            >
+              {/* 색만으로 카카오임을 알리지 않는다 — 텍스트로 명시(§8). */}
+              카카오로 로그인
+            </button>
+          </>
+        )}
         <p className={styles.alt}>
           계정이 없으신가요? <Link href="/signup">회원가입</Link>
         </p>

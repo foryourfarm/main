@@ -226,22 +226,6 @@
   font-weight: 600;
 }
 
-/* 골드 배경 위는 --on-primary(§7-1 흰 텍스트 금지). */
-.emptyAction {
-  display: inline-block;
-  margin-top: 8px;
-  padding: 10px 20px;
-  border-radius: 999px;
-  background: var(--primary);
-  color: var(--on-primary);
-  font-weight: 700;
-  font-size: var(--fs-sub);
-}
-
-.emptyAction:hover {
-  background: var(--primary-hover);
-}
-
 /* ── 오늘의 할 일(데일리 퀘스트) — comUI .todo 톤 ── */
 .questLevel {
   display: flex;

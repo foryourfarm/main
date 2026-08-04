@@ -10,10 +10,18 @@ from app.core.errors import AppError
 from app.core.security import create_access_token, create_refresh_token, decode_token
 from app.db.session import get_db
 from app.models.user import User
+from app.infra.oauth.kakao_client import (
+    KakaoAuthError,
+    KakaoError,
+    exchange_code_for_token,
+    fetch_kakao_account,
+)
 from app.schemas.auth import (
     AccessTokenResponse,
+    KakaoLoginRequest,
     LoginRequest,
     LoginResponse,
+    NicknameUpdateRequest,
     SignupRequest,
     UserResponse,
 )
@@ -70,6 +78,64 @@ def login(
     )
 
 
+@router.post("/kakao")
+def kakao_login(
+    req: KakaoLoginRequest, response: Response, db: Session = Depends(get_db)
+) -> ApiResponse[LoginResponse]:
+    """카카오 인가코드로 로그인(없으면 가입). **응답은 `/login`과 완전히 같다** —
+    FE의 토큰 처리 코드가 그대로 재사용되고 새 스키마가 생기지 않는다.
+
+    FE 흐름은 `docs/auth-security.md` §카카오: FE가 카카오 인가 화면으로 보내고, 카카오가 FE
+    콜백(`/login/kakao`)으로 `code`를 돌려주면 FE가 그 코드를 이 엔드포인트로 POST한다.
+    **리다이렉트를 백엔드로 받지 않는 이유**: access를 메모리에만 두는 정책이라(docs §토큰 저장)
+    서버가 리다이렉트를 받으면 토큰을 FE 메모리로 넘길 길이 없다.
+
+    CSRF 방어(state 대조)는 FE가 한다 — state는 이 브라우저 탭이 시작한 로그인인지를 증명하는
+    값이라 sessionStorage에 두고 콜백에서 대조하는 것이 자연스럽다(서버 세션이 없다).
+    """
+    if not settings.kakao_rest_api_key:
+        # 키가 없으면 카카오에 물어볼 수 없다. 조용히 500을 내지 않고 원인을 알린다(§12).
+        raise AppError(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "KAKAO_NOT_CONFIGURED",
+            "카카오 로그인이 설정되지 않았습니다.",
+        )
+    try:
+        token = exchange_code_for_token(
+            req.code,
+            client_id=settings.kakao_rest_api_key,
+            redirect_uri=settings.kakao_redirect_uri,
+            client_secret=settings.kakao_client_secret,
+        )
+        kakao_id, nickname = fetch_kakao_account(token)
+    except KakaoAuthError:
+        # 인가코드가 만료·재사용된 경우가 대부분이다(1회용). 다시 시도하면 풀린다.
+        raise AppError(
+            status.HTTP_401_UNAUTHORIZED,
+            "KAKAO_AUTH_FAILED",
+            "카카오 로그인에 실패했습니다. 다시 시도해 주세요.",
+        )
+    except KakaoError:
+        # 카카오 장애·네트워크 문제 — 우리 잘못이 아니라는 것을 코드로 구분한다(§6).
+        raise AppError(
+            status.HTTP_502_BAD_GATEWAY,
+            "UPSTREAM_UNAVAILABLE",
+            "카카오와 통신할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+        )
+
+    user, is_new = auth_service.upsert_kakao_user(db, kakao_id, nickname)
+    _set_refresh_cookie(response, create_refresh_token(user.id))
+    return ApiResponse.ok(
+        LoginResponse(
+            access_token=create_access_token(user.id),
+            user=_user_response(user),
+            # 카카오는 닉네임을 주지 않아 기본값으로 시작한다 — 처음 온 사람은 FE가 닉네임
+            # 화면으로 보낸다. 그 판단 근거를 FE가 문자열 비교로 추측하지 않게 서버가 알려준다.
+            is_new_user=is_new,
+        )
+    )
+
+
 @router.post("/refresh")
 def refresh(request: Request, db: Session = Depends(get_db)) -> ApiResponse[AccessTokenResponse]:
     token = request.cookies.get(REFRESH_COOKIE)
@@ -95,3 +161,19 @@ def logout(response: Response) -> ApiResponse[str]:
 @router.get("/me")
 def me(current: User = Depends(get_current_user)) -> ApiResponse[UserResponse]:
     return ApiResponse.ok(_user_response(current))
+
+
+@router.patch("/me")
+def update_me(
+    req: NicknameUpdateRequest,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ApiResponse[UserResponse]:
+    """닉네임 변경. 인증된 유저가 **자기 것만** 바꾼다 — 대상 id를 받지 않으므로 남의 계정을
+    가리킬 방법이 없다(§11 소유권).
+
+    이메일·비밀번호는 여기서 바꾸지 않는다. 이메일은 계정 식별자라 변경에 재검증이 필요하고,
+    비밀번호는 현재 비밀번호 확인이 필요해 별개 흐름이다(§2 YAGNI — 요구가 생기면 그때).
+    """
+    user = auth_service.update_nickname(db, current, req.nickname)
+    return ApiResponse.ok(_user_response(user))

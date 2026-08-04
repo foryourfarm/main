@@ -31,6 +31,9 @@ PUBLIC_ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/v1/health"): "헬스체크 — Cloud Run이 인증 없이 부른다",
     ("POST", "/api/v1/auth/signup"): "가입은 인증 전 행위",
     ("POST", "/api/v1/auth/login"): "로그인은 인증 전 행위",
+    # 카카오 인가코드를 받는 자리라 우리 토큰이 있을 수 없다. 대신 **카카오가 발급한 1회용
+    # 인가코드**가 자격증명 역할을 한다 — 코드 검증에 실패하면 401(test_kakao_login.py).
+    ("POST", "/api/v1/auth/kakao"): "카카오 로그인도 인증 전 행위(인가코드가 자격증명)",
     ("POST", "/api/v1/auth/refresh"): "httpOnly 쿠키로 자체 검증(Bearer 아님)",
     ("POST", "/api/v1/auth/logout"): "쿠키 삭제만 — 토큰 없어도 안전하게 동작해야 한다",
     # 게스트 상담을 허용하는 제품 결정(get_current_user_optional). 토큰이 없으면 밭

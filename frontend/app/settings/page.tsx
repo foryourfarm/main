@@ -140,6 +140,13 @@ export default function SettingsPage() {
       <h1 className={styles.title}>설정</h1>
       <p className={styles.lead}>등록한 밭의 지역·작물·파종일을 고치거나 삭제할 수 있습니다.</p>
       <RequireAuth>
+        {/* 이름 바꾸는 화면은 카카오 신규 유저가 자동으로 거쳐가는 그 화면을 그대로 쓴다 —
+            폼을 두 곳에 두면 제약(1~50자)이 갈린다. 돌아올 곳만 알려준다. */}
+        <p>
+          <Link href="/onboarding/nickname?next=/settings" className={styles.ctaLink}>
+            내 이름 바꾸기
+          </Link>
+        </p>
         <SettingsBody />
       </RequireAuth>
 

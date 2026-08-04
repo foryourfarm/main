@@ -1,4 +1,4 @@
-import type { User } from "@/types/auth";
+import type { KakaoLoginResult, User } from "@/types/auth";
 
 // 인증 계약: docs/auth-security.md.
 // access = 메모리에만(localStorage 금지, XSS 시 탈취 표면 최소화). refresh = httpOnly 쿠키(브라우저 자동, JS 접근 불가).
@@ -65,6 +65,25 @@ export async function login(email: string, password: string): Promise<User> {
   return data.user;
 }
 
+/**
+ * 카카오 인가코드로 로그인(계정이 없으면 서버가 만든다 — 별도 가입 절차 없음).
+ *
+ * 응답이 `login()`과 동일한 `{access_token, user}`라 토큰 처리가 그대로 재사용된다.
+ * `redirect_uri`는 보내지 않는다 — 서버가 자기 설정값을 쓴다(값이 갈리면 카카오가 거절하므로
+ * 한 곳에서만 정하는 편이 낫다).
+ */
+export async function loginWithKakao(code: string): Promise<KakaoLoginResult> {
+  const data = await api<{ access_token: string; user: User; is_new_user: boolean }>(
+    "/api/v1/auth/kakao",
+    { method: "POST", body: JSON.stringify({ code }) },
+  );
+  accessToken = data.access_token;
+  accessIssuedAt = Date.now();
+  // 계정이 이 로그인에서 만들어졌는지까지 넘긴다 — 카카오는 닉네임을 주지 않아 기본값으로
+  // 시작하므로, 처음 온 사람은 호출부가 닉네임 화면으로 보낸다.
+  return { user: data.user, isNewUser: data.is_new_user };
+}
+
 export async function refresh(): Promise<string> {
   // 본문 없음 — 브라우저가 refresh 쿠키 자동 첨부. 실패(401)면 AuthError → 재로그인 강제.
   const data = await api<{ access_token: string }>("/api/v1/auth/refresh", { method: "POST" });
@@ -117,4 +136,12 @@ export async function authFetch<T>(path: string, init: RequestInit = {}): Promis
 
 export function me(): Promise<User> {
   return authFetch<User>("/api/v1/auth/me");
+}
+
+/** 닉네임 변경. 대상 id를 보내지 않는다 — 서버가 인증된 유저 자신만 바꾼다. */
+export function updateNickname(nickname: string): Promise<User> {
+  return authFetch<User>("/api/v1/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify({ nickname }),
+  });
 }

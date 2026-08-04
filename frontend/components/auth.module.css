@@ -146,7 +146,30 @@
   border-color: var(--bad-strong);
 }
 
-/* 소셜 로그인 자리 구분선(§6-13) — 버튼은 백엔드 준비 전까지 렌더하지 않는다. */
+/* 건너뛰기 — 주 동작(submit)과 확실히 구분되게 테두리 없는 보조 버튼으로 둔다.
+   터치 영역은 44px 이상 유지(§9). */
+.skip {
+  border: none;
+  background: none;
+  min-height: 44px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.skip:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.skip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 소셜 로그인 구분선(§6-13) — 아래에 버튼이 있을 때만 렌더된다. */
 .divider {
   display: flex;
   align-items: center;
@@ -165,8 +188,30 @@
   background: var(--card);
 }
 
+/* 카카오 브랜드 색(고정값) — 우리 팔레트 변수를 쓰지 않는다. 이 버튼은 카카오 가이드가 정한
+   외형이어야 알아보기 쉽고, 다크모드에서도 브랜드 색은 그대로 유지한다.
+   형태(알약·48px)만 다른 CTA와 맞춰 한 화면에서 두 종류 버튼처럼 보이지 않게 한다. */
+.kakao {
+  /* form 밖(구분선 아래)에 있어 stretch를 못 받는다 — 폭을 명시해 주 CTA와 나란히 보이게 한다. */
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 24px;
+  background: #fee500;
+  color: #191600;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kakao:hover {
+  background: #f2da00;
+}
 .alt {
-  margin: 0;
+  margin: 18px 0 0;
   font-size: var(--fs-sub);
   text-align: center;
 }
