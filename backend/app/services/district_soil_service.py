@@ -13,20 +13,32 @@
 """
 
 import csv
+import logging
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from statistics import mean
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.infra.public_api.base import PublicApiError
 from app.infra.public_api.soil_exam_client import SoilExam, get_soil_exam_list
 from app.models import DistrictSoil
 
-# 조회 표본 수 상한. 흙토람은 페이지 단위로 주며, 읍면동 하나의 대표값을 잡는 데
-# 이 정도면 충분하다(더 늘리면 호출 비용만 커진다).
+_log = logging.getLogger(__name__)
+
+# 흙토람이 "그 코드에 기록이 없다"고 **답한** 코드. 조회 자체는 성공했다는 뜻이라
+# 네트워크 실패와 구분해야 한다 — 전자는 데이터 한계, 후자는 우리 장애다(§18-4).
+NO_DATA_CODE = "301"
+
+# 한 페이지에 받는 표본 수. 흙토람이 허용하는 최대치다.
 PAGE_SIZE = 100
+
+# 페이지 수 상한 = 표본 2,000건. 실측 최대는 227건(고창읍 5279025031)이라 넉넉하지만,
+# 상한이 없으면 병적으로 많은 리 하나가 밭 등록 한 번에 수백 콜을 낸다(§18-1).
+# ponytail: 고정 상한. 실제로 2,000건을 넘는 리가 나오면 그때 Total_Count 기반으로 바꾼다.
+MAX_PAGES = 20
 
 SOURCE_PREFIX = "흙토람 토양검정"
 
@@ -123,10 +135,58 @@ def summarize(exams: list[SoilExam], field_type: str) -> dict[str, object]:
     }
 
 
-def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
-    """(표본, 실제 조회에 쓴 코드). 신규 코드가 비면 통합 전 코드로 1회 재시도한다.
+def _fetch_all_pages(code: str) -> list[SoilExam]:
+    """한 법정동코드의 검정 표본 **전체**. 짧은 페이지가 오면 끝이다.
 
-    전부 실패/빈 결과면 (빈 리스트, None) — 등록을 막지 않는다(§12).
+    **종전엔 1페이지만 읽어 잘리고 있었다** — 실측(2026-08-03): 고창읍 5279025031이 227건,
+    5279025035가 162건, 부여 점상리 4476042021이 141건, 4476042027이 200건 이상. 첫 100건만
+    평균하면 두 가지가 틀어진다:
+
+    ⓐ 흙토람이 어떤 순서로 주는지 모르니 **편향 여부조차 알 수 없다**(연도순인지 지번순인지
+      명세서에 없다). 지역 기준값이 "첫 100건 평균"이라는 사실 자체가 근거 없는 근사다.
+    ⓑ **뒤 페이지에만 있는 경지구분 표본을 통째로 놓친다.** 1페이지가 논으로만 채워지면 그
+      리는 "과수 표본 없음"으로 잘못 판정되고, 과수 밭이 토양 지표를 전부 잃는다 —
+      §18-4가 금지하는 "데이터 한계인 척하는 우리 결함"이다.
+
+    `Total_Count`가 응답 body에 있지만(실측: 227) 읽지 않는다 — 짧은 페이지로 끝을 아는 것이
+    `fetch_items`에 body 필드 노출을 추가하는 것보다 코드가 적고, 마지막 페이지가 딱
+    PAGE_SIZE로 끝나도 다음 페이지가 `code=200`·0건으로 와서 정상 종료된다(실측 확인).
+    """
+    out: list[SoilExam] = []
+    for page in range(1, MAX_PAGES + 1):
+        try:
+            exams = get_soil_exam_list(code, page_no=page, page_size=PAGE_SIZE)
+        except (PublicApiError, httpx.HTTPError):
+            if page == 1:
+                raise  # 첫 페이지 실패는 호출부가 "우리 장애 vs 기록 없음"으로 가른다
+            # 뒤 페이지 실패로 **이미 받은 표본을 버리지 않는다**(§12). 표본이 줄 뿐이고,
+            # 0건으로 되돌리면 있는 데이터를 두고 "기록 없음"이라 말하게 된다.
+            _log.warning(
+                "흙토람 %d페이지 실패 bjd=%s — 받은 %d건으로 진행", page, code, len(out), exc_info=True
+            )
+            return out
+        out += exams
+        if len(exams) < PAGE_SIZE:
+            return out
+    _log.warning(
+        "흙토람 표본이 상한 %d건을 넘었다 bjd=%s — 이후 페이지는 버린다", MAX_PAGES * PAGE_SIZE, code
+    )
+    return out
+
+
+def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None, bool]:
+    """(표본, 실제 조회에 쓴 코드, 조회 실패 여부). 신규 코드가 비면 통합 전 코드로 1회 재시도한다.
+
+    전부 실패/빈 결과면 (빈 리스트, None, ...) — 등록을 막지 않는다(§12).
+
+    **세 번째 값이 "우리 장애"와 "데이터 한계"를 가른다.** 흙토람이 301로 "기록 없음"이라고
+    답한 것과 네트워크가 죽어 못 받은 것은 전혀 다른데, 종전엔 둘 다 "표본 0건"으로 나가
+    유저가 우리 장애를 지역 데이터 한계로 오해했다(§18-4 위반).
+
+    **종전 `except (PublicApiError, OSError)`는 네트워크 실패를 못 잡았다.** httpx 예외는
+    `OSError` 하위가 아니라 `httpx.HTTPError` 계열이다(실측 확인). 그래서 타임아웃·401·5xx가
+    그대로 위로 튀어 **밭 등록이 500으로 죽었다** — §12의 "산출이 예외로 죽지 않게 한다"를
+    정면으로 어기고 있었다. 2026-08-03 data.go.kr http 중단 때 실제로 이 경로를 탔다.
 
     이웃 리를 모아 평균하는 폴백이 있었는데 지웠다. 유저가 리를 직접 고르게 된 뒤로
     (list_districts가 말단만 노출) 리 코드로 바로 조회되고, 표집 40곳이 전부 데이터를 줬다
@@ -139,14 +199,25 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
     if old is not None:
         candidates.append(old)
 
+    fetch_failed = False
     for code in candidates:
         try:
-            exams = get_soil_exam_list(code, page_no=1, page_size=PAGE_SIZE)
-        except (PublicApiError, OSError):
-            continue  # 데이터 없음(301)·파라미터 오류(201)·네트워크 실패 → 다음 후보
+            exams = _fetch_all_pages(code)
+        except PublicApiError as exc:
+            # 상대가 답을 준 경우. 301(기록 없음)은 사실이고, 나머지 코드는 우리 잘못일
+            # 수 있으니(파라미터 오류 201 등) 실패로 센다.
+            if exc.code != NO_DATA_CODE:
+                fetch_failed = True
+                _log.warning("흙토람 조회 오류 code=%s bjd=%s: %s", exc.code, code, exc)
+            continue
+        except httpx.HTTPError:
+            # 타임아웃·연결 실패·4xx/5xx. **여기가 종전에 안 잡히던 자리다.**
+            fetch_failed = True
+            _log.warning("흙토람 조회 실패(네트워크) bjd=%s", code, exc_info=True)
+            continue
         if exams:
-            return exams, code
-    return [], None
+            return exams, code, False
+    return [], None, fetch_failed
 
 
 # 리가 있는 읍·면으로 물었을 때의 문구. "조회 실패"로 뭉개면 유저가 무엇을 하면 되는지
@@ -154,16 +225,28 @@ def _fetch_exams(bjd_code: str) -> tuple[list[SoilExam], str | None]:
 NO_LEAF_RECORD = f"{SOURCE_PREFIX}(읍·면 단위로는 기록 없음 — 리를 선택하면 조회됩니다)"
 
 
-def source_label(bjd_code: str, queried_code: str | None, field_type: str) -> str:
+# 조회 자체가 실패했을 때. "기록 없음"과 절대 같은 문구를 쓰지 않는다 — 전자는 지역의
+# 데이터 한계고 이건 우리 장애다. 유저에게 "다시 시도된다"를 알려 다음 행동을 알 수 있게 한다.
+FETCH_FAILED = f"{SOURCE_PREFIX}(토양 정보를 가져오지 못했습니다 — 다음 조회에 다시 시도합니다)"
+
+
+def source_label(
+    bjd_code: str, queried_code: str | None, field_type: str, fetch_failed: bool = False
+) -> str:
     """유저에게 그대로 노출되는 출처 문구(§18-4) — 어느 코드로 조회했는지 숨기지 않는다.
 
     순수 함수. `soil_state.base_source` → `FarmOut.soil_source` → 화면 출처 footer로 흘러가므로
     문구가 곧 유저와의 약속이다. 테스트로 고정한다.
+
+    `fetch_failed`는 "네트워크·API 오류로 못 받음"이다. 종전엔 이 경우도 "표본 없음"으로
+    나가 **우리 장애를 지역 데이터 한계처럼 말했다** — 없는 사실을 단정하는 §18-4 위반이다.
     """
     if queried_code is None:
+        if fetch_failed:
+            return FETCH_FAILED  # 데이터가 없는 게 아니라 못 받은 것이다
         if not is_leaf_bjd(bjd_code):
             return NO_LEAF_RECORD  # 리 전환 전에 등록된 밭이 여기 온다
-        return f"{SOURCE_PREFIX}(조회 실패 — 표본 없음)"
+        return f"{SOURCE_PREFIX}(기록 없음 — 이 지역·경지구분의 토양검정 표본이 없습니다)"
     if queried_code != bjd_code:
         return f"{SOURCE_PREFIX}(법정동 {queried_code} 통합전코드, 경지구분 {field_type})"
     return f"{SOURCE_PREFIX}(법정동 {bjd_code}, 경지구분 {field_type})"
@@ -212,8 +295,8 @@ def get_or_fetch(
     if cached is not None and cached.sample_count > 0 and not refresh:
         return cached
 
-    exams, queried_code = _fetch_exams(bjd_code)
-    source = source_label(bjd_code, queried_code, field_type)
+    exams, queried_code, fetch_failed = _fetch_exams(bjd_code)
+    source = source_label(bjd_code, queried_code, field_type, fetch_failed)
 
     summary = summarize(exams, field_type)
     values = {

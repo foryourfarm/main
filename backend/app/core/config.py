@@ -39,6 +39,15 @@ class Settings(BaseSettings):
     # 768로 재상향 + 프롬프트에서 목록 대신 문장으로 답하도록 제약 추가(chatbot.py PROMPT_VERSION v5).
     # 스트리밍은 read(청크 간격) 타임아웃이라 총 생성시간이 길어도 안전(llm_timeout_s는 총 시간 아님).
     llm_num_predict: int = 768
+    # 입력 컨텍스트 창. **명시하지 않으면 Ollama가 4096으로 로드한다**(모델은 32,768 지원 —
+    # `/api/show`의 exaone.context_length. 실측: `/api/ps`의 context_length가 4096으로 뜬다).
+    # RAG 최악 케이스(청크 5개 × 1200자 + 대화이력 6개 + 밭정보)를 실측하니 프롬프트만
+    # **3,691토큰**이라 4096까지 여유가 405토큰뿐이다 — num_predict(768)를 다 쓰려면 4,459가
+    # 필요해 창을 넘고, 그러면 Ollama가 **프롬프트 앞부분부터 버린다.** 우리 프롬프트는 맨 앞이
+    # #보안 규칙·#제약조건이라 **안전 규칙이 조용히 날아가는** 방향으로 깨진다(출력이 끊기는
+    # 것보다 나쁘다 — 증상이 "이상하게 답함"으로 나와 원인 특정이 어렵다).
+    # 8192는 최악 케이스(3,691+768=4,459)에 약 1.8배 여유다. VRAM 증가는 실측상 문제 없었다.
+    llm_num_ctx: int = 8192
     # 사실 기반이라 일관성 우선으로 낮게(docs/llm-integration.md §6).
     llm_temperature: float = 0.4
 
@@ -61,7 +70,13 @@ class Settings(BaseSettings):
     # 필드명을 .env 키 이름과 그대로 대응시켜 어떤 키가 어디 쓰이는지 헷갈리지 않게 한다.
     chemical_status_api: str = ""  # 농경지화학성 통계정보 V2
     chemistry_api: str = ""  # 토양검정 화학성 상세정보 V2
-    soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2
+    soil_api: str = ""  # 토양도 기반 토양특성 단면정보 V2 (15098809, 심토토성·자갈·경사 3종)
+    # 토양도 기반 토양특성 **상세**정보 V3 (15144225) — `soil_api`와 **다른 데이터셋이라 키가
+    # 따로다**(승인 세트가 달라 서로의 키로 부르면 실패한다). 이름이 비슷해 헷갈리기 쉬우니
+    # 위 단면정보 V2와 나란히 둔다. 27종(배수등급·유효토심·표토토성·**과수적성등급·제약인자** 등)
+    # 을 PNU 단위로 주며 **화학성은 없다**(명세서 원문 확인 — nexttodo §토양 데이터원 재조사).
+    # 라이선스 제4유형(상업적 이용금지) — 토양검정도 동일하나 착수 전 확인 필요.
+    soil_detail_api: str = ""  # [확인 필요] 연동 클라이언트 미구현
     weather_api: str = ""  # 농업기상 기본 관측데이터(과거 실측)
     # 농업기상 예비 키. 쿼터가 **엔드포인트별로** 관리돼 특정 엔드포인트만 소진되는 일이
     # 있다(실측: getWeatherYearMonList3는 429인데 getWeatherMonDayList3는 정상).
@@ -90,6 +105,10 @@ class Settings(BaseSettings):
     # 3개월전망(장기 탭)은 RSS라 인증키가 없다(app/infra/public_api/outlook_client.py).
 
     fertilizer_api: str = ""  # 작물별 비료 표준사용량 처방 정보 — [확인 필요] 연동 클라이언트 미구현
+    # 비료사용처방 **체험** 정보 V2 — 위 fertilizer_api(표준사용량, 작물코드만 입력)와 다른
+    # 데이터셋이다. 이건 화학성 값(pH·유기물·유효인산 등)을 입력으로 받아 시비처방을 낸다 —
+    # 그래서 토양 결측 밭에는 못 쓰고 화학성 있는 밭 전용이다(nexttodo §미연동 API 3종).
+    fertilizer_trial_api: str = ""  # [확인 필요] 연동 클라이언트 미구현
     crop_code_api: str = ""  # 작물코드 목록 정보 — [확인 필요] 연동 클라이언트 미구현
 
     # 토양변화 shadow 추론 artifact(오프라인 exporter 산출 JSON) 경로.

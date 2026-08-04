@@ -2,6 +2,112 @@
 
 > scout은 이 파일과 대조해서 중복 후보를 걸러낸다. registry-keeper가 매 사이클 끝에 갱신한다.
 
+## Iteration 10 (2026-08-04) — 배 temp_night_min 최초 partial 전환 + 신규지표 winter_bud_freezing_hardiness 발견 + EC/organic/p2o5 배전용 실측 보강
+
+> 사용자가 직접 다운로드한 PDF 3편(Yim 2014, Lee 2016, Cho 2023)을 제공, 전부 원문 확보·md화 완료. 상세 판정 근거는 `registry.md` §6-6.
+
+### 채택(approve/filled·partial)
+- **Yim, Choi, Choi, Kim, Kwon, Han & Lee(2014)**, Korean J. Agric. Forest Meteorol. 16(1):51-58, DOI 10.5532/KJAFM.2014.16.1.51 — **⚠️타겟 불일치**: 원래 frost_damage_budburst/fullbloom(봄철 냉해) 후보였으나 겨울 휴지아 내동성(-21~-33℃대)으로 확인돼 신규지표 `winter_bud_freezing_hardiness`로 분리(filled). 원 타겟은 여전히 미해결
+- **Lee, Lee, Kim, Choi, Suh & Na(2016)**, Korean J. Environ. Agric. 35(3):159-165, DOI 10.5338/KJEA.2016.35.3.26 — ec/organic/p2o5 배 전용 실측 2번째 확보(완주 신고배, EC 1.01/유기물 32/유효인산 2050mg). 전북 실측(Ahn 2011)과 유효인산 2.4배 편차 확인
+- **Cho, Jeong-Hwa(2023)**, 전남대학교 박사학위논문 — temp_night_min 최초 partial 전환(나주 3개년 실측, 야간기온 17.1~17.6℃, 관찰적 상관관계)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **배 frost_damage_budburst/fullbloom(봄철 냉해)**: 4회 연속 이월 — 임순희(2012)·Lee et al.(2023, Scientia Hortic.) 원문 확보가 최우선
+- **배 ec/organic/p2o5 national-scale**: 배 전용 실측 2건 간 편차(유효인산 859 vs 2050) 원인 미규명
+
+## Iteration 9 (2026-08-04) — 배 ec/organic/p2o5 최초 partial 전환 (신규 다운로드 없이 기존 자료 재조명) + 냉해 후보 4편 발굴
+
+> 배 13항목 체크리스트 중 완전 미착수 상태였던 ec·organic·p2o5를 scout 3개 에이전트로 병렬 탐색. **핵심 발견**: 셋 다 이미 확보돼 있던 사과배치 논문(Ahn et al. 2011, 전북 110개소 과종별 비교표)에 배 데이터가 부수적으로 포함돼 있었음 — 신규 PDF 없이 registry.md만 갱신해 반영(md 파일 신규 생성 없음). 별도로 냉해(frost_damage) scout 1개 추가 실행. 상세 판정 근거는 `registry.md` §6-5.
+
+### 채택(기존 자료 재조명, 신규 md 없음)
+- **Ahn, Lee & Ha(2011)**(이미 papers/apple/apple-topography-soil-jeonbuk-ahn-2011.md로 확보됨) — Table 5의 배 데이터를 배 registry에 반영: EC 0.6dS/m, 유기물 35g/kg(Kang 2014 국가기준 25~35와 정확히 겹침), 유효인산 859mg/kg(Lancaster법, 적정 200~300의 2.9~4.3배 과잉)
+- **Kang et al.(2014)**(이미 papers/apple/apple-soil-optimum-range-landuse-kang-2014.md로 확보됨) — 과수원 통합기준(EC≤2.0, 유기물 25~35, 유효인산 300~550)을 배에도 동일 적용
+
+### 신규 후보(원문 미확보, 다음 확보 대상)
+- **ec**: Lee & Lee(2011), Korean J. Soil Sci. Fert. 44(3):492-497, 인용10, 경남 25개소(초록상 EC 미확인, 원문 필요) / Lee et al.(2016), Acta Hortic. 1146:41-48, 배 단독(EC 포함 추정, actahort.org 접근 차단)
+- **organic**: 윤성탁 외(2010), 한국유기농업학회지 18(4), 배 전용(이미 KB 파일 존재하나 KCI paywall로 정량수치 미확보)
+- **p2o5**: Park, Lim & Lee(2012), Korean J. Soil Sci. Fert. 45(2), 배 전용(측정법 미확인, 원문 필요)
+- **frost_damage(개엽기/만개기)**: Ballard, Proebsting & Tukey(1971), WSU Extension Circular C0370, 배 전용 고전(스캔본, OCR 실패) / 임순희 외(2012), 원예과학기술지 30(2):102, 국내 RDA 초록 / **Lee, Ryu, Jeong, Cho, Lee & Han(2023)**, Scientia Horticulturae 307:111530, 인용5, 국내(원예특작과학원)+국제저널 — 만개기 -2.2℃(10%)/-4.4℃(90%), Ballard(1971) 파생표와 교차검증됨 / Ito et al.(2018), Tree Physiology 38(6):825-837, 인용16, 일본 — 휴면기 LT50(지표 정의 다름, 참고용)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **배 ec/organic/p2o5의 national-scale·배 전용 검증**: 현재 근거는 전북 지역 소표본(N=110 중 배)의 부수 데이터뿐 — 배 전용 연구 원문 확보가 다음 단계
+- **배 frost_damage**: 후보는 확보했으나 전부 원문 미확보(Ballard 1971은 스캔본이라 OCR 필요)
+
+## Iteration 8 (2026-08-03) — 사용자 직접 제공 PDF 8편 원문 확보 (사과 temp_day(coloring) 최초 partial 전환 + gdd 재인용함정 해결 + EC/organic 재검토 신호)
+
+> Iteration 7에서 남은 미해결 3개(착색기 낮기온·gdd.Tbase·EC national-scale)를 scout 7개 에이전트로 재검색하던 중, 사용자가 직접 다운로드한 PDF 8편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(Kang 2014만 한글 프로세 CMap 손실 있었으나 핵심 Table 1은 보존). 상세 판정 근거는 `registry.md` §6-4.
+
+### 채택(approve/filled·partial, 원문 확보 완료)
+- **Kim, Ahn & Yun(2016)**, Protected Horticulture and Plant Factory 25(1):9-15, DOI 10.12791/KSBEC.2016.25.1.9, 인용1 — **국내(영남대) 실측**. 항온챔버 25℃(양호) vs 30~35℃(착색·당 유전자 발현 억제) — **temp_day(coloring) missing→partial 최초 전환**
+- **Chaves, Salazar, Schmidt, Dasgupta & Hoogenboom(2017)**, Acta Hortic. 1160:335-340, DOI 10.17660/ActaHortic.2017.1160.48 — gdd.Tbase 재인용 함정 최종 해결. Tbase=7.22/5.55/6.11℃(품종별)가 재인용 아닌 워싱턴주 11지점×4개년 실측 직접도출임을 확인
+- **Kang, Kim, Kong, Chae, Sonn, Lee, Kim & Lee(2014)**, 학회 발표 PB-07, RDA-NAAS — ec 국가기준(EC≤2.0, 기존 allowed_max 출처 확인) + Bray-1/Lancaster 유효인산 측정법 혼재 문제 노출
+- **Ahn, Lee & Ha(2011)**, Korean J. Soil Sci. Fert. 44(5):859-865, 인용6 — 전북 110개소 중 사과 실측. EC 0.5dS/m(기존 optimal보다 낮음, 재검토 신호), 유효인산 631mg/kg(적정 2.1~3.2배 과잉)
+- **Kim, Park, Han, Cho, Choi, Lim & Yun(2012)**, J. Bio-Environ. Control 21(2):102-107 — 홍로 60농가. 유기물 기여율 0.1~5.6%로 낮음(organic 중요도 재평가), 유효인산-착색 55.9% 신규연결 발견
+- **Lee, Park, Jeong, Kim & Heo(2023)**, Horticulturae 9(7):794, DOI 10.3390/horticulturae9070794, 인용19 — temp_day(fruit_growth/maturity) 독립근거 3번째(국내 20년 실측, 후지·홍로 품종별 반응차 확인)
+- **Treder, Klamkowski, Tryngiel-Gać & Wójcik(2022)**, J. Water Land Development 53(IV-VI):51-57, DOI 10.24425/jwld.2022.140779 — rainfall_by_stage 방법론(유효강수 개념, 총강수mm≠실제흡수량)
+- **Kim, Choi, Cho, Yun, Park, Kim, Jeon & Lee(2019)**, J. Korean Soc. Agric. Eng. 61(5):23-31, DOI 10.5389/KSAE.2019.61.5.023 — CWSI/관개(reference_only, 자연강수 아닌 인공관개 스킴이라 rainfall_by_stage 갭 미해결)
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 PDF 원문 미확보(ScienceON 초록/목차까지만 접근)
+- **사과 EC optimal(0.8~1.5) 자체의 재검토 필요성**: 전북 실측(0.5)이 기존 optimal보다 낮음 — 신규 논문 탐색보다 팀의 기존 수치 재검토가 선행되어야 함
+- **사과 gdd.Tbase의 한국 품종 적용**: Chaves(2017)는 미국 품종 한정, 후지·홍로 값은 여전히 미확보
+
+## Iteration 7 (2026-08-03) — 사용자 직접 제공 PDF 7편 원문 확보 (사과 착색기 최초 filled + 6개 gap 보강)
+
+> 사용자가 미해결 1개(착색기, **국내논문 여부 무관** 조건)+부분해결 6개(fruit_growth/maturity·EC·organic·p2o5_실태·rainfall·gdd)를 scout 6개 에이전트로 재검색하던 중, 직접 다운로드한 PDF 7편을 제공해 전부 원문 확보·md화했다. 전부 born-digital, `pdftotext -layout`으로 전량 추출 성공(CMap 손실 없음). 상세 판정 근거는 `registry.md` §6-3.
+
+### 채택(approve/filled·partial, 원문 확보 완료)
+- **Ryu, Han, Jeong, Kwon, Han, Do, Choi & Lee(2017)**, Eur. J. Hortic. Sci. 82(5):232-238, DOI 10.17660/eJHS.2017/82.5.2, 인용16 — **국내(RDA 국립원예특작과학원, 완주) 실측**. 착색기 야간온도 LNT 20.1~23.4℃(촉진) vs HNT 26.1~29.4℃(억제) — **temp_night_min(coloring) 최초 filled**
+- **Sharpley, Kleinman, Flaten & Buda(2013)**, J. Environ. Qual. 42(5):1308-1326, DOI 10.2134/jeq2013.03.0098, 인용1040 — p2o5_실태 "legacy P" 구조적 설명(시비중단 후 7~27년간 유의한 감소 없음)
+- **Sugiura, Ogawa, Fukuda & Moriguchi(2013)**, Scientific Reports 3:2418, DOI 10.1038/srep02418, 인용143 — fruit_growth/maturity 온도. 일본 40년 포장실측, Warrington(1999) 독립 재확인
+- **Gasparatos, Roussos, Christofilopoulou & Haidouti(2011)**, J. Soil Sci. Plant Nutr. 11(4):105-117, DOI 10.4067/S0718-95162011000400008, 인용47 — ec 교차검증(그리스, 측정법 1:1 불일치로 직접대입 불가)
+- **Zanotelli, Montagnani, Andreotti & Tagliavini(2019)**, Agric. Water Manag. 226:105756, DOI 10.1016/j.agwat.2019.105756, 인용54 — rainfall_by_stage 방법론(이탈리아 Kc계수, 단위체계 달라 직접대체 불가)
+- **Merwin & Stiles(1994)**, J. Amer. Soc. Hort. Sci. 119(2):209-215, DOI 10.21273/jashs.119.2.209, 인용138 — organic 전용연구 최초 확보(관리방식 메커니즘, "적정구간" 아님)
+
+### 기각(reject, 재인용 함정)
+- **Cepeda, Vélez-Sánchez & Balaguera-López(2021)**, Rev. Colomb. Cienc. Hortic. 15(2):e12508, DOI 10.17584/rcch.2021v15i2.12508 — gdd(Tbase) 후보로 검토했으나 Tbase=7.22℃가 Chaves et al.(2017) 재인용치임이 확인돼 **독립근거로 불채택**. gdd.Tbase는 여전히 missing. Chaves(2017) 원문 확보가 Iteration 8 최우선 과제로 격상
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 temp_day(coloring, 낮기온)**: Ryu(2017)는 야간온도만 다뤄 낮기온 자체는 여전히 missing
+- **사과 gdd.Tbase**: Cepeda(2021)도 재인용 체인이라 불채택 — Chaves(2017) 원문 확보 필요
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 원문 미확보
+
+## Iteration 6 (2026-08-03) — 사용자 직접 제공 PDF 4편 원문 확보 (사과 EC/rainfall/gdd/fruit_growth)
+
+> Iteration 5에서 "원문 미확보"로 caution/blocked 처리됐던 항목 중 일부를 사용자가 직접 PDF로 다운로드해 제공, 전부 원문 확보·md화했다. poppler(pdftoppm) 미설치로 Read 도구의 기본 PDF 렌더링이 실패해 `pdftotext`(born-digital) 또는 PyMuPDF 이미지 렌더링(CMap 손실 PDF)으로 대체 추출.
+
+### 채택(approve/filled, 원문 확보 완료)
+- **Warrington, Fulton, Halligan & de Silva(1999)**, JASHS 124(5):468-477, 인용155 — fruit_growth/maturity 온도-생장속도 선형관계. Iteration 5에서 "국내논문 0편으로 보류" 목록에 있던 해외후보를 사용자가 직접 선택해 채택(국내우선 원칙의 의도적 예외)
+- **김미리·김승규(2014)**, 한국농림기상학회지 16(4):274-284, DOI 10.5532/KJAFM.2014.16.4.274, 인용10 — rainfall_by_stage 보강. Iteration 5의 "단일계수만 확인" caution 해소, 8개 계수+3모형비교 확보
+- **이재범·김종윤(2023)**, 한국원예학회 학술발표요지 — ec 측정법(reference_only). Iteration 5의 "승인됐으나 원문 미확보" 상태 해소
+- **김수옥·윤진일(2010)**, 2010년도 한국기상학회 봄학술대회논문집 pp.377-378 — Iteration 5에서 access_blocked였던 논문을 원문 확보(PyMuPDF 이미지판독). **GDD가 아니라 Chill Day 모형(냉각요구시간)으로 확인** — gdd.Tbase는 여전히 미해결, 대신 chilling_requirement 2번째 근거 + 신규지표 forcing_requirement_bloom 발견
+
+### 이번 라운드로 완전히 해결되지 않은 것
+- **사과 gdd.Tbase**: Iteration 4~6 합계 국내 후보 5편(Lee 2015, 김진희 2019, 김수옥·윤진일 2010 + 재검증 시도분) 전부 GDD가 아닌 근접개념(냉각요구시간·냉해위험도)으로 확인 — 학술논문 검색 경로는 소득 없음, RDA 회색문헌 경로로 전환 권고(registry.md §6-2 Iteration 7 준비)
+- **사과 EC national-scale(TRKO202100009605)**: 여전히 원문 미확보
+
+## Iteration 5 (2026-08-02) — 사과 6개 갭 병렬 조사 (착색기/fruit_growth·maturity/EC/organic/rainfall/gdd)
+
+> Aira MCP 미연결로 전 에이전트가 Semantic Scholar/CrossRef/OpenAlex/RISS 공개 API 대체 수행. 상세 판정 근거는 `registry.md` §6-1.
+
+### 채택(approve/filled)
+- **Lee, Park & Park (2015)**, HST 33, DOI 10.7235/hort.2015.15010, 인용5 — 충주 후지 냉각요구시간(Chilling Hours 666h / Utah 517CU). GDD 후보로 검토했으나 **개념이 달라 신규 지표 chilling_requirement로 반영**
+- 이재범·김종윤(2023), 한국원예학회 — FDR/Hilhorst EC 측정법 보정, **reference_only 승인**(원문 미확보, extractor 대기)
+
+### 조건부/caution (원문 확보 시 재검증)
+- 김미리·김승규(2014), 한국농림기상학회지 16(4) — 전국15주산지 패널, 강수 계수 1개만 확인
+- Van Giap Do 외(2024), Agriculture(MDPI), 인용14 — 홍로 관수·열과, mm스펙 없음(정성적 근거만)
+- 김이현 외(2019), 정승탁 외(2021) — 사과 EC 관련 학회 초록집, 메타데이터만 확인
+
+### 기각(reject) / 접근불가(blocked)
+- TRKO202100009605(RDA 5차사업, 2021) — blocked_paywall(재시도했으나 여전히 원문 미확보)
+- 김수옥·윤진일(2010) — access_blocked, 재시도 1회 후 폐기 권고
+- 김진희 외(2019) — reject(타겟 불일치 의심, frost_damage와 개념 중복 추정)
+
+### 국내논문 0편으로 이번 라운드 보류 (해외만 확보, 재추천 대상 아님 — 향후 국내 회색문헌 재검색 시 재검토)
+- 착색기(coloring) temp_day/temp_night_min: Blankenship(1987)·Ubi(2006)·Faragher(1983)·Arakawa(1991)·Peavey(2024) — 전부 해외
+- fruit_growth/maturity temp_day: Warrington(1999)·Blankenship(1987)·Bergh(1990)·Bepete&Lakso(1997) — 전부 해외
+
 ## Iteration 4 (2026-08-01) — 오이 근권온도 구조확정 + 상추 EC/pH 재검증 + 감자 괴경냉해/DTR (소급 반영)
 
 > 이 13편은 registry-keeper 미실행 상태로 파일만 커밋돼 있다가 이번에 소급 반영됐다. 각 파일 말미의 `Registry Delta` 블록을 그대로 registry.md에 옮겼다.

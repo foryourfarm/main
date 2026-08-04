@@ -28,6 +28,7 @@ MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
 MIGRATION_EC = VERSIONS / "0028_soil_ec_guide_bands.py"
 MIGRATION_LETTUCE_ORGANIC = VERSIONS / "0029_lettuce_organic_matter_guide.py"
 MIGRATION_APPLE_CA = VERSIONS / "0030_apple_ca_one_sided_band.py"
+MIGRATION_CUCUMBER_POTATO = VERSIONS / "0031_cucumber_potato_soil_bands.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -43,7 +44,19 @@ INDICATOR_ALIAS = {
 
 # outcomes 작물 파일 → 백엔드 crop_id (0003 시드 기준: 1 사과 / 2 배 / 3 오이 / 4 감자 / 5 상추)
 # 상추는 `0019`(ph·p2o5)와 `0024`(k·ca·mg)가 나눠 적재한다.
-CROP_ID = {"apple.json": 1, "pear.json": 2, "lettuce.json": 5}
+#
+# **오이·감자는 2026-08-03까지 이 목록에서 빠져 있었다.** 그래서 계약 테스트가 3작물만
+# 검증했고, FarmML이 8/3에 두 작물 토양 밴드를 7개로 보강한 것을 **아무도 못 잡았다**
+# (오이·감자 각 5개 누락 + 오이 ph 값 낡음). nexttodo가 "outcomes soil_overrides 전 지표가
+# 백엔드와 같은 값"이라고 적은 것은 실제로는 사과·배·상추에만 해당하는 말이었다.
+# 5작물 전부를 넣어 사각지대를 없앤다 — 새 작물이 생기면 여기에 반드시 추가할 것.
+CROP_ID = {
+    "apple.json": 1,
+    "pear.json": 2,
+    "cucumber.json": 3,
+    "potato.json": 4,
+    "lettuce.json": 5,
+}
 
 # 마이그레이션이 나뉘어 있어(컬럼 유무로 갈렸다) 밴드 정의도 두 파일에 흩어져 있다.
 # 계약 검증은 "어느 파일에 있든 outcomes와 같은가"만 보므로 합쳐서 읽는다.
@@ -52,6 +65,8 @@ _EXTRA_BACKEND_BANDS = {
     # 상수를 import할 수 없다. 값을 여기 옮겨 적되 outcomes와 대조되므로 갈리면 실패한다.
     (5, "ph"): (6.5, 7.0, 6.25, 7.25),
     (5, "p2o5"): (250.0, 400.0, 175.0, 475.0),
+    # 0027이 backfill한 감자 organic — 같은 이유로(값이 SQL 문에 직접 박혀 있다) 여기 적는다.
+    (4, "organic"): (30.0, 47.0, 10.0, 55.5),
 }
 
 BAND_KEYS = ("optimal_min", "optimal_max", "allowed_min", "allowed_max")
@@ -92,6 +107,11 @@ class TestSoilBandContract(unittest.TestCase):
             lettuce_organic._ALLOWED_MIN,
             lettuce_organic._ALLOWED_MAX,
         )
+        # 0031은 오이·감자 신규 10건(_BANDS, 0024와 같은 8칸 표) + 오이 ph UPDATE 1건.
+        # ph는 INSERT가 아니라 UPDATE라 표에 없으니 상수를 따로 붙인다.
+        cp = _load_module("m0031", MIGRATION_CUCUMBER_POTATO)
+        cls.backend.update({(row[0], row[1]): tuple(row[2:6]) for row in cp._BANDS})
+        cls.backend[(3, "ph")] = cp._CUCUMBER_PH_NEW
         cls.backend.update(_EXTRA_BACKEND_BANDS)
         # 0030은 (1, "ca")의 optimal_max·allowed_max만 UPDATE로 NULL로 바꾼다(단측 밴드,
         # 사과 치환성 Ca "5~6cmol/kg 이상"). UPDATE라 상수 import가 안 되니 0024가 심어 둔
@@ -107,6 +127,7 @@ class TestSoilBandContract(unittest.TestCase):
             MIGRATION_EC,
             MIGRATION_LETTUCE_ORGANIC,
             MIGRATION_APPLE_CA,
+            MIGRATION_CUCUMBER_POTATO,
         ):
             with self.subTest(path=path.name):
                 self.assertTrue(path.is_file(), f"{path} 가 없다")

@@ -22,6 +22,7 @@ from app.prompts.chatbot import (
     format_farm_context,
     format_history,
 )
+from app.services import chat_service
 from app.services.chat_service import LLM_ERROR_TEXT, SSE_DONE, stream_from_chunks
 from app.services.short_term_service import SOIL_LIMITATION
 
@@ -191,3 +192,40 @@ class TestSoilLimitationHonesty(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStripMarkdownStream(unittest.TestCase):
+    """마크다운 제거는 결정론적 후처리다 — 프롬프트로는 6회 실측 전부 실패했다.
+
+    프론트가 마크다운을 렌더하지 않고 `white-space: pre-wrap`으로 평문 출력하므로
+    `**노균병**`이 별표까지 화면에 보인다.
+    """
+
+    def _run(self, tokens: list[str]) -> str:
+        return "".join(chat_service.strip_markdown_stream(iter(tokens)))
+
+    def test_removes_bold_within_one_token(self):
+        self.assertEqual(self._run(["- **노균병**: 잎을 보세요"]), "- 노균병: 잎을 보세요")
+
+    def test_removes_bold_split_across_tokens(self):
+        """스트리밍이라 `**`가 쪼개져 온다 — 홀드백 없이는 이 케이스가 통과 못 한다."""
+        self.assertEqual(self._run(["**", "노균병", "**", ": 확인"]), "노균병: 확인")
+
+    def test_removes_bold_split_one_star_at_a_time(self):
+        self.assertEqual(self._run(["*", "*", "가", "*", "*", "나"]), "가나")
+
+    def test_keeps_numbered_and_bullet_lists(self):
+        """유저 요청은 '**1.** 대신 그냥 1.' — 목록 자체는 남긴다."""
+        self.assertEqual(self._run(["1. 관찰\n2. 방제"]), "1. 관찰\n2. 방제")
+        self.assertEqual(self._run(["- 관찰\n- 방제"]), "- 관찰\n- 방제")
+
+    def test_lone_trailing_star_is_not_swallowed(self):
+        """보류한 `*`를 버리면 데이터 손실이다 — 스트림 끝에 흘려보낸다."""
+        self.assertEqual(self._run(["끝*"]), "끝*")
+
+    def test_single_star_emphasis_is_left_alone(self):
+        """`*` 하나는 곱셈·각주 등 정상 용례가 있어 건드리지 않는다(`**`만 노린다)."""
+        self.assertEqual(self._run(["5*3=15"]), "5*3=15")
+
+    def test_empty_stream_is_safe(self):
+        self.assertEqual(self._run([]), "")
