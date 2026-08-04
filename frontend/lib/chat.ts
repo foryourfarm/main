@@ -21,8 +21,9 @@ export function chatSessionId(userId: number): string {
 }
 
 /** crypto.randomUUID는 보안 컨텍스트(HTTPS·localhost) 전용이라 LAN IP(http)로 열면 없다 —
- * 그 환경에선 getRandomValues 기반 v4로 폴백한다(스레드 키 용도라 충돌 확률만 낮으면 충분). */
-function randomUUID(): string {
+ * 그 환경에선 getRandomValues 기반 v4로 폴백한다(스레드 키 용도라 충돌 확률만 낮으면 충분).
+ * 새 대화 버튼도 같은 함수를 써야 한다 — 직접 crypto.randomUUID를 부르면 폰 실기에서 죽는다. */
+export function randomUUID(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const b = crypto.getRandomValues(new Uint8Array(16));
   b[6] = (b[6] & 0x0f) | 0x40;

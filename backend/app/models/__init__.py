@@ -18,6 +18,7 @@ from app.models.soil_state import SoilState
 from app.models.soil_state_snapshot import SoilStateSnapshot
 from app.models.suitability_result import SuitabilityResult
 from app.models.user import User
+from app.models.user_daily_quest import UserDailyQuest
 from app.models.user_farm import UserFarm
 from app.models.weather_climatology import WeatherClimatology
 from app.models.weather_outlook import WeatherOutlook
@@ -37,6 +38,7 @@ __all__ = [
     "KmaObservationPoint",
     "User",
     "UserFarm",
+    "UserDailyQuest",
     "FarmActionLog",
     "SoilState",
     "SoilStateSnapshot",

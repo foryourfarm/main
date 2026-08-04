@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import admin, auth, chat, dashboard, farms, health
+from app.api import admin, auth, chat, dashboard, farms, health, quests
 from app.core.config import settings
 from app.core.log_config import setup_logging
 from app.schemas.common import ApiResponse
@@ -30,6 +30,7 @@ app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(farms.router)
 app.include_router(dashboard.router)
+app.include_router(quests.router)
 app.include_router(admin.router)
 
 

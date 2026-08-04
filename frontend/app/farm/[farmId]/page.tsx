@@ -39,18 +39,18 @@ export function FarmDetail({ farmId, backHref }: { farmId: number; backHref?: st
       .catch(() => {});
   }, [farmId]);
 
-  // 데일리 퀘스트 발화 지점(docs/quest-pet-api.md §3): 탭이 보이면 완료 호출.
-  // 멱등이라 탭을 오가며 여러 번 불려도 하루 한 번만 적립되고, 실패는 조용히 무시된다.
-  useEffect(() => {
-    void completeQuest(tab === "short" ? QUEST.viewShort : QUEST.viewLong);
-  }, [tab]);
-
   const title =
     farm === null
       ? "밭 상세"
       : [farm.label, farm.crop_name].filter(Boolean).join(" · ") || "밭 상세";
   const loc =
     farm === null ? "" : [farm.region_name, farm.district_name].filter(Boolean).join(" ");
+
+  // 데일리 퀘스트(PRD §14.5). 첫 렌더의 기본 탭(단기)도 "본 것"이라 onClick이 아니라 여기서 쏜다.
+  // 멱등이라 탭을 오갈 때 중복 호출돼도 경험치는 하루 한 번이다.
+  useEffect(() => {
+    void completeQuest(tab === "short" ? QUEST.viewShort : QUEST.viewLong);
+  }, [tab]);
 
   return (
     <>

@@ -9,6 +9,7 @@ import {
   deleteChatSession,
   fetchChatHistory,
   fetchChatSessions,
+  randomUUID,
   streamChat,
   switchChatSession,
 } from "@/lib/chat";
@@ -234,8 +235,12 @@ export default function ChatPanel({
   return (
     <div className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
       <header className={styles.header}>
+        {/* 펫이 곧 텃밭이의 외형이다 — 레벨에 따라 이 자리가 자란다(게스트는 기본 얼굴). */}
         <span className={styles.avatar} aria-hidden>
-          {/* next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
+          {/* 자산 계약은 lib/pet의 더미 이미지다 — 서버 펫의 emoji는 일러스트가 나오기 전
+              임시 표기라(docs/quest-pet-api.md §4) 이미지 자리를 이쪽으로 잡아둔다.
+              레벨·단계·펫 교체는 바로 아래 PetQuestBar가 서버 값으로 보여준다.
+              next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={pet.image} alt="" width={32} height={32} className={styles.avatarImg} />
         </span>
@@ -259,7 +264,7 @@ export default function ChatPanel({
             className={styles.sessionSelect}
             // 아직 저장된 적 없는 새 대화는 목록에 없다 — 그때는 "새 대화"를 고른 상태로 보인다.
             value={sessions.some((s) => s.session_id === sessionId) ? sessionId : ""}
-            onChange={(e) => openSession(e.target.value === "" ? crypto.randomUUID() : e.target.value)}
+            onChange={(e) => openSession(e.target.value === "" ? randomUUID() : e.target.value)}
             disabled={busy}
           >
             <option value="">새 대화</option>
@@ -272,7 +277,7 @@ export default function ChatPanel({
           <button
             type="button"
             className={styles.sessionButton}
-            onClick={() => openSession(crypto.randomUUID())}
+            onClick={() => openSession(randomUUID())}
             disabled={busy}
           >
             + 새 대화
@@ -287,7 +292,7 @@ export default function ChatPanel({
               void deleteChatSession(sessionId)
                 .then(() => {
                   refreshSessions();
-                  openSession(crypto.randomUUID()); // 지운 자리에 남지 않고 새 대화로
+                  openSession(randomUUID()); // 지운 자리에 남지 않고 새 대화로
                 })
                 .catch(() => {});
             }}
