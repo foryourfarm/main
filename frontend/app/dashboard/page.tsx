@@ -68,14 +68,14 @@ function QuestCard() {
       ) : (
         <>
           <div className={styles.questLevel}>
-            {/* 펫 표시 규칙은 챗 헤더와 같다 — 일러스트가 있으면 이미지, 없으면 서버 emoji. */}
+            {/* 펫 표시 규칙은 챗 헤더와 같다 — 단계 일러스트가 있으면 이미지, 없으면 서버 emoji. */}
             <span aria-hidden="true">
-              {petImage(progress.pet.code) !== null ? (
+              {petImage(progress.pet.stage_code) !== null ? (
                 <Image
-                  src={petImage(progress.pet.code) as string}
+                  src={petImage(progress.pet.stage_code) as string}
                   alt=""
-                  width={22}
-                  height={22}
+                  width={30}
+                  height={18}
                   className={styles.questPetIcon}
                 />
               ) : (

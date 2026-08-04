@@ -53,8 +53,9 @@ export default function ChatDock() {
         onClick={() => setOpen(true)}
         aria-label="농사 상담 열기"
       >
-        {/* 펫 단계와 무관한 앱 아이콘이다 — 어느 펫인지·몇 레벨인지는 패널을 열면
-            PetQuestBar가 서버 값으로 보여준다. 게스트도 이 버튼으로 상담에 들어간다. */}
+        {/* 지금은 펫 단계와 무관한 고정 아이콘이다 — 몇 레벨인지는 패널을 열면 PetQuestBar가
+            서버 값으로 보여준다. (이 버튼은 로그인 유저만 보므로 단계를 따라가게 만드는 것도
+            가능하다 — lib/pet.ts의 LAUNCHER_ICON ponytail 주석.) */}
         <Image
           src={LAUNCHER_ICON}
           alt=""
