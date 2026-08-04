@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { usePet } from "@/lib/pet";
 import {
   chatSessionId,
   deleteChatSession,
@@ -12,9 +13,12 @@ import {
   switchChatSession,
 } from "@/lib/chat";
 import { fetchDashboard } from "@/lib/farm";
+import { completeQuest, fetchQuestProgress } from "@/lib/quest";
 import type { ChatMessage, ChatSessionSummary } from "@/types/chat";
 import type { DashboardCard } from "@/types/farm";
+import { QUEST, type QuestProgress } from "@/types/quest";
 
+import PetQuestBar from "./PetQuestBar";
 import styles from "./chat.module.css";
 
 const GREETING =
@@ -90,6 +94,8 @@ export default function ChatPanel({
   initialFarmId?: number;
   embedded?: boolean;
 }) {
+  // 펫 이름·이미지·성격은 더미 설정(lib/pet) — 펫 관리 창에서 바꾸면 즉시 반영된다.
+  const pet = usePet();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,12 +113,18 @@ export default function ChatPanel({
   const [farmId, setFarmId] = useState<number | undefined>(initialFarmId);
   const [farms, setFarms] = useState<DashboardCard[]>([]);
 
-  // 밭 목록은 로그인 유저만. `loading` 중에 부르면 세션 복구 전이라 401이 난다.
+  // 펫·레벨·퀘스트 상태. 질문 전송(ask_chat)으로도 바뀌므로 진실은 여기 하나만 둔다.
+  const [progress, setProgress] = useState<QuestProgress | null>(null);
+
+  // 밭 목록·펫 상태는 로그인 유저만. `loading` 중에 부르면 세션 복구 전이라 401이 난다.
   useEffect(() => {
     if (loading || user === null) return;
     fetchDashboard()
       .then((d) => setFarms(d.farms))
       .catch(() => setFarms([])); // 목록 실패가 상담을 막지 않는다 — 선택 줄만 안 보인다
+    fetchQuestProgress()
+      .then(setProgress)
+      .catch(() => setProgress(null)); // 펫 조회 실패면 그 줄만 안 보인다
   }, [loading, user]);
 
   // 로그인 유저의 대화는 계정에 붙어 계속 이어진다 — 스레드 키는 localStorage, 내용은 서버 DB.
@@ -191,6 +203,10 @@ export default function ChatPanel({
         });
         scrollToEnd();
       }
+      // 답변이 실제로 온 뒤에만 퀘스트 완료 — 오류로 끝난 시도까지 세면 "질문했다"가 거짓이 된다.
+      if (progress !== null) {
+        void completeQuest(QUEST.askChat).then((next) => next && setProgress(next));
+      }
       // 이 턴이 저장되면서 새 스레드가 생겼거나 제목이 정해졌을 수 있다.
       if (sessionId !== undefined) refreshSessions();
     } catch {
@@ -219,14 +235,19 @@ export default function ChatPanel({
     <div className={`${styles.page} ${embedded ? styles.embedded : ""}`}>
       <header className={styles.header}>
         <span className={styles.avatar} aria-hidden>
-          🧑‍🌾
+          {/* next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={pet.image} alt="" width={32} height={32} className={styles.avatarImg} />
         </span>
         <div>
           {/* 도크로 얹힐 때는 그 페이지에 이미 h1이 있다 — 문서에 h1을 둘 두지 않는다. */}
-          {embedded ? <h2>텃밭이</h2> : <h1>텃밭이</h1>}
-          <p>당신의 밭에서 함께 일하는 이웃</p>
+          {embedded ? <h2>{pet.name}</h2> : <h1>{pet.name}</h1>}
+          <p>{pet.personality}</p>
         </div>
       </header>
+
+      {/* 펫·레벨·오늘 퀘스트 줄 — 로그인 유저만(서버 상태). */}
+      {progress !== null && <PetQuestBar progress={progress} onChange={setProgress} />}
 
       {sessionId !== undefined && (
         <div className={styles.sessionBar}>

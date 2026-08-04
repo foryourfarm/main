@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+
+import { usePet } from "@/lib/pet";
 
 import ChatPanel from "./ChatPanel";
 import styles from "./ChatDock.module.css";
@@ -20,6 +21,8 @@ export default function ChatDock() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // 펫 이름·이미지는 더미 설정(lib/pet) — 펫 관리 창에서 바꾸면 즉시 반영된다.
+  const pet = usePet();
 
   // /chat은 그 자체가 상담 화면이다 — 같은 챗봇을 두 개 띄우지 않는다.
   const hidden = pathname === "/chat";
@@ -43,15 +46,11 @@ export default function ChatDock() {
         type="button"
         className={styles.launcher}
         onClick={() => setOpen(true)}
-        aria-label="텃밭이에게 상담하기"
+        aria-label={`${pet.name}에게 상담하기`}
       >
-        <Image
-          src="/assets/chatbot_icon.png"
-          alt=""
-          width={56}
-          height={56}
-          className={styles.launcherIcon}
-        />
+        {/* next/image 대신 img: 펫 관리에서 임의 URL을 넣을 수 있어 도메인 화이트리스트를 안 탄다. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={pet.image} alt="" width={56} height={56} className={styles.launcherIcon} />
       </button>
 
       <dialog

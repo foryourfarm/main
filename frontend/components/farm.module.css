@@ -15,7 +15,7 @@
   margin: 0 0 4px;
 }
 .sub {
-  font-size: 13px;
+  font-size: var(--fs-sub);
   color: var(--muted);
   margin: 0 0 20px;
 }
@@ -155,62 +155,107 @@
   color: var(--muted);
 }
 
-/* 장기/단기 탭 */
-.tabs {
+/* ── 밭 상세 헤더 (comUI .detail-head: 뒤로가기 알약 + 제목 + .seg 토글) ── */
+.detailHead {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
-.tab {
-  border: 1px solid var(--card);
+/* comUI .back — 알약 뒤로가기 */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1.5px solid var(--card);
   background: var(--surface);
-  color: var(--muted);
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
+  padding: 10px 18px 10px 14px;
+  font-size: var(--fs-sub);
   font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.back:hover {
+  background: var(--surface-2);
+}
+.headTitle {
+  margin: 0;
+  font-size: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.headLoc {
+  font-family: var(--font-body), sans-serif;
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+/* comUI .seg — 단기/장기 알약 토글 */
+.seg {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  border-radius: 999px;
+}
+.segBtn {
+  border: 0;
+  background: none;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  padding: 9px 18px;
+  border-radius: 999px;
   cursor: pointer;
+  color: var(--muted);
+  white-space: nowrap;
 }
-.tab:hover {
-  border-color: var(--primary);
-}
-.tabActive {
+/* 골드 배경 위 텍스트는 --on-primary(§7-1 — 흰 텍스트 금지) */
+.segBtn[aria-selected="true"] {
   background: var(--primary);
-  border-color: var(--primary);
   color: var(--on-primary);
 }
-.tabHint {
-  margin: 0 0 16px;
-  font-size: 12px;
-  color: var(--muted);
+.chatLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 16px;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--primary);
 }
 
-/* 오늘의 행동추천 — 위험 배너보다 위. "무엇이 위험한가"보다 "뭘 하라"가 먼저 읽혀야 한다 */
+/* 행동추천(LLM) — comUI .llm 카드: 연한 wash 그라데이션 + 1.5px 보더 + 큰 라운드 */
 .adviceCard {
-  border: 1px solid var(--primary);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  background: var(--good-wash);
+  border: 1.5px solid var(--good);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  background: linear-gradient(160deg, var(--good-wash), var(--surface));
 }
 .adviceTitle {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 700;
-  color: var(--primary);
+  color: var(--good);
 }
 .adviceText {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 1.8;
   white-space: pre-wrap;
 }
 .adviceLoading {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-sub);
   color: var(--muted);
 }
 /* 토양 문단 — 매일 바뀌는 기상과 성격이 달라 구분선을 둔다(상시 상태) */
@@ -218,7 +263,7 @@
   margin: 10px 0 0;
   padding-top: 10px;
   border-top: 1px dashed var(--card);
-  font-size: 13px;
+  font-size: var(--fs-sub);
   line-height: 1.8;
   color: var(--muted);
 }
@@ -233,37 +278,45 @@
   font-weight: 500;
 }
 
-/* 지속 위험 배너 — 이 탭에서 가장 먼저 보여야 한다 */
-.alertBanner {
-  border: 1px solid var(--bad);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  background: var(--bad-wash);
+/* 지속 위험 배너 — comUI .risk: 느낌표 원 + 굵은 키워드 + 설명. warn 계열(골드와 혼동 금지 §7-1) */
+.risk {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  background: var(--warn-wash);
+  border: 1.5px solid var(--warn);
+  border-radius: var(--r-md);
+  padding: 13px 15px;
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  line-height: 1.6;
 }
-.alertTitle {
-  margin: 0 0 8px;
+.risk + .risk {
+  margin-top: 10px;
+}
+.riskEx {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--warn-strong);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  flex: none;
   font-size: 14px;
-  font-weight: 700;
-  color: var(--bad);
 }
-.alertList {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.8;
-}
-.alertDates {
+.riskDates {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .calmBanner {
-  margin: 0 0 16px;
+  margin: 0;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--good-wash);
-  color: var(--primary);
-  font-size: 13px;
+  color: var(--good);
+  font-size: var(--fs-sub);
 }
 .staleTag {
   display: inline-block;
@@ -346,11 +399,11 @@
   gap: 6px;
 }
 .dayDate {
-  font-size: 13px;
+  font-size: var(--fs-sub);
   font-weight: 700;
 }
 .dayStage {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -365,7 +418,7 @@
 .metrics > div {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 14px;
 }
 .metrics dt {
   color: var(--muted);
@@ -377,29 +430,98 @@
 .dayRisks {
   margin: 8px 0 0;
   padding-left: 16px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--bad);
   line-height: 1.6;
 }
 
-/* 히트맵 */
-/* 창이 3개월이라 한 줄에 3칸(PRD §4.4). 6열 2행이던 시절의 12개월 전제를 여기서 끊는다. */
-.heatmap {
+/* 장기 탭에서 세로로 쌓이는 카드 사이 간격 */
+.sectionCard {
+  margin-top: 18px;
+}
+
+/* 장기 월 카드 — comUI .months 3열(1080px 이하 1열) + .mo(도넛 게이지 + 등급 알약 + 생육 단계) */
+.months {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1080px) {
+  .months {
+    grid-template-columns: 1fr;
+  }
+}
+.mo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 8px;
-}
-.cell {
-  border: 1px solid var(--card);
-  border-radius: 10px;
-  padding: 10px 8px;
-  text-align: center;
   background: var(--surface);
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-lg);
+  padding: 20px;
+  text-align: center;
 }
-.cellMonth {
-  font-size: 12px;
+/* 창에서 점수가 가장 높은 달(comUI .mo.best). 점수·등급 라벨이 병기되므로 색 장식만 얹는다 */
+.moBest {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--surface-2);
+}
+.moName {
+  font-size: var(--fs-sub);
+  font-weight: 700;
   color: var(--muted);
 }
+.moStage {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+}
+.moTag {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--surface-2);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+/* 주의 시기 — comUI .alert: 좌측 warn 보더 + 월 뱃지 + 이유 */
+.alert {
+  display: flex;
+  gap: 14px;
+  padding: 17px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  border-left: 6px solid var(--warn);
+}
+.alert + .alert {
+  margin-top: 11px;
+}
+.moBadge {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--warn);
+  flex: none;
+  width: 88px;
+}
+.moBadge small {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.why {
+  font-size: var(--fs-sub);
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.why strong {
+  color: var(--text);
+}
+
+/* 단기 날짜 카드가 쓰는 점수·등급 표기(월 카드에서는 Gauge·GradeBadge가 대신한다) */
 .cellScore {
   font-size: 20px;
   font-weight: 700;
@@ -407,18 +529,8 @@
   margin: 2px 0;
 }
 .cellGrade {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-}
-.cellStage {
-  font-size: 11px;
-  color: var(--muted);
-  margin-top: 6px;
-}
-.cellOutlook {
-  font-size: 10px;
-  color: var(--primary);
-  margin-top: 4px;
 }
 
 /* 등급 색 — 반드시 라벨과 함께 쓴다(색만으로 구분 금지) */
@@ -439,8 +551,8 @@
 .limits {
   margin-top: 24px;
   background: var(--surface);
-  border: 1px solid var(--card);
-  border-radius: 12px;
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-md);
   padding: 14px 16px;
 }
 /* summary는 항상 보인다 — "추정치"라는 사실을 접으면 §18-4 위반이다 */
@@ -448,7 +560,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-sub);
   font-weight: 700;
   margin: 0;
   cursor: pointer;
@@ -458,32 +570,22 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-/* 건수를 적어 "감춘 게 아니라 접은 것"이 드러나게 한다 */
+/* 건수를 적어 "감춘 게 아니라 접은 것"이 드러나게 한다 — comUI .src 알약 */
 .limitsCount {
-  font-weight: 500;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 13px;
   color: var(--muted);
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  border-radius: 999px;
+  padding: 4px 12px;
 }
 .limitsList {
   margin: 8px 0 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.7;
-}
-.section {
-  margin-top: 28px;
-}
-.sectionTitle {
-  font-size: 15px;
-  font-weight: 700;
-  margin: 0 0 10px;
-}
-.riskList {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.8;
 }
 .backLink {
   display: inline-block;

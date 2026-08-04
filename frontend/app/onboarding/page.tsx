@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 import FarmForm from "@/components/FarmForm";
 import RequireAuth from "@/components/RequireAuth";
-import styles from "@/components/farm.module.css";
+import styles from "@/components/auth.module.css";
 import { createFarm } from "@/lib/farm";
 
 function OnboardingForm() {
@@ -22,16 +22,17 @@ function OnboardingForm() {
 
 export default function OnboardingPage() {
   return (
-    <main className={styles.page}>
-      <div className={styles.inner}>
-        <h1 className={styles.h1}>밭 등록</h1>
-        <p className={styles.sub}>
+    // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
+    <div className={styles.wrap}>
+      <section className={`${styles.card} ${styles.cardWide}`}>
+        <h1 className={styles.title}>밭 등록</h1>
+        <p className={styles.lead}>
           지역과 작물을 등록하면 그 땅의 토양·기후로 적합도를 계산합니다.
         </p>
         <RequireAuth>
           <OnboardingForm />
         </RequireAuth>
-      </div>
-    </main>
+      </section>
+    </div>
   );
 }

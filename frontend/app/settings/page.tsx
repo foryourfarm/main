@@ -1,12 +1,15 @@
 "use client";
 
+import { Database, Plus, Sprout } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import FarmForm from "@/components/FarmForm";
 import Loading from "@/components/Loading";
 import RequireAuth from "@/components/RequireAuth";
-import styles from "@/components/farm.module.css";
+import styles from "@/components/auth.module.css";
+import { Card, CardHeader } from "@/components/ui/Card";
+import EmptyState from "@/components/ui/EmptyState";
 import { deleteFarm, fetchFarms, updateFarm } from "@/lib/farm";
 import type { Farm } from "@/types/farm";
 
@@ -38,17 +41,17 @@ function FarmRow({ farm, onChanged }: { farm: Farm; onChanged: () => void }) {
   }
 
   return (
-    <article className={styles.card}>
-      <div className={styles.cardTop}>
+    <Card>
+      <div className={styles.rowTop}>
         <div>
-          <div className={styles.cropName}>
+          <div className={styles.farmName}>
             {farm.label ?? farm.crop_name ?? "이름 없는 밭"}
           </div>
-          <div className={styles.regionName}>
+          <div className={styles.farmMeta}>
             {farm.crop_name ?? "작물 미지정"} · {farm.region_name ?? "지역 미지정"}{" "}
             {farm.district_name ?? "읍면동 미지정"}
           </div>
-          <div className={styles.regionName}>파종/정식일 {farm.planting_date}</div>
+          <div className={styles.farmMeta}>파종/정식일 {farm.planting_date}</div>
         </div>
         <div className={styles.rowActions}>
           <button type="button" className={styles.secondaryBtn} onClick={() => setEditing((v) => !v)}>
@@ -60,27 +63,29 @@ function FarmRow({ farm, onChanged }: { farm: Farm; onChanged: () => void }) {
         </div>
       </div>
 
-      {farm.bjd_code === null && (
-        <p className={styles.hint}>
-          읍/면/동 정보가 없는 밭입니다. 수정에서 다시 선택하면 토양 데이터가 정확해집니다.
-        </p>
-      )}
-      {farm.soil_source !== null && <p className={styles.hint}>토양 출처: {farm.soil_source}</p>}
-      {error !== "" && <p className={styles.error}>{error}</p>}
+      <div className={styles.rowBody}>
+        {farm.bjd_code === null && (
+          <p className={styles.hint}>
+            읍/면/동 정보가 없는 밭입니다. 수정에서 다시 선택하면 토양 데이터가 정확해집니다.
+          </p>
+        )}
+        {farm.soil_source !== null && <p className={styles.hint}>토양 출처: {farm.soil_source}</p>}
+        {error !== "" && <p className={styles.error}>{error}</p>}
 
-      {editing && (
-        <FarmForm
-          farm={farm}
-          submitLabel="저장"
-          onCancel={() => setEditing(false)}
-          onSubmit={async (input) => {
-            await updateFarm(farm.id, input);
-            setEditing(false);
-            onChanged();
-          }}
-        />
-      )}
-    </article>
+        {editing && (
+          <FarmForm
+            farm={farm}
+            submitLabel="저장"
+            onCancel={() => setEditing(false)}
+            onSubmit={async (input) => {
+              await updateFarm(farm.id, input);
+              setEditing(false);
+              onChanged();
+            }}
+          />
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -102,13 +107,16 @@ function SettingsBody() {
   return (
     <>
       {farms.length === 0 ? (
-        <p className={styles.notice}>
-          등록된 밭이 없습니다.
-          <br />
-          <Link href="/onboarding" className={styles.emptyAction}>
-            첫 밭 등록하기
-          </Link>
-        </p>
+        <EmptyState
+          icon={<Sprout size={28} />}
+          title="등록된 밭이 없습니다"
+          hint="첫 밭을 등록하면 그 땅의 토양·기후로 적합도를 계산합니다."
+          action={
+            <Link href="/onboarding" className={styles.ctaLink}>
+              첫 밭 등록하기
+            </Link>
+          }
+        />
       ) : (
         <div className={styles.cards}>
           {farms.map((f) => (
@@ -117,8 +125,8 @@ function SettingsBody() {
         </div>
       )}
       <p>
-        <Link href="/onboarding" className={styles.backLink}>
-          + 밭 추가 등록
+        <Link href="/onboarding" className={styles.addLink}>
+          <Plus size={18} aria-hidden="true" />밭 추가 등록
         </Link>
       </p>
     </>
@@ -127,23 +135,22 @@ function SettingsBody() {
 
 export default function SettingsPage() {
   return (
-    <main className={styles.page}>
-      <div className={styles.inner}>
-        <h1 className={styles.h1}>설정</h1>
-        <p className={styles.sub}>등록한 밭의 지역·작물·파종일을 고치거나 삭제할 수 있습니다.</p>
-        <RequireAuth>
-          <SettingsBody />
-        </RequireAuth>
+    // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
+    <div className="wrap">
+      <h1 className={styles.title}>설정</h1>
+      <p className={styles.lead}>등록한 밭의 지역·작물·파종일을 고치거나 삭제할 수 있습니다.</p>
+      <RequireAuth>
+        <SettingsBody />
+      </RequireAuth>
 
-        <footer className={styles.sources}>
-          <h2 className={styles.sourcesTitle}>데이터 출처</h2>
-          <ul>
-            {SOURCES.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </footer>
-      </div>
-    </main>
+      <Card className={styles.sourcesCard}>
+        <CardHeader icon={<Database size={16} />} title="데이터 출처" />
+        <ul className={styles.sourceList}>
+          {SOURCES.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ul>
+      </Card>
+    </div>
   );
 }

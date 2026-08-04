@@ -31,39 +31,54 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.wrap}>
-      <form className={styles.form} onSubmit={onSubmit}>
-        <h1>로그인</h1>
-        <div className={styles.field}>
-          <label htmlFor="email">이메일</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+    // layout.tsx의 <main className="appMain">이 이미 main 랜드마크 — 중첩 main 금지.
+    <div className={styles.wrap}>
+      <section className={styles.card}>
+        <h1 className={styles.title}>로그인</h1>
+        <p className={styles.lead}>내 밭의 오늘을 읽는 농사 동반자</p>
+        <form className={styles.form} onSubmit={onSubmit}>
+          <div className={styles.field}>
+            <label htmlFor="email">이메일</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              aria-describedby={error !== "" ? "login-error" : undefined}
+            />
+          </div>
+          <div className={styles.field}>
+            <label htmlFor="password">비밀번호</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-describedby={error !== "" ? "login-error" : undefined}
+            />
+          </div>
+          {error && (
+            <p id="login-error" role="alert" className={styles.error}>
+              {error}
+            </p>
+          )}
+          <button className={styles.submit} type="submit" disabled={busy}>
+            {busy ? "로그인 중…" : "로그인"}
+          </button>
+        </form>
+        <div className={styles.divider} aria-hidden="true">
+          또는
         </div>
-        <div className={styles.field}>
-          <label htmlFor="password">비밀번호</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        {error && <p className={styles.error}>{error}</p>}
-        <button className={styles.submit} type="submit" disabled={busy}>
-          {busy ? "로그인 중…" : "로그인"}
-        </button>
+        {/* 카카오 로그인 버튼 자리(FrontEnd.md §6-13) — 백엔드 OAuth 준비 전에는
+            동작하는 척하는 버튼을 렌더하지 않는다. 준비되면 이 divider 아래에 추가. */}
         <p className={styles.alt}>
           계정이 없으신가요? <Link href="/signup">회원가입</Link>
         </p>
-      </form>
-    </main>
+      </section>
+    </div>
   );
 }

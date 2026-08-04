@@ -1,11 +1,13 @@
 "use client";
 
+import { CalendarDays, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import DayDetailModal from "@/components/DayDetailModal";
 import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
+import { Card, CardHeader } from "@/components/ui/Card";
 import styles from "@/components/farm.module.css";
 import { fetchAdvice, fetchShortTerm } from "@/lib/farm";
 import type { DailyAdvice, FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
@@ -18,8 +20,8 @@ import {
 } from "@/types/farm";
 
 /**
- * 지속 위험 배너. 이 탭의 존재 이유 — A씨는 "봄철 야간저온 3일"을 미리 몰라 활착에 실패했다.
- * 그래서 날짜별 카드보다 위에, 가장 먼저 보이게 둔다(PRD 철학 3 선제적 안내).
+ * 지속 위험 배너 — comUI .risk(느낌표 원 + 굵은 키워드 + 설명, warn 계열).
+ * 이 탭의 존재 이유 — A씨는 "봄철 야간저온 3일"을 미리 몰라 활착에 실패했다(PRD 철학 3).
  */
 function RiskBanner({ risks }: { risks: PersistentRisk[] }) {
   if (risks.length === 0) {
@@ -30,26 +32,27 @@ function RiskBanner({ risks }: { risks: PersistentRisk[] }) {
     );
   }
   return (
-    <section className={styles.alertBanner}>
-      <p className={styles.alertTitle}>미리 대비하세요</p>
-      <ul className={styles.alertList}>
-        {risks.map((r) => (
-          <li key={r.flag}>
+    <>
+      {risks.map((r) => (
+        <div className={styles.risk} key={r.flag}>
+          <span className={styles.riskEx} aria-hidden="true">
+            !
+          </span>
+          <div>
             <strong>{describeRiskFlag(r.flag)}</strong> — {r.days}일 연속 예상
-            <span className={styles.alertDates}>
+            <span className={styles.riskDates}>
               {" "}
               ({r.dates.map(formatDayLabel).join(", ")})
             </span>
-          </li>
-        ))}
-      </ul>
-    </section>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 
 /**
- * 오늘의 행동추천. 위험 배너보다 위에 둔다 — 배너는 "무엇이 위험한가"고 이건 "그래서 뭘
- * 하라"라서, 초보자에게는 후자가 먼저 읽혀야 한다(PRD 철학 2 눈높이 번역).
+ * 오늘의 행동추천(LLM) — comUI .llm 카드(wash 그라데이션 + 1.5px 보더).
  *
  * **탭과 따로 부른다.** 한 응답에 묶었더니 LLM 동기 재시도가 탭 전체를 막아 화면이
  * 12초간 "불러오는 중…"으로 비는 것을 실측했다. 여기서만 기다리게 한다.
@@ -69,7 +72,7 @@ function AdviceCard({ farmId }: { farmId: number }) {
   if (failed) return null;
 
   return (
-    <section className={styles.adviceCard} aria-label="오늘의 행동추천">
+    <section className={`${styles.adviceCard} sp12`} aria-label="오늘의 행동추천">
       <p className={styles.adviceTitle}>
         오늘 이렇게 하세요
         {advice && !advice.is_llm && <span className={styles.adviceTag}>자동 생성 문구</span>}
@@ -112,7 +115,7 @@ function DayCard({ day, onOpen }: { day: ShortTermDay; onOpen: () => void }) {
           {day.grade ?? statusLabel(day.status)}
         </span>
       </div>
-      <div className={`${styles.cellScore} ${tone}`}>{day.score ?? "—"}</div>
+      <div className={`${styles.cellScore} ${tone} num`}>{day.score ?? "—"}</div>
       <div className={styles.dayStage}>{stageLabel(day.growth_stage, day.status)}</div>
       <dl className={styles.metrics}>
         <div>
@@ -172,19 +175,38 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
     return <p className={styles.notice}>이 지역의 예보를 아직 가져오지 못했습니다.</p>;
   }
 
+  // FrontEnd.md §6-14: API가 최대 4일(오늘+3)을 주더라도 화면에는 앞의 3개만 노출한다.
+  const days = data.days.slice(0, 3);
+
   return (
     <>
       <p className={styles.sub}>
         {formatBaseAt(data.base_at)} · {data.label}
         {data.is_stale && <span className={styles.staleTag}>최신 아님</span>}
       </p>
-      <AdviceCard farmId={farmId} />
-      <RiskBanner risks={data.persistent_risks} />
-      <div className={styles.dayGrid}>
-        {/* FrontEnd.md §6-14: API가 최대 4일(오늘+3)을 주더라도 화면에는 앞의 3개만 노출한다. */}
-        {data.days.slice(0, 3).map((d) => (
-          <DayCard key={d.target_date} day={d} onOpen={() => setOpenDate(d.target_date)} />
-        ))}
+      {/* comUI VIEW 2 단기 배치: 예보 sp7 + 위험 sp5 + LLM 추천 sp12 */}
+      <div className="bento">
+        <Card span={7}>
+          <CardHeader
+            icon={<CalendarDays size={16} />}
+            title={`${days.length}일 예보`}
+            tag={formatBaseAt(data.base_at)}
+          />
+          <div className={styles.dayGrid}>
+            {days.map((d) => (
+              <DayCard key={d.target_date} day={d} onOpen={() => setOpenDate(d.target_date)} />
+            ))}
+          </div>
+        </Card>
+        <Card span={5}>
+          <CardHeader
+            icon={<TriangleAlert size={16} />}
+            title="감지된 위험신호"
+            tag={`${data.persistent_risks.length}건`}
+          />
+          <RiskBanner risks={data.persistent_risks} />
+        </Card>
+        <AdviceCard farmId={farmId} />
       </div>
       <Limitations items={data.limitations} />
       {openDate !== null && (() => {

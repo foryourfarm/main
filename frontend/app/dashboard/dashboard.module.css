@@ -1,0 +1,315 @@
+/* 대시보드 전용 배치 — comUI VIEW 1(hero + 비대칭 벤토) 재현.
+   카드 뼈대는 components/ui/Card, 그리드·컨테이너는 전역 .bento/.sp{n}/.wrap을 쓰고
+   여기는 이 화면에만 있는 조각(히어로·밭 카드·밭 추가)만 정의한다.
+   컬러는 comUI의 흙·녹색 대신 globals.css 토큰(§7-1 이삭 골드 포인트)만 참조한다. */
+
+/* ── 히어로 (comUI .hero) — 골드 배경 그라데이션 금지(§7-1: 골드 위 흰 텍스트 금지).
+   표면색 토대에 하단 골드 광만 포인트로 얹는다. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-xl);
+  padding: 30px 34px;
+  box-shadow: var(--shadow-2);
+  margin-bottom: 22px;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 -40px 0;
+  height: 140px;
+  pointer-events: none;
+  background:
+    radial-gradient(220px 90px at 12% 100%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 70%),
+    radial-gradient(280px 110px at 78% 105%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 70%);
+}
+
+.kicker {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.heroTitle {
+  font-size: clamp(28px, 3vw, 38px); /* §10 데스크톱 H1 32~40 권장 범위 */
+  color: var(--text);
+}
+
+.heroTitle em {
+  font-style: normal;
+  color: var(--primary);
+}
+
+.heroSub {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--fs-sub);
+  max-width: 52ch;
+}
+
+/* comUI .hero-strip / .mini — 실데이터 칩만 올린다(날씨·EC 등 없는 값 금지). */
+.heroStrip {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 15px;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  border-radius: 999px;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mini b {
+  font-size: 18px;
+  color: var(--primary);
+}
+
+/* ── 밭 카드 (comUI .card.field) — 전역 sp7/sp5 교대 배치는 JSX에서 준다. */
+.fieldLink {
+  display: block;
+}
+
+.field {
+  height: 100%;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-1);
+}
+
+/* hover는 transform·색만 — scale 금지(레이아웃 밀림 방지, FrontEnd.md §14). */
+.fieldLink:hover .field {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .field {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .fieldLink:hover .field {
+    transform: translateY(-4px);
+  }
+}
+
+.fieldTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* comUI .crop-badge — 이모지 대신 lucide SVG(§6-11). */
+.cropBadge {
+  width: 52px;
+  height: 52px;
+  border-radius: 19px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  color: var(--primary);
+}
+
+.fieldName {
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.fieldLoc {
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.sep {
+  margin: 0 6px;
+  opacity: 0.6;
+}
+
+.gaugeWrap {
+  margin-left: auto;
+  flex: none;
+}
+
+/* comUI .nodata — score가 null인 밭. 가짜 점수 대신 사유(statusLabel)만 보여준다. */
+.nodata {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1.5px dashed var(--card);
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.fieldFoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.stage {
+  margin-left: auto;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* ── 밭 추가 (comUI .addfield) — dashed 큰 카드, /onboarding 링크. */
+.addField {
+  border: 2.5px dashed var(--card);
+  border-radius: var(--r-lg);
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: var(--fs-sub);
+  min-height: 190px;
+}
+
+.addField:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.addPlus {
+  width: 56px;
+  height: 56px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+  color: var(--primary);
+}
+
+.addField small {
+  display: block;
+  font-weight: 600;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+/* ── 상태 문구 */
+.error {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--bad);
+  font-weight: 600;
+}
+
+/* 골드 배경 위는 --on-primary(§7-1 흰 텍스트 금지). */
+.emptyAction {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+  font-size: var(--fs-sub);
+}
+
+.emptyAction:hover {
+  background: var(--primary-hover);
+}
+
+/* ── 오늘의 할 일(데일리 퀘스트) — comUI .todo 톤 ── */
+.questLevel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sub);
+}
+
+.questLevel b {
+  color: var(--primary);
+}
+
+.questExp {
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.expBar {
+  height: 8px;
+  margin: 10px 0 14px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.expFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+.questTodo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.questTodo li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--bg);
+  border: 1.5px solid var(--card);
+  font-size: var(--fs-sub);
+  font-weight: 600;
+}
+
+/* 완료는 아이콘+"완료" 라벨이 알리고 흐림은 거들 뿐(색만으로 구분 금지, §10). */
+.questDone {
+  opacity: 0.65;
+}
+
+.questDone .questLabel {
+  text-decoration: line-through;
+}
+
+.questDoneIcon {
+  color: var(--good);
+}
+
+.questLabel {
+  flex: 1;
+}

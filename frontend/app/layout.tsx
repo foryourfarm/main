@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
+import { Baloo_2, Jua, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 
 import ChatDock from "@/components/ChatDock";
@@ -13,8 +13,16 @@ const notoSans = Noto_Sans_KR({
   subsets: ["latin"],
 });
 
-const notoSerif = Noto_Serif_KR({
+// comUI 제목 서체(Cafe24 Ssurround)는 로컬 파일이 없어, comUI 폴백 체인의 Jua로 대체한다.
+const jua = Jua({
+  weight: "400",
   variable: "--font-heading",
+  subsets: ["latin"],
+});
+
+// comUI 숫자 전용 서체 — 게이지·점수의 통통한 라운드 숫자(.num).
+const baloo = Baloo_2({
+  variable: "--font-num",
   subsets: ["latin"],
 });
 
@@ -40,7 +48,7 @@ export default function RootLayout({
       lang="ko"
       data-theme="dark"
       suppressHydrationWarning
-      className={`${notoSans.variable} ${notoSerif.variable}`}
+      className={`${notoSans.variable} ${jua.variable} ${baloo.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

@@ -1,24 +1,11 @@
-/* farm.module.css .page 골격과 동일 — 색상은 전역 토큰. */
-.page {
-  min-height: 100dvh;
-  background: var(--bg);
-  color: var(--text);
-  padding: 24px 20px 60px;
-}
-
-.inner {
-  max-width: 860px;
-  margin: 0 auto;
-}
-
+/* comUI 톤 페이지 헤더 — 컨테이너는 전역 .wrap(1240px), 색상은 전역 토큰. */
 .h1 {
-  font-size: 22px;
-  color: var(--primary);
-  margin: 0 0 4px;
+  font-size: clamp(28px, 3vw, 34px);
+  margin: 0 0 6px;
 }
 
 .sub {
   font-size: var(--fs-sub);
   color: var(--muted);
-  margin: 0 0 20px;
+  margin: 0 0 24px;
 }

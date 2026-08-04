@@ -1,0 +1,110 @@
+.card {
+  max-width: 560px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1.5px dashed var(--card);
+}
+
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  flex: none;
+}
+
+.previewName {
+  font-size: var(--fs-body);
+  color: var(--primary);
+}
+
+.previewPersona {
+  font-size: var(--fs-sub);
+  color: var(--muted);
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+}
+
+.field input {
+  font: inherit;
+  font-size: var(--fs-sub);
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1.5px solid var(--card);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  min-height: 48px;
+}
+
+.field input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* 골드 CTA — 골드 배경 위 텍스트는 --on-primary(§7-1). */
+.save {
+  font-size: 17px;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 999px;
+  padding: 11px 24px;
+  min-height: 48px;
+}
+
+.save:hover {
+  background: var(--primary-hover);
+}
+
+.reset {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--muted);
+  border: 1.5px solid var(--card);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 11px 20px;
+  min-height: 48px;
+}
+
+.reset:hover {
+  color: var(--text);
+}
+
+.savedTag {
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--good);
+}

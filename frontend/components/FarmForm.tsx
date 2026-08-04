@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
-import styles from "@/components/farm.module.css";
+import styles from "@/components/auth.module.css";
 import { fetchCrops, fetchDistricts, fetchRegions } from "@/lib/farm";
 import type { Crop, District, Farm, FarmCreateInput, Region } from "@/types/farm";
 
@@ -13,6 +13,8 @@ import type { Crop, District, Farm, FarmCreateInput, Region } from "@/types/farm
  *
  * `farm`을 주면 수정 모드(초기값 채움 + 취소 버튼). 저장은 호출자가 한다 — 등록은 POST,
  * 수정은 PATCH이고 성공 후 이동/새로고침도 다르기 때문.
+ *
+ * 스타일은 auth.module.css(comUI 톤) — 위치/작물·시기/이름을 fieldset 단계로 묶는다.
  */
 export default function FarmForm({
   farm,
@@ -112,95 +114,114 @@ export default function FarmForm({
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      <div className={styles.field}>
-        <label htmlFor={`${uid}-region`}>지역 (시/군)</label>
-        <input
-          id={`${uid}-region`}
-          list={`${uid}-region-list`}
-          value={regionQuery}
-          onChange={(e) => {
-            setRegionQuery(e.target.value);
-            setRegionId(String(byLabel.get(e.target.value) ?? ""));
-          }}
-          placeholder="시/군 이름을 입력하세요 (예: 고창)"
-          autoComplete="off"
-          required
-        />
-        <datalist id={`${uid}-region-list`}>
-          {regions.map((r) => (
-            <option key={r.id} value={regionLabel(r)} />
-          ))}
-        </datalist>
-        {/* 목록에 없는 글자를 남겨두면 등록 버튼이 왜 안 눌리는지 알 수 없다. */}
-        {regionQuery !== "" && regionId === "" && (
-          <p className={styles.hint}>목록에서 시/군을 골라 주세요.</p>
-        )}
-      </div>
+      <fieldset className={styles.step}>
+        <legend className={styles.stepLegend}>1단계 · 밭 위치</legend>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-region`}>지역 (시/군)</label>
+          <input
+            id={`${uid}-region`}
+            list={`${uid}-region-list`}
+            value={regionQuery}
+            onChange={(e) => {
+              setRegionQuery(e.target.value);
+              setRegionId(String(byLabel.get(e.target.value) ?? ""));
+            }}
+            placeholder="시/군 이름을 입력하세요 (예: 고창)"
+            autoComplete="off"
+            required
+            aria-describedby={
+              regionQuery !== "" && regionId === "" ? `${uid}-region-hint` : undefined
+            }
+          />
+          <datalist id={`${uid}-region-list`}>
+            {regions.map((r) => (
+              <option key={r.id} value={regionLabel(r)} />
+            ))}
+          </datalist>
+          {/* 목록에 없는 글자를 남겨두면 등록 버튼이 왜 안 눌리는지 알 수 없다. */}
+          {regionQuery !== "" && regionId === "" && (
+            <p id={`${uid}-region-hint`} className={styles.hint}>
+              목록에서 시/군을 골라 주세요.
+            </p>
+          )}
+        </div>
 
-      <div className={styles.field}>
-        <label htmlFor={`${uid}-district`}>읍/면/동·리</label>
-        <input
-          id={`${uid}-district`}
-          list={`${uid}-district-list`}
-          value={districtQuery}
-          onChange={(e) => {
-            setDistrictQuery(e.target.value);
-            setBjdCode(byDistrictName.get(e.target.value) ?? "");
-          }}
-          disabled={regionId === ""}
-          placeholder={
-            regionId === "" ? "시/군을 먼저 선택" : "리 이름을 입력하세요 (예: 구암리)"
-          }
-          autoComplete="off"
-          required
-        />
-        <datalist id={`${uid}-district-list`}>
-          {districts.map((d) => (
-            <option key={d.bjd_code} value={d.name} />
-          ))}
-        </datalist>
-        {districtQuery !== "" && bjdCode === "" && (
-          <p className={styles.hint}>목록에서 읍/면/동·리를 골라 주세요.</p>
-        )}
-        <p className={styles.hint}>
-          토양 데이터를 리 단위로 가져옵니다. 읍·면 평균보다 실제 밭에 가깝습니다.
-        </p>
-      </div>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-district`}>읍/면/동·리</label>
+          <input
+            id={`${uid}-district`}
+            list={`${uid}-district-list`}
+            value={districtQuery}
+            onChange={(e) => {
+              setDistrictQuery(e.target.value);
+              setBjdCode(byDistrictName.get(e.target.value) ?? "");
+            }}
+            disabled={regionId === ""}
+            placeholder={
+              regionId === "" ? "시/군을 먼저 선택" : "리 이름을 입력하세요 (예: 구암리)"
+            }
+            autoComplete="off"
+            required
+            aria-describedby={
+              districtQuery !== "" && bjdCode === "" ? `${uid}-district-hint` : undefined
+            }
+          />
+          <datalist id={`${uid}-district-list`}>
+            {districts.map((d) => (
+              <option key={d.bjd_code} value={d.name} />
+            ))}
+          </datalist>
+          {districtQuery !== "" && bjdCode === "" && (
+            <p id={`${uid}-district-hint`} className={styles.hint}>
+              목록에서 읍/면/동·리를 골라 주세요.
+            </p>
+          )}
+          <p className={styles.hint}>
+            토양 데이터를 리 단위로 가져옵니다. 읍·면 평균보다 실제 밭에 가깝습니다.
+          </p>
+        </div>
+      </fieldset>
 
-      <div className={styles.field}>
-        <label htmlFor={`${uid}-crop`}>작물</label>
-        <select id={`${uid}-crop`} value={cropId} onChange={(e) => setCropId(e.target.value)} required>
-          <option value="">선택하세요</option>
-          {crops.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <fieldset className={styles.step}>
+        <legend className={styles.stepLegend}>2단계 · 작물과 시기</legend>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-crop`}>작물</label>
+          <select id={`${uid}-crop`} value={cropId} onChange={(e) => setCropId(e.target.value)} required>
+            <option value="">선택하세요</option>
+            {crops.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <div className={styles.field}>
-        <label htmlFor={`${uid}-planting`}>파종/정식일</label>
-        <input
-          id={`${uid}-planting`}
-          type="date"
-          value={plantingDate}
-          onChange={(e) => setPlantingDate(e.target.value)}
-          required
-        />
-      </div>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-planting`}>파종/정식일</label>
+          <input
+            id={`${uid}-planting`}
+            type="date"
+            value={plantingDate}
+            onChange={(e) => setPlantingDate(e.target.value)}
+            required
+          />
+        </div>
+      </fieldset>
 
-      <div className={styles.field}>
-        <label htmlFor={`${uid}-label`}>밭 이름 (선택)</label>
-        <input
-          id={`${uid}-label`}
-          type="text"
-          maxLength={50}
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="예: 집 앞 사과밭"
-        />
-      </div>
+      <fieldset className={styles.step}>
+        <legend className={styles.stepLegend}>3단계 · 이름 붙이기</legend>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-label`}>밭 이름 (선택)</label>
+          <input
+            id={`${uid}-label`}
+            type="text"
+            maxLength={50}
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="예: 집 앞 사과밭"
+          />
+        </div>
+      </fieldset>
 
       {farm !== undefined && (
         <p className={styles.hint}>
@@ -210,7 +231,7 @@ export default function FarmForm({
 
       {error !== "" && <p className={styles.error}>{error}</p>}
 
-      <button type="submit" disabled={!ready || busy}>
+      <button type="submit" className={styles.submit} disabled={!ready || busy}>
         {busy ? "저장 중…" : submitLabel}
       </button>
       {onCancel !== undefined && (

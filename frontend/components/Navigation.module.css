@@ -1,8 +1,6 @@
+/* 데스크톱에서는 Header의 알약 내비가 대신하므로 숨긴다 — 모바일 하단 탭 전용(§9). */
 .nav {
-  display: flex;
-  background: var(--bg-main);
-  border-bottom: 2px solid var(--bg-card);
-  padding: 0 32px;
+  display: none;
 }
 
 .navItem {
@@ -34,6 +32,7 @@
    높이 계산은 globals.css의 --bottom-nav-h와 짝이다(본문 padding-bottom 예약). */
 @media (max-width: 767px) {
   .nav {
+    display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
