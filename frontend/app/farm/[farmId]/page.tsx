@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import LongTermPanel from "@/components/LongTermPanel";
 import RequireAuth from "@/components/RequireAuth";
 import ShortTermPanel from "@/components/ShortTermPanel";
 import styles from "@/components/farm.module.css";
+import { completeQuest } from "@/lib/quest";
+import { QUEST } from "@/types/quest";
 
 /** 장기(시즌 커리큘럼·예방) / 단기(당일~3일 대응) 분리 제공 — PRD.md §4.4~4.5. */
 const TABS = [
@@ -21,6 +23,12 @@ export function FarmDetail({ farmId }: { farmId: number }) {
   // 단기를 먼저 보여준다 — "오늘 뭘 해야 하나"가 매일 접속하는 이유다.
   const [tab, setTab] = useState<TabKey>("short");
   const active = TABS.find((t) => t.key === tab) ?? TABS[0];
+
+  // 데일리 퀘스트(PRD §14.5). 첫 렌더의 기본 탭(단기)도 "본 것"이라 onClick이 아니라 여기서 쏜다.
+  // 멱등이라 탭을 오갈 때 중복 호출돼도 경험치는 하루 한 번이다.
+  useEffect(() => {
+    void completeQuest(tab === "short" ? QUEST.viewShort : QUEST.viewLong);
+  }, [tab]);
 
   return (
     <>
