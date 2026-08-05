@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CheckSquare, CircleSlash, History, NotebookPen, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
+import { CalendarCheck, CheckSquare, CircleSlash, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -53,7 +53,8 @@ function QuestCard() {
       : Math.min(100, Math.round((progress.exp_into_level / progress.exp_per_level) * 100));
 
   return (
-    <Card span={5}>
+    // 행동기록·최근기록 칸을 지우면서 남은 폭을 받는다 — 이 카드(7) + 밭 추가 등록(5) = 12열.
+    <Card span={7}>
       <CardHeader
         icon={<CalendarCheck size={17} />}
         title="오늘의 할 일"
@@ -238,19 +239,14 @@ function DashboardBody() {
           <FarmCard key={card.farm_id} card={card} span={i % 2 === 0 ? 7 : 5} />
         ))}
 
-        {/* 오늘의 할 일 = 데일리 퀘스트(PRD §14.5, docs/quest-pet-api.md). 나머지는 §12-1 칸만. */}
+        {/* 오늘의 할 일 = 데일리 퀘스트(PRD §14.5, docs/quest-pet-api.md).
+            행동기록·최근기록 "준비 중" 칸은 제거했다 — 행동기록은 유저가 직접 입력해야 하는데
+            그 화면을 만들 계획이 없어 영원히 빈 칸으로 남는다. 같은 약속을 화면마다 반복하고
+            지키지 않는 것이 "아직 준비 중"이라는 정직한 표기보다 나쁘다. */}
         <QuestCard />
-        <Card span={4}>
-          <CardHeader icon={<NotebookPen size={17} />} title="행동 기록" tag="준비 중" />
-          <EmptyState
-            icon={<NotebookPen size={26} />}
-            title="아직 준비 중인 기능이에요"
-            hint="관수·적과 같은 행동을 기록하는 기능이 들어올 예정입니다."
-          />
-        </Card>
 
-        {/* comUI .addfield — dashed 큰 카드. */}
-        <Link href="/onboarding" className={`sp3 ${styles.addField}`}>
+        {/* comUI .addfield — dashed 큰 카드. 위 칸 제거로 남은 폭을 받아 sp5가 됐다(7+5=12). */}
+        <Link href="/onboarding" className={`sp5 ${styles.addField}`}>
           <span>
             <span className={styles.addPlus} aria-hidden="true">
               <Plus size={26} />
@@ -259,15 +255,6 @@ function DashboardBody() {
             <small>지역과 작물을 골라 등록합니다</small>
           </span>
         </Link>
-
-        <Card span={5}>
-          <CardHeader icon={<History size={17} />} title="최근 기록" tag="준비 중" />
-          <EmptyState
-            icon={<History size={26} />}
-            title="아직 준비 중인 기능이에요"
-            hint="밭에서 감지된 변화와 기록 이력이 시간순으로 쌓일 예정입니다."
-          />
-        </Card>
 
         {/* comUI "이 화면의 근거" 카드. 밭마다 한계가 다르다(예: 어떤 밭만 유기물이 채점 안 됨).
             하나로 합쳐 보여주면 그 사실이 어느 밭 얘기인지 사라져 다른 밭에도 적용되는 것처럼

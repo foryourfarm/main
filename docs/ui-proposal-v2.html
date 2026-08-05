@@ -442,8 +442,8 @@
     (<strong>이삭 골드 #F59E0B</strong>, 등급색 4종)을 그대로 씁니다.
   </p>
   <p class="deckLead" style="margin-top:10px">
-    <strong style="color:var(--primary)">3번 캐릭터만 코드에 적용됐습니다</strong>(로컬, 미커밋).
-    나머지 1·2·4·5·6·7 항목은 <strong>아직 제안 상태</strong>라 "현재" 칸이 곧 지금 화면입니다.
+    <strong style="color:var(--primary)">2번(기록 탭 삭제)·3번(캐릭터)은 코드에 적용됐습니다.</strong>
+    나머지 1·4·5·6·7 항목은 <strong>아직 제안 상태</strong>라 "현재" 칸이 곧 지금 화면입니다.
   </p>
   <div class="revised">
     <b>v1에서 바뀐 것</b>
@@ -466,8 +466,9 @@
       <li>도넛 가운데는 지금 <b>숫자 + "적합도" 라벨 2줄</b>입니다(숫자 하나가 아님) — <code>Gauge.tsx:46-49</code></li>
       <li>날짜 카드 점수는 <b>20px</b>입니다(34px 아님) — <code>farm.module.css:526</code></li>
       <li>단기 탭은 세로 스택이 아니라 <b>예보(sp7) + 위험(sp5) 2열 bento</b>입니다. "위험이 아래"는 <b>모바일에서만</b> 맞습니다</li>
-      <li>대화 목록은 이미 FE에 있습니다 — 챗봇 안 <b>드롭다운 + 새 대화/삭제</b>(<code>ChatPanel.tsx:268-314</code>). 2번은 신규가 아니라 <b>이사</b>입니다</li>
-      <li>"준비 중" 카드는 1개가 아니라 <b>3개</b>입니다(기록 페이지 1 + 대시보드 2)</li>
+      <li>대화 목록은 이미 FE에 있습니다 — 챗봇 안 <b>드롭다운 + 새 대화/삭제</b>(<code>ChatPanel.tsx:268-314</code>). 2번은 신규가 아니라 <b>이사</b>였고, 그래서 결국 <b>이사도 안 하고 지웠습니다</b></li>
+      <li>"준비 중" 카드는 1개가 아니라 <b>3개</b>였습니다(기록 페이지 1 + 대시보드 2) → <b>전부 삭제됨</b></li>
+      <li>기록 탭은 <b>나브에 이미 없었습니다</b> — 상담으로 교체된 뒤 <code>/history</code>만 링크 없는 고아로 남아 있었습니다</li>
       <li>캐릭터 자산은 없지만 <b>교체 지점은 이미 있었습니다</b>(<code>lib/pet.ts</code> PET_IMAGE) — 다만 <b>펫 코드</b>로 키가 걸려 있어 <b>단계별</b> 그림에는 키를 바꿔야 했습니다 → <b>STAGE_IMAGE로 교체 완료</b></li>
       <li>3번의 제비 그림은 이제 <b>실제 앱 자산</b>입니다(<code>frontend/public/assets/pet/*.png</code>) — 임시 SVG를 걷어냈습니다</li>
     </ul>
@@ -477,7 +478,7 @@
 <nav class="jump" aria-label="항목 바로가기">
   <div class="jumpInner">
     <a class="chip" href="#i1"><i>1</i> 대시보드</a>
-    <a class="chip" href="#i2"><i>2</i> 대화 기록</a>
+    <a class="chip" href="#i2"><i>2</i> 기록 탭 삭제</a>
     <a class="chip" href="#i3"><i>3</i> 캐릭터</a>
     <a class="chip" href="#i4"><i>4</i> 밭 상세</a>
     <a class="chip" href="#i5"><i>5</i> 시간별 날씨</a>
@@ -568,22 +569,24 @@
 <!-- ── 2 ── -->
 <section class="item" id="i2">
   <div class="itemHead"><span class="badgeNo">2</span>
-    <h2>기록 탭 — 행동기록을 빼고 챗봇 대화로</h2></div>
+    <h2>기록 탭 — 통째로 삭제 <span style="font-size:.62em;color:var(--primary);vertical-align:3px">✅ 코드 적용됨</span></h2></div>
   <p class="why">
-    지금 기록 탭은 <strong>"준비 중"</strong> 빈 카드입니다. 행동기록은 유저가 직접 입력해야 하는데 그 화면이
-    없어 영원히 빈 채로 남습니다. 대신 <strong>이미 쌓이고 있는</strong> 챗봇 대화를 올립니다 —
-    <code>GET /chat/sessions</code>가 있고, <strong>FE 함수까지 이미 있습니다</strong>.
+    <strong style="color:var(--primary)">결론: 대화 기록으로 바꾸지 않고 탭을 지웠습니다.</strong>
+    행동기록은 유저가 직접 입력해야 하는데 그 화면을 만들 계획이 없어 영원히 빈 칸으로 남는 자리였습니다.
+    <strong>같은 약속을 화면마다 반복하고 지키지 않는 것이 "아직 준비 중"이라는 정직한 표기보다 나쁩니다.</strong>
+    아래 "대화 기록으로 대체" 안은 검토했지만 <strong>만들지 않았습니다</strong> — 대화 전환은 이미
+    챗봇 안 드롭다운이 하고 있어서 새 화면이 벌어주는 것이 없었습니다.
   </p>
   <p class="src">
-    <b>dev 실측</b> — <code>app/history/page.tsx</code> (h1 "행동 기록" + "기록 타임라인" 준비 중 카드) ·
-    대시보드에도 준비 중 카드가 <b>2개 더</b> 있음(<code>page.tsx:243-250</code> 행동 기록,
+    <b>삭제 전(dev 394fc81)</b> — <code>app/history/page.tsx</code> (h1 "행동 기록" + "기록 타임라인" 준비 중 카드) ·
+    대시보드에도 준비 중 카드가 <b>2개 더</b> 있었음(<code>page.tsx:243-250</code> 행동 기록,
     <code>:263-270</code> 최근 기록) ·
     대화 목록은 <b>이미 챗봇 안에 있음</b> — <code>ChatPanel.tsx:268-314</code>의 select + "+ 새 대화" + "삭제",
     <code>lib/chat.ts</code>의 <code>fetchChatSessions / switchChatSession / deleteChatSession</code>.
   </p>
   <div class="compare">
     <div class="pane">
-      <span class="paneTag tagNow">현재 ① 기록 페이지</span>
+      <span class="paneTag tagNow">삭제 전 ① 기록 페이지 (/history — 이제 404)</span>
       <div class="screen dim">
         <h3 class="pageH1">행동 기록</h3>
         <p class="pageSub">밭에서 한 일과 시스템이 감지한 변화를 시간순으로 모아 보는 공간입니다.</p>
@@ -597,7 +600,7 @@
           </div>
         </div>
       </div>
-      <span class="paneTag tagNow" style="margin-top:6px">현재 ② 챗봇 안 대화 전환</span>
+      <span class="paneTag tagNow" style="margin-top:6px">현재 ② 챗봇 안 대화 전환 — 그대로 유지</span>
       <div class="screen dim">
         <div class="card">
           <div class="sessionBar">
@@ -614,7 +617,7 @@
       </div>
     </div>
     <div class="pane">
-      <span class="paneTag tagNew">제안 — 같은 데이터를 기록 탭으로</span>
+      <span class="paneTag tagNew" style="color:var(--muted)">검토했지만 만들지 않음 — 대화 기록 화면</span>
       <div class="screen">
         <div class="card">
           <div class="cardHead"><svg class="ico"><use href="#i-chat"/></svg> 텃밭이와 나눈 이야기 <span class="tag">12개</span></div>
@@ -640,16 +643,21 @@
     </div>
   </div>
   <ul class="noteList">
-    <li>제목은 <b>그 대화의 첫 질문</b>을 자른 것 — 서버가 이미 <code>title</code>로 돌려줍니다</li>
-    <li>줄을 누르면 <b>그 대화가 이어진 채로</b> 챗봇이 열립니다 — <code>ChatPanel</code>의 <code>openSession(sid)</code>이 이미 하는 일입니다(새 API·새 로직 0)</li>
-    <li class="warnNote"><b>날짜가 없습니다.</b> 화면의 "오늘 · 어제 · 8월 2일"을 그리려면
-      <code>ChatSessionSummary</code>에 <code>updated_at</code>이 필요합니다 —
-      지금 계약은 <code>session_id · title · message_count</code>뿐입니다(백엔드 1줄 추가)</li>
-    <li>탭 이름 <b>"행동 기록" → "대화 기록"</b>이 필요합니다(아래 확인 요청 2번).
-      <code>Navigation.tsx</code>·<code>history/page.tsx</code>의 h1·<code>metadata.title</code> 3곳</li>
-    <li>준비 중 카드는 <b>3개</b>입니다. 기록 페이지를 대화로 채우면 대시보드의 "행동 기록"·"최근 기록"
-      두 칸은 <b>지우는 편이 낫습니다</b> — 같은 약속을 세 번 하고 세 번 안 지키는 화면이 됩니다</li>
-    <li>챗봇 안 드롭다운은 <b>남겨둡니다</b>. 대화 중 전환은 거기가 맞는 자리고, 기록 탭은 훑어보는 자리입니다</li>
+    <li class="doneNote"><b>"준비 중" 3곳을 전부 지웠습니다</b> — <code>/history</code> 라우트(고아 페이지),
+      대시보드의 "행동 기록"(sp4)·"최근 기록"(sp5) 카드. <code>/history</code>는 이제 404입니다</li>
+    <li class="doneNote"><b>나브는 건드릴 것이 없었습니다.</b> 기록 탭은 이미 상담으로 교체돼 있었고
+      (<code>Navigation.tsx</code>: 내 밭 / 상담 / 설정) <code>/history</code>는 <b>아무 데서도 링크되지 않는
+      고아 라우트</b>였습니다 — URL을 직접 치면 나오는 빈 껍데기</li>
+    <li class="doneNote">카드 2개가 빠져 <b>벤토 열이 비었습니다</b>(12열 중 4·5 소실) →
+      "오늘의 할 일" sp5→<b>sp7</b>, "밭 추가 등록" sp3→<b>sp5</b>로 7+5=12를 맞췄습니다</li>
+    <li class="doneNote"><code>EmptyState</code>의 <b><code>badge</code> prop을 제거</b>했습니다 —
+      유일한 사용처가 <code>/history</code>였습니다. 쓰는 곳 없는 prop은 다음 사람이
+      "준비 중 칸을 또 만들어도 된다"고 읽습니다(CSS <code>.badge</code>도 함께)</li>
+    <li><b>대화 기록 화면은 만들지 않았습니다.</b> 왼쪽 ②가 이미 하고 있어서 —
+      제목·개수를 서버가 주고(<code>title</code>·<code>message_count</code>), 누르면 그 대화로 이어집니다
+      (<code>openSession(sid)</code>). 새 화면이 벌어주는 건 "훑어보기"뿐이었습니다</li>
+    <li>덕분에 <b>백엔드 추가가 없어졌습니다</b> — 목록에 날짜를 넣으려면 필요했던
+      <code>ChatSessionSummary.updated_at</code>도 불필요해졌습니다</li>
   </ul>
 </section>
 
@@ -1282,12 +1290,13 @@
         <code>PET_NAME = "텃밭이"</code> 한 줄로. 단계명은 <b>알 · 아기 제비 · 어린 제비 · 제비</b>,
         레벨 경계(1/3/6/10)는 그대로. 펫 선택(<code>PUT /api/v1/pet</code>·<code>pets</code>·<code>changePet</code>·
         <code>.petPick</code>)은 전부 삭제했습니다.</li>
-      <li><b>기록 탭 이름 = "텃밭이와 나눈 이야기"</b> ✅ 결정 — 화면 구현은 아직입니다(위 2번).
-        같이 할 일: 대시보드의 준비 중 카드 2개 삭제.</li>
+      <li><b>기록 탭 = 삭제</b> ✅ <b>구현 완료</b> — 이름을 "텃밭이와 나눈 이야기"로 바꾸는 안에서
+        <b>탭 자체를 없애는 쪽으로 바뀌었습니다</b>. <code>/history</code> 라우트 + 대시보드 준비 중 카드 2개
+        + <code>EmptyState.badge</code>까지 제거. 대화 전환은 챗봇 안 드롭다운이 계속 맡습니다.</li>
       <li><b>5번 백엔드(SKY·PTY·POP)</b> — <span style="color:var(--warn-strong)">아직 미결정</span>.
         기온만 먼저 1시간 스트립으로 바꿀지, 아이콘까지 한 번에 갈지 결정이 필요합니다.</li>
-      <li><b>대화 목록 날짜 = 넣지 않음</b> ✅ 결정 — <code>updated_at</code> 추가 안 함.
-        "6개 메시지"만 표기합니다(위 2번 화면의 "오늘 · 어제" 자리는 빠집니다).</li>
+      <li><b>대화 목록 날짜 = 무효</b> — 대화 기록 화면을 안 만들기로 해서 질문 자체가 사라졌습니다.
+        <code>ChatSessionSummary.updated_at</code> 추가도 불필요.</li>
     </ol>
     <p style="margin:14px 0 0; font-size:15px; color:var(--muted)">
       위 그림은 <b>실제 앱 자산</b>입니다(<code>frontend/public/assets/pet/*.png</code>) —
