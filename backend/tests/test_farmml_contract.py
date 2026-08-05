@@ -14,7 +14,12 @@
        폴백한다(마이그레이션 0020이 이 값을 DB에 넣는다).
     4. FYF가 들고 있는 `outcomes/` 파일이 `VERSIONS.json` 대장과 일치한다 — 폐기된 버전의
        숫자를 서빙하던 사고(2026-08-05 감사 §P0-2)의 재발 방지 장치다.
-    5. 아직 이관되지 않은 계약 2건(성격별 경계 점수·범주형 배점표)의 상태를 고정한다.
+    5. 성격별 경계 점수(`boundary_score`)·범주형 배점표(`category_score`)가 백엔드
+       구현에서 계약과 같은 값을 내는지 대조한다(finalplan.md P5). 종전에는 이 두 계약이
+       "백엔드에 아직 없다"는 상태를 고정하는 자리였으나, P1(성격 메타 컬럼)·P2(채점 분기)·
+       P4(사과·배 배점표 시드)로 백엔드가 두 계약을 실제로 구현했으므로 값 대조로 바꿨다.
+    6. 배포 코드가 기록한 계약 버전(`app/core/contract_version.py`)이 `VERSIONS.json`
+       대장과 같다 — 어긋나면 배포 코드가 다른 계약 버전을 서빙한다는 뜻이다.
 
 의도적으로 하지 않는 것:
     이관된 `scripts/ml/scoring.py`를 임포트해 값을 직접 대조하지 않는다 — 그 모듈은
@@ -22,11 +27,13 @@
     런타임 의존성을 늘리는 대신 상수는 텍스트로 읽어 대조한다(§14 불필요한 의존성 금지).
 """
 import hashlib
+import importlib.util
 import json
 import re
 import unittest
 from pathlib import Path
 
+from app.core.contract_version import KNOWLEDGE_VERSION, SCORING_VERSION
 from app.models import CropGrowthGuide
 from app.services import suitability_service as svc
 
@@ -35,6 +42,8 @@ SHIPPED_SCORING = OUTCOMES / "scripts" / "ml" / "scoring.py"
 CROP_RULES = OUTCOMES / "memory" / "crop_rules"
 DISPERSION = OUTCOMES / "memory" / "indicator_dispersion.json"
 VERSIONS = OUTCOMES / "VERSIONS.json"
+MIGRATIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+KIND_BACKFILL_MIGRATION = MIGRATIONS / "0039_guide_boundary_kind_backfill.py"
 
 # 백엔드 상수 ↔ 이관된 scoring.py 상수. 이름이 양쪽에서 같아 텍스트 대조가 가능하다.
 CURVE_CONSTANTS = ("ALLOWED_BOUNDARY_SCORE", "OPTIMAL_EXIT_SCORE", "DECAY_CURVATURE")
@@ -66,6 +75,36 @@ def _all_bands(crop: dict):
     for group in ("temperature_guides", "precipitation_guides"):
         for rule in crop.get(group) or []:
             yield group, rule
+
+
+def _shipped_literature_limit_kind() -> str:
+    text = SHIPPED_SCORING.read_text(encoding="utf-8")
+    match = re.search(r'^LITERATURE_LIMIT_KIND\s*=\s*"([a-z_]+)"', text, re.MULTILINE)
+    assert match, "scoring.py에서 LITERATURE_LIMIT_KIND를 못 찾았다"
+    return match.group(1)
+
+
+def _shipped_allowed_kinds() -> frozenset[str]:
+    """scoring.py의 `ALLOWED_KINDS`를 텍스트로 파싱한다(pandas·numpy 의존 회피, 위 docstring §14)."""
+    text = SHIPPED_SCORING.read_text(encoding="utf-8")
+    match = re.search(r"ALLOWED_KINDS\s*=\s*frozenset\(\{(.*?)\}\)", text, re.DOTALL)
+    assert match, "scoring.py에서 ALLOWED_KINDS를 못 찾았다"
+    return frozenset(re.findall(r'"([a-z_]+)"', match.group(1)))
+
+
+def _shared_allowed_kind_enum() -> list[str]:
+    """`_shared.json`의 `allowed_kind_enum` — 뜻·경계점수의 문서 쪽 단일 소스."""
+    shared = json.loads((CROP_RULES / "_shared.json").read_text(encoding="utf-8"))
+    return shared["allowed_kind_enum"]
+
+
+def _load_kind_backfill_migration():
+    spec = importlib.util.spec_from_file_location(
+        "m0039_farmml_contract", KIND_BACKFILL_MIGRATION
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestFarmMLCurveContract(unittest.TestCase):
@@ -205,49 +244,136 @@ class TestOutcomesLedger(unittest.TestCase):
         for key in ("knowledge_version", "scoring_version"):
             self.assertRegex(ledger[key], r"^\d{4}-\d{2}-\d{2}-v\d+$", f"{key} 형식이 다르다")
 
+    def test_deployed_contract_version_matches_ledger(self):
+        """배포 코드(`app/core/contract_version.py`)가 기록한 계약 버전이 대장과 같은지.
 
-class TestUntransferredContractItems(unittest.TestCase):
-    """계약에는 있고 백엔드에는 아직 없는 2건의 상태를 고정한다.
+        어긋나면 "배포 코드가 다른 계약 버전을 서빙한다"는 뜻이다 — 그 상수는 런타임에
+        `outcomes/`를 읽지 않고 문자열 리터럴로 박혀 있어(파일이 바뀌어도 조용히 안 따라가는
+        것이 존재 이유) 사람이 갱신을 잊으면 이 테스트만이 잡는다(outcomes/README.md
+        적용 체크리스트 8번)."""
+        ledger = json.loads(VERSIONS.read_text(encoding="utf-8"))
+        self.assertEqual(KNOWLEDGE_VERSION, ledger["knowledge_version"])
+        self.assertEqual(SCORING_VERSION, ledger["scoring_version"])
 
-    이 테스트가 **실패하면** 백엔드가 해당 스키마를 갖게 된 것이다 — 그때는 채점 분기를
-    구현하고 이 테스트를 계약 검증(값 대조)으로 바꿔야 한다. 지금 상태를 방치가 아니라
-    기록으로 남기는 것이 목적이다. 근거: `outcomes/README.md` §아직 이관되지 않은 백엔드 짝 작업.
+
+class TestBoundaryScoreKindContract(unittest.TestCase):
+    """`TestUntransferredContractItems.test_boundary_kind_is_in_contract_but_not_in_schema`를
+    교체한다(finalplan.md P5). 그 테스트는 백엔드가 성격 메타 컬럼을 갖기 전 "아직 없다"는
+    상태를 고정하는 자리였다 — P1(0038/0039가 컬럼+시드 백필)·P2(`suitability_service.
+    boundary_score` 분기)로 백엔드가 계약을 구현했으므로 이제 값 대조로 바꾼다.
     """
 
-    def test_boundary_kind_is_in_contract_but_not_in_schema(self):
-        kinds = {
-            rule.get("allowed_min_kind")
-            for rules in _crop_rules().values()
-            for _, rule in _all_bands(rules)
-        } | {
-            rule.get("allowed_max_kind")
-            for rules in _crop_rules().values()
-            for _, rule in _all_bands(rules)
+    def test_backend_kind_constants_match_shipped_scoring(self):
+        self.assertEqual(svc.LITERATURE_LIMIT_KIND, _shipped_literature_limit_kind())
+        self.assertEqual(svc.ALLOWED_KINDS, _shipped_allowed_kinds())
+
+    def test_backend_kind_constants_match_shared_enum(self):
+        """`_shared.json.allowed_kind_enum`(문서 쪽 단일 소스)과 집합이 같은지 — 6개."""
+        enum = _shared_allowed_kind_enum()
+        self.assertEqual(len(enum), 6)
+        self.assertEqual(set(enum), svc.ALLOWED_KINDS)
+
+    def test_boundary_score_matches_contract_for_every_kind(self):
+        """6개 kind + None 전부를 백엔드 `boundary_score()`에 태워 계약이 규정한 값과 대조.
+
+        `literature_limit` → 0, 나머지 5개(`cultivable_range`·`literature_threshold`·
+        `derived`·`heuristic`·`not_applicable`) → 60, `None` → 60(2026-08-04 사용자 결정).
+        """
+        shipped_kinds = _shipped_allowed_kinds()
+        limit_kind = _shipped_literature_limit_kind()
+        self.assertEqual(len(shipped_kinds), 6)
+        for kind in shipped_kinds:
+            expected = 0.0 if kind == limit_kind else 60.0
+            with self.subTest(kind=kind):
+                self.assertEqual(svc.boundary_score(kind), expected)
+        self.assertEqual(svc.boundary_score(None), 60.0)
+
+    def test_unknown_kind_raises_value_error(self):
+        """오타 방어 — 계약과 백엔드 둘 다 모르는 kind에 조용히 60점을 주면 안 된다."""
+        with self.assertRaises(ValueError):
+            svc.boundary_score("typo_kind")
+
+    def test_literature_limit_targets_match_migration_0039_seed(self):
+        """계약이 지목하는 대상(오이 기온 하/상, 상추 spring·fall 기온 하/상, 감자 early·tuber
+        기온 상한만 — 총 8건)이 실제 DB 시드(0039)와 일치하는지 대조한다. 🔴 사과 기온 3행은
+        이 집합에 없어야 한다 — 있으면 사과 적지등급 0점 지역이 93 → 121로 늘어난다
+        (outcomes/README.md §2026-08-04 채점 구조 변경 §1, 실측 기록)."""
+        backfill = _load_kind_backfill_migration()
+        limit_locations = set()
+        for crop_id, indicator, _cultivation_type, amink, amaxk, _method in backfill.SOIL_ROWS:
+            if amink == "literature_limit":
+                limit_locations.add((crop_id, indicator, "min"))
+            if amaxk == "literature_limit":
+                limit_locations.add((crop_id, indicator, "max"))
+        for crop_id, stage, _cultivation_type, amink, amaxk in backfill.TEMP_ROWS:
+            if amink == "literature_limit":
+                limit_locations.add((crop_id, stage, "min"))
+            if amaxk == "literature_limit":
+                limit_locations.add((crop_id, stage, "max"))
+        expected = {
+            (3, "growing", "min"), (3, "growing", "max"),  # 오이 기온 하한·상한
+            (5, "spring", "min"), (5, "spring", "max"),  # 상추 spring 기온 하한·상한
+            (5, "fall", "min"), (5, "fall", "max"),  # 상추 fall 기온 하한·상한
+            (4, "early", "max"),  # 감자 early 기온 상한
+            (4, "tuber", "max"),  # 감자 tuber 기온 상한
         }
-        self.assertIn(
-            "literature_limit", kinds,
-            "계약에서 literature_limit 성격이 사라졌다 — 그렇다면 이 테스트도 필요 없다",
-        )
-        self.assertFalse(
-            hasattr(CropGrowthGuide, "allowed_min_kind"),
-            "백엔드가 경계 성격 컬럼을 갖게 됐다 — scoring.boundary_score(kind) 분기를 "
-            "구현하고(literature_limit이면 허용경계에서 60이 아니라 0점) 이 테스트를 값 대조로 바꿔라",
+        self.assertEqual(limit_locations, expected)
+        self.assertEqual(len(limit_locations), 8)
+        self.assertEqual(
+            {loc for loc in limit_locations if loc[0] == 1}, set(),
+            "사과(crop_id=1) 행이 literature_limit을 가지면 안 된다",
         )
 
-    def test_category_scoring_is_in_contract_but_not_in_schema(self):
-        categorical = [
-            (crop, indicator)
-            for crop, rules in _crop_rules().items()
-            for indicator, rule in _all_bands(rules)
-            if "code_scores" in rule
-        ]
-        self.assertTrue(categorical, "계약에서 범주형 배점표가 사라졌다 — 이 테스트도 불필요")
-        self.assertFalse(
-            hasattr(CropGrowthGuide, "code_scores"),
-            f"백엔드가 범주형 배점표 컬럼을 갖게 됐다({categorical}) — "
-            "scoring.category_score 분기를 구현하고(등급코드는 band_score에 넘기면 없는 "
-            "순위를 가정한다) 이 테스트를 값 대조로 바꿔라",
-        )
+
+class TestCategoryScoreFunctionContract(unittest.TestCase):
+    """`TestUntransferredContractItems.test_category_scoring_is_in_contract_but_not_in_schema`를
+    교체한다(finalplan.md P5) — P4가 사과·배 `subsoil_texture` 배점표 시드(0041)를 넣었으므로
+    이제 값 대조로 바꾼다.
+
+    중복 분리: `tests/test_guide_outcomes_contract.py::TestSubsoilTextureCategoryScoreContract`가
+    이미 "마이그레이션 0041 상수 == 계약 JSON"을 키·값 전수로 검증한다(대조 대상이 다르다).
+    여기서는 그 비교를 반복하지 않고 "백엔드 `category_score()` 함수가 계약 JSON을 받았을 때
+    계약이 말하는 값을 그대로 내는가"만 담당한다 — 두 테스트를 합치면
+    `category_score(migration_상수) == 계약`과 `category_score(계약) == 계약`이 이행적으로
+    `migration_상수 == 계약`도 함께 보장한다.
+    """
+
+    def _code_scores(self, filename: str) -> dict[str, float | None]:
+        rules = _crop_rules()[Path(filename).stem]
+        return rules["physical_overrides"]["subsoil_texture"]["code_scores"]
+
+    def test_apple_and_pear_every_code_is_scored_by_backend_function(self):
+        checked = 0
+        for filename in ("apple.json", "pear.json"):
+            code_scores = self._code_scores(filename)
+            for code, expected in code_scores.items():
+                with self.subTest(crop=filename, code=code):
+                    got = svc.category_score(int(code), code_scores)
+                    if expected is None:
+                        self.assertIsNone(got)
+                    else:
+                        self.assertEqual(got, float(expected))
+                checked += 1
+        self.assertEqual(checked, 14, "사과·배 7키씩 총 14건을 기대했다")
+
+    def test_apple_and_pear_ranks_are_pinned_and_inverted(self):
+        """사과 코드2(사양질)=100/배=75, 사과 코드5(미사식양질)=50/배=100 — 국가 배점표의
+        작물별 순위 역전을 값으로 못박는다."""
+        apple = self._code_scores("apple.json")
+        pear = self._code_scores("pear.json")
+        self.assertEqual(svc.category_score(2, apple), 100.0)
+        self.assertEqual(svc.category_score(2, pear), 75.0)
+        self.assertEqual(svc.category_score(5, apple), 50.0)
+        self.assertEqual(svc.category_score(5, pear), 100.0)
+
+    def test_code_99_and_unlisted_code_are_excluded_not_zero(self):
+        """`99`(기타)와 표에 없는 코드는 채점 제외(`None`)다 — 0점으로 메우면 판정불가가
+        부적합으로 조용히 바뀐다."""
+        apple = self._code_scores("apple.json")
+        pear = self._code_scores("pear.json")
+        for code_scores in (apple, pear):
+            self.assertIsNone(svc.category_score(99, code_scores))
+            self.assertIsNone(svc.category_score(7, code_scores))  # codebook에도 없는 코드
 
 
 if __name__ == "__main__":
