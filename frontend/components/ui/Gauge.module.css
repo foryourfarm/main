@@ -44,3 +44,31 @@
   letter-spacing: 0.06em;
   margin-top: 2px;
 }
+
+/* ── 가운데가 등급일 때 ─────────────────────────────────────
+   크기는 게이지 지름(--size)에 비례시킨다. 대시보드 96px·월별 88px·날짜 72px로
+   호출부마다 다른데 px로 고정하면 작은 게이지에서 글자가 원호를 넘는다. */
+.gradeLetter {
+  font-size: 0.36em;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* 하한을 두는 이유: 40~50대가 주 사용자라 비례만 따르면 작은 게이지에서 못 읽는다(§7-8 가독성). */
+.gradeWord {
+  font-size: max(12px, 0.135em);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+/* 등급이 없는 칸의 사유("제철 아님"). 등급 자리를 비워두지 않되 값처럼 보이지도 않게 한다. */
+.reason {
+  font-size: max(12px, 0.125em);
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.25;
+  padding: 0 6px;
+}

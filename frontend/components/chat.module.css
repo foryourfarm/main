@@ -26,6 +26,17 @@
   font-size: 32px;
   line-height: 1;
 }
+/* 일러스트가 없는 단계 코드의 글자 폴백. 32px(이모지용 크기)로 두면 단계 이름이 헤더를
+   밀어낸다 — 시안의 펫 자리 글자 크기(15px)로 맞춘다. */
+.avatarText {
+  display: block;
+  width: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 30px;
+  text-align: center;
+  color: var(--primary);
+}
 /* 펫 일러스트 아바타. 원본이 5:3(320x192)이라 프레임도 5:3으로 둔다 — 정사각·원형으로 자르면
    날개 편 단계가 잘리거나 위아래 여백만 커진다. 모르는 단계 코드는 emoji가 .avatar로 나온다. */
 .avatarImg {
@@ -69,6 +80,10 @@
   background: var(--bg);
 }
 .farmPicker label {
+  /* 아이콘 + 글자를 담으므로 flex다 — 이모지였을 때는 글자 하나여서 필요 없었다. */
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: none;
   opacity: 0.85;
 }
@@ -168,7 +183,7 @@
   align-items: center;
   gap: 8px;
 }
-/* 완료 표시는 ✅ 아이콘 + "완료" 라벨이 하고, 흐림 처리는 거들 뿐이다(색만으로 구분 금지, §8). */
+/* 완료 표시는 체크 아이콘 + "완료" 라벨이 하고, 흐림 처리는 거들 뿐이다(색만으로 구분 금지, §8). */
 .questDone {
   opacity: 0.6;
 }

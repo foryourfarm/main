@@ -304,3 +304,57 @@
 .questLabel {
   flex: 1;
 }
+
+/* ── 챗봇과 나눈 이야기 (시안 v2 ②) ───────────────────────────────
+   시안 .thread 사양: 최소 높이 68px, 제목 한 줄 말줄임, 오른쪽에 "이어서 →".
+   목록이라 ul/li로 두고, 항목마다 목적지가 다르므로 링크가 눌린다. */
+.threadList {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.thread {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  /* 48px이 아니라 68px — 두 줄(제목 + 메타)이 들어가는 목록 항목이다(시안 사양). */
+  min-height: 68px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-md, 18px);
+  background: var(--surface-2);
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+.thread:hover,
+.thread:focus-visible {
+  border-color: var(--primary);
+}
+.threadBody {
+  flex: 1;
+  min-width: 0;
+}
+/* 제목은 첫 질문을 자른 것이라 길다 — 한 줄로 자르고 전체는 대화를 열어 본다. */
+.threadTitle {
+  display: block;
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.threadMeta {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+}
+.threadGo {
+  flex: none;
+  color: var(--primary);
+  font-weight: 800;
+  font-size: 15px;
+}

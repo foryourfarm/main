@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -65,7 +66,8 @@ export default function Modal({
           onClick={close}
           aria-label="닫기"
         >
-          ✕
+          {/* 문자 기호가 아니라 아이콘 — 이모지·기호는 폰트에 따라 크기·굵기가 흔들린다. */}
+          <X size={18} aria-hidden />
         </button>
         {children}
       </div>

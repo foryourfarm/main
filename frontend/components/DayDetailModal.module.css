@@ -81,9 +81,67 @@
 
 .sectionTitle {
   margin: 20px 0 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
+}
+
+/* 점수 근거표 — 접은 것이 기본. 펼치는 자리라 손가락으로 누를 수 있어야 한다(§9 44px). */
+.fold {
+  margin-top: 20px;
+  border: 1.5px solid var(--card);
+  border-radius: 14px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.fold > summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+
+.fold[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+.fold > summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.foldHint {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fold .tableScroll {
+  padding: 0 14px 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold > summary::after {
+    transition: none;
+  }
 }
 
 .risks {

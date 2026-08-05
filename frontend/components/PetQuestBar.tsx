@@ -1,3 +1,4 @@
+import { CheckSquare, Square } from "lucide-react";
 import Image from "next/image";
 
 import { petImage } from "@/lib/pet";
@@ -25,11 +26,12 @@ export default function PetQuestBar({ progress }: { progress: QuestProgress }) {
     <details className={styles.questBox}>
       <summary className={styles.questSummary}>
         <span aria-hidden>
-          {/* 단계 일러스트가 없는 코드(서버가 단계를 추가한 경우)는 서버 emoji로 떨어진다. */}
+          {/* 단계 일러스트가 없는 코드(서버가 단계를 추가한 경우)는 단계 이름 글자로 떨어진다
+              — 이모지는 시안 v2에서 전면 제거했다. */}
           {image !== null ? (
             <Image src={image} alt="" width={30} height={18} className={styles.questPetIcon} />
           ) : (
-            pet.emoji
+            pet.stage_label
           )}
         </span>
         <span>
@@ -56,7 +58,12 @@ export default function PetQuestBar({ progress }: { progress: QuestProgress }) {
       <ul className={styles.questList}>
         {quests.map((q) => (
           <li key={q.code} className={q.is_done ? styles.questDone : undefined}>
-            <span aria-hidden>{q.is_done ? "✅" : "⬜"}</span>
+            {/* 이모지 대신 아이콘 — 시안 v2가 이모지를 전면 제거했고, 이모지는 OS·폰트마다
+                모양이 달라 "완료"라는 신호가 기기별로 흔들린다. 옆의 "완료"·"+N" 라벨이
+                실제 정보원이라 아이콘은 aria-hidden으로 둔다(§8 색·기호만으로 구분 금지). */}
+            <span aria-hidden>
+              {q.is_done ? <CheckSquare size={16} /> : <Square size={16} />}
+            </span>
             <span>{q.label}</span>
             <span className={styles.questExp}>{q.is_done ? "완료" : `+${q.exp}`}</span>
           </li>

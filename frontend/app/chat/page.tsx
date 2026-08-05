@@ -6,11 +6,17 @@ import { Suspense } from "react";
 import ChatPanel from "@/components/ChatPanel";
 import RequireAuth from "@/components/RequireAuth";
 
-/** 밭 기준 답변: /farm/[farmId]에서 "이 밭 상담하기"로 들어오면 farmId가 붙는다. */
-function ChatWithFarmParam() {
-  const raw = Number(useSearchParams().get("farmId"));
+/**
+ * 밭 기준 답변: /farm/[farmId]에서 "이 밭 상담하기"로 들어오면 farmId가 붙는다.
+ * 지난 대화 이어가기: 대시보드 "챗봇과 나눈 이야기"에서 오면 session이 붙는다.
+ */
+function ChatWithParams() {
+  const params = useSearchParams();
+  const raw = Number(params.get("farmId"));
   const farmId = Number.isInteger(raw) && raw > 0 ? raw : undefined;
-  return <ChatPanel initialFarmId={farmId} />;
+  // 빈 문자열(`?session=`)은 세션 지정이 아니다 — undefined로 떨어뜨려 기본 스레드를 쓴다.
+  const session = params.get("session")?.trim() || undefined;
+  return <ChatPanel initialFarmId={farmId} initialSessionId={session} />;
 }
 
 // useSearchParams는 프리렌더 시 Suspense 경계를 요구한다(Next 16 use-search-params 문서).
@@ -23,7 +29,7 @@ export default function ChatPage() {
   return (
     <RequireAuth>
       <Suspense>
-        <ChatWithFarmParam />
+        <ChatWithParams />
       </Suspense>
     </RequireAuth>
   );

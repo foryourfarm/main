@@ -5,115 +5,126 @@
   margin: 0;
 }
 
-.svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
 .empty {
   margin: 0;
   padding: 16px 0;
   color: var(--muted, #7a746f);
-  font-size: 14px;
+  font-size: 15px;
 }
 
-/* ── 채점 밴드 ─────────────────────────────────────────── */
-.bandAllowed {
-  fill: var(--warn, #9a6b1e);
-  opacity: 0.1;
+/* ── 1시간 칸 스트립 ──────────────────────────────────────
+   24칸이 화면에 다 안 들어가므로 가로로 넘겨 본다. 칸 폭을 고정해야 각 칸이
+   읽을 수 있는 크기를 유지한다(폭을 나눠 가지면 24등분되어 글자가 뭉개진다). */
+.strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 58px;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  padding: 6px 2px 10px;
+  background: var(--surface-2, #f3edde);
+  border: 1px solid var(--card, #e8e6e1);
+  border-radius: 14px;
 }
 
-.bandOptimal {
-  fill: var(--good, #2d5016);
-  opacity: 0.14;
+.strip:focus-visible {
+  outline: 2px solid var(--primary, #2d5016);
+  outline-offset: 2px;
 }
 
-/* 표본이 없는 시간대. 사선 대신 옅은 회색 — 초보자에게 "여긴 데이터가 없다"가 읽혀야 한다 */
-.gap {
-  fill: var(--muted, #7a746f);
-  opacity: 0.12;
+.hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  scroll-snap-align: start;
+  padding: 6px 0 4px;
+  border-radius: 10px;
 }
 
-/* ── 곡선 ─────────────────────────────────────────────── */
-.line {
-  fill: none;
-  stroke: var(--text, #4a4643);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.dot {
-  fill: var(--text, #4a4643);
-  opacity: 0.55;
-}
-
+/* 가장 더운 시각 — 작업을 피해야 하는 시간대라 눈에 걸려야 한다. 색만 쓰지 않고
+   캡션이 "N시가 가장 덥습니다"로 같은 사실을 글자로 말한다(§8). */
 .peak {
-  fill: var(--bad, #c54245);
+  background: var(--warn-wash, #fdf8ef);
+  outline: 1.5px solid var(--warn, #c2410c);
 }
 
-.trough {
-  fill: var(--primary, #2d5016);
+.temp {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
-/* 점수 근거선. 파선으로 곡선과 구분한다 — 실선이 둘이면 뭐가 데이터인지 헷갈린다 */
-.avgLine {
-  stroke: var(--muted, #7a746f);
-  stroke-width: 1.5;
-  stroke-dasharray: 6 4;
+.peak .temp {
+  color: var(--warn-strong, #e8590c);
 }
 
-/* ── 텍스트 ───────────────────────────────────────────── */
-.peakLabel,
-.troughLabel,
-.avgLabel {
-  font-size: 11px;
-  font-weight: 600;
-  fill: var(--text, #4a4643);
+/* 막대 — 곡선을 대신해 하루의 흐름을 보여준다. 값은 위 숫자가 이미 말하므로 장식에 가깝다. */
+.barTrack {
+  width: 8px;
+  height: 46px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 999px;
+  background: var(--card, #e8e6e1);
+  overflow: hidden;
 }
 
-.peakLabel {
-  fill: var(--bad, #c54245);
-  text-anchor: middle;
+.bar {
+  width: 100%;
+  border-radius: 999px;
+  background: var(--primary, #2d5016);
+  transition: height 0.4s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
-.troughLabel {
-  fill: var(--primary, #2d5016);
-  text-anchor: middle;
+.peak .bar {
+  background: var(--warn-strong, #e8590c);
 }
 
-.avgLabel {
-  fill: var(--muted, #7a746f);
-  text-anchor: end;
-  font-weight: 500;
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
 }
 
-.axis,
-.axisX {
-  font-size: 10px;
-  fill: var(--muted, #7a746f);
+.time {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted, #7a746f);
+  font-variant-numeric: tabular-nums;
 }
 
-.axisX {
-  text-anchor: middle;
+.peak .time {
+  color: var(--warn-strong, #e8590c);
 }
 
 .caption {
-  margin-top: 4px;
-  font-size: 13px;
+  margin-top: 8px;
+  font-size: 15px;
   color: var(--muted, #7a746f);
+  line-height: 1.5;
+}
+
+.peakNote {
+  color: var(--warn-strong, #e8590c);
 }
 
 /* ── 접근성용 표 ──────────────────────────────────────── */
 .tableWrap {
-  margin-top: 10px;
-  font-size: 13px;
+  margin-top: 12px;
+  font-size: 15px;
 }
 
 .tableWrap > summary {
   cursor: pointer;
   color: var(--muted, #7a746f);
+  /* 손가락으로 누르는 자리라 44px 이상 확보(§9). */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .tableWrap > summary:focus-visible {
@@ -133,14 +144,14 @@
 
 .table th,
 .table td {
-  padding: 3px 8px;
+  padding: 5px 8px;
   text-align: left;
   border-bottom: 1px solid var(--card, #e8e6e1);
   font-weight: 400;
 }
 
 .table thead th {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--muted, #7a746f);
 }
 
