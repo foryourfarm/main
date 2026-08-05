@@ -1,4 +1,6 @@
 {
+  "knowledge_version": "2026-08-05-v6",
+  "knowledge_version_note": "_shared.json의 실값을 복사한 것이다. 이 파일 단독으로 이관·인용될 때 어느 개정의 밴드인지 파일 안에서 알 수 있어야 한다(CLAUDE.md §6). export_outcomes.py --check가 대장(outcomes/VERSIONS.json)과 함께 검증한다.",
   "crop_code": "07001",
   "name": "상추",
   "temperature_guides": [
