@@ -79,7 +79,6 @@ foryourfarm/
 ├── README.md
 ├── docs/
 │   └── seed/            # 생육 지침 시드 (작물별 JSON/YAML)
-├── outcomes/            # FarmML에서 자동 미러되는 읽기 전용 이관물 (§5.1) — 직접 편집 금지
 ├── frontend/            # Next.js (App Router)
 │   ├── app/
 │   ├── components/
@@ -101,15 +100,6 @@ foryourfarm/
         ├── services/    # 유스케이스, 룰 엔진(적합도·토양변화)
         └── infra/       # 공공 API 클라이언트, LLM 클라이언트, 스케줄러
 ```
-
-### 5.1 `outcomes/` — FarmML 이관물 경계
-
-`outcomes/`는 자매 저장소 [FarmML](../FarmML)이 내보낸 **읽기 전용 산출물**이다. 워크스페이스 스크립트(`../scripts/sync_outcomes.py`)가 `FarmML/outcomes`를 여기로 **완전 미러**한다. 전체 규칙은 `../CLAUDE.md` §2–3.
-
-- ❌ `outcomes/` 안의 파일을 이 저장소에서 직접 편집하지 않는다. 다음 미러에서 덮어써진다. 값을 바꿔야 하면 FarmML 쪽에서 고친다.
-- ❌ FarmML의 `data/`, `docs/`, `scripts/`, `memory/` 등 `outcomes/` **밖의 경로를 참조·복사하지 않는다.**
-- ✅ 서비스 코드가 이관물을 쓸 때는 `outcomes/` 안의 경로만 읽는다. 계약과 버전(`model_version`/`knowledge_version`)은 `outcomes/README.md`를 따른다.
-- 미러는 커밋하지 않는다 — 워킹트리에 변경이 뜨면 `git diff outcomes`로 확인하고 사람이 커밋한다.
 
 ---
 

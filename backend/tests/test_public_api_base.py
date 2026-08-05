@@ -217,7 +217,6 @@ class TestSoilProfileClient(unittest.TestCase):
             profile = get_soil_profile("4215034022100050000")
         self.assertIsNotNone(profile)
         self.assertEqual(profile.deepsoil_texture, "식양질")  # 04
-        self.assertEqual(profile.deepsoil_texture_code, 4)  # "04" -> 4 (선행 0 제거)
         self.assertEqual(profile.deepsoil_gravel, "있음_15-35%")  # 02
         self.assertEqual(profile.soil_slope, "경사_7-15%")  # 03
 

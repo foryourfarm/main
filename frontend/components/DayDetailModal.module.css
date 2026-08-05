@@ -133,15 +133,6 @@
   color: var(--muted);
 }
 
-/* 「기준 초과·참고」 강등 표기. 점수 옆이지만 줄을 바꿔 문헌 기반 점수 텍스트와
-   같은 자리에 두지 않는다(P6, outcomes/README.md 체크리스트 12번). */
-.tierNote {
-  display: block;
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--warn);
-}
-
 @media (min-width: 640px) {
   .metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));

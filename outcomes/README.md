@@ -1,8 +1,8 @@
 # 5작물 채점 이관 계약
 
-2026-08-05 갱신(`knowledge_version` **2026-08-05-v6** / `scoring_version` **2026-08-05-v6**). ForYourFarm에 전달할 5작물(사과·배·상추·감자·오이) **채점 규칙과 곡선 계약**이다. 2026-08-05 지역 점수 트랙 폐기로 산출 CSV·생성기·검증 산출물은 빠졌다(§이관 패키지 구성) — 채점은 ForYourFarm이 API 데이터로 한 곳에서만 한다.
+2026-08-04 갱신(`knowledge_version` **2026-08-04-v5** / `scoring_version` **2026-08-04-v5**). ForYourFarm에 전달할 5작물(사과·배·상추·감자·오이) 채점 규칙, 실행 코드, 검증 산출물의 복사본이다.
 
-🔴 이 헤더는 `memory/crop_rules/_shared.json`의 실값을 따라야 한다 — 2026-08-04까지 `2026-08-03-v4`/`v3`으로 남아 본문 §2026-08-04 절과 어긋나 있었고, 2026-08-05에 `v5`로 또 어긋났다(v6 개정이 `outcomes/` 사본에만 있던 기간). 버전을 보고 "변화 없음"으로 오독하면 이관받는 쪽이 곡선 변경을 놓친다.
+🔴 이 헤더는 `memory/crop_rules/_shared.json`의 실값을 따라야 한다 — 2026-08-04까지 `2026-08-03-v4`/`v3`으로 남아 본문 §2026-08-04 절과 어긋나 있었다. 버전을 보고 "변화 없음"으로 오독하면 이관받는 쪽이 곡선 변경을 놓친다.
 
 ## 2026-08-03 변경 — ForYourFarm 쪽에서 확인할 것
 
@@ -10,7 +10,7 @@
 2. **감자 pH 밴드 신설(최대 결함 수정).** 종전엔 감자에 pH 밴드가 없어 공유값 6.0~7.0으로 채점됐는데 감자는 산성 토양 작물이라 방향이 반대였다. RDA 교본 033의 5.0~6.0으로 교체했다.
 3. **오이·감자 토양 6지표, 상추 유기물 신설** — RDA 「작물별 비료사용처방」 5차(2022) 진단기준표. 주의: 오이·감자·상추 화학성은 원문이 **시설재배토양 기준**으로 표기하며 노지 기준 유무는 미확인이다(FarmML 실측은 노지 시군구 평균).
 4. **물리성 채점축 신설** — `slope_pct`(사과 0-15%, 나머지 0-7%), `gravel_pct`(감자만 0-35%). 등급코드를 등급 상한 %로 환산해 화학 지표와 같은 곡선에 태우고 토양 총점 내부 균등 평균에 합류시킨다. 가중치(토양 60 / 기온 40 / 강수 0)는 바꾸지 않았다.
-5. **산출 컬럼 변화.** `soil_score_total`(작물 무관)과 `{지표}_score`(작물 무관)가 사라지고 전부 `soil_score_total_{crop_code}` / `{지표}_score_{crop_code}` 형태만 남는다.
+5. **산출 컬럼 변화.** `soil_score_total`(작물 무관)과 `{지표}_score`(작물 무관)가 사라지고 전부 `soil_score_total_{crop_code}` / `{지표}_score_{crop_code}` 형태만 남는다. `RegionalScore.csv`에 `slope_pct`·`gravel_pct` 원시 컬럼이 추가됐다.
 6. **`method` 필드 최초 충전.** 문헌측 측정 프로토콜이 국가 표준으로 확정됐다(pH 1:5 물 / 유기물 Tyurin / 유효인산 Lancaster / 치환성 K·Ca·Mg 1M NH4OAc / 풍건 20 mesh). 실측측(흙토람 API) 추출법은 여전히 미확인이라 `[확인 필요]`가 남아 있다.
 
 7. **EC 채점 개시(오이·감자·상추만).** 처방 5차 'EC 2 이하'. 종전엔 "실측 16/150이라 불가"로 판단했으나 그건 읍면동 단위 조인의 산물이었다 — 흙토람 필지 실측 elcd는 23,973건(86%)·142/160 시군구에 있고, 시군구 폴백으로 **103/150**(이미 채점 중인 Ca·Mg와 같은 커버리지)이 된다. 입력은 `data/ml/soil_ec_by_region.csv`의 **`ec_median`**(평균 아님 — 분포가 오른쪽으로 심하게 치우쳐 시설 염류집적 필지가 지역 대표값을 끌어올린다: 중앙값 0.61 vs 평균 2.11, 최대 30.0). 사과·배는 처방표 EC 칸이 '–'라 밴드를 만들지 않았다. 상추 `allowed_max=2.9`만 휴리스틱이 아닌 실측값(노안성 2004 수량 20% 감소점). ⚠️흙토람 `elcd`가 1:5 비환산인지 지도자료용 ×5인지 미확인 — ×5라면 이 밴드는 통째로 어긋난다 `[확인 필요]`.
@@ -33,12 +33,12 @@
    - **밴드가 아니라 배점표다.** `code_scores`를 가진 규칙은 `band_score`가 아니라 신설 `scoring.category_score`로 조회한다 — `optimal_min/max`가 아예 없다. 등급코드를 %·순위로 환산해 연속 곡선에 태우면 두 작물 중 하나가 반드시 틀린다.
    - 배점 20/15/10/5 → 100/75/50/25 환산은 국가 토양 적지평가가 **항목당 20점 만점 합산**이라는 사실의 산술 변환이며 휴리스틱이 아니다.
    - **감자·오이·상추는 미채점 유지** — 처방 5차엔 '사양질~식양질' 범위만 있고 등급별 배점표가 없다.
-   - **결측 처리(v6)**: 등급코드 `99`(기타)와 코드 부재는 **채점에서 제외**한다 — 50점으로 메우지 않는다(`_shared.json.scoring_version_note`의 `FILL_MISSING=False`. 그 상수를 들고 있던 `build_regional_score.py`는 폐기됐고 결정만 계약으로 남는다). ~~종전엔 폴백 50점을 받아 토성 '가능지'(실제 배점 50점)와 판정불가가 같은 숫자였다~~ → 그 혼동 경로 자체가 없어졌다. 결측 노출은 `subsoil_texture_missing_{crop}` 플래그가 계속 담당하며, 점수만 읽고 등급을 역추론하면 안 된다. (폐기된 FarmML 산출에서 코드 부재는 150지역 중 5지역이었다 — 백엔드 입력 분포는 다르다.)
+   - ⚠️ **값 충돌**: 토성 결측(등급코드 없음 5지역, 99=기타)은 최종 폴백 50점을 받는데 토성에서 50점은 '가능지'라는 **실제 등급값**이기도 하다. 구분은 `subsoil_texture_missing_{crop}` 플래그로만 가능하다 — 점수만 읽고 등급을 역추론하면 안 된다.
 
-9. **국가 3단 구조 정의(MLCM 대안).** 같은 문헌이 국가 판정 구조를 명시한다: 토양은 **요인별 점수제 합산**, 기후는 **최대저해인자법**, 두 결과를 다시 **최대저해인자법으로 통합**. 즉 `min(토양 총점, 기온 점수)`다.
-   🔴 **구조 정의만 이관되며, 산출 컬럼은 이관되지 않는다.** 이 구조를 구현할 때 기존 평탄 MLCM(토양 지표 하나하나까지 min)과 다르다 — 토양 합산 후 min을 하므로 점수가 더 높다(예: v4 실측, 상추 평탄 MLCM 0점 69지역 vs 국가구조 0점 0지역). v4 시점 실측 분포:
+9. **국가 3단 구조 MLCM 컬럼 신설(`total_score_{crop}_{name}_mlcm_national`).** 같은 문헌이 국가 판정 구조를 명시한다: 토양은 **요인별 점수제 합산**, 기후는 **최대저해인자법**, 두 결과를 다시 **최대저해인자법으로 통합**. 즉 `min(토양 총점, 기온 점수)`다.
+   🔴 **기존 `_mlcm` 컬럼은 이 구조가 아니다** — 토양 지표 하나하나까지 한 번에 min해서 국가가 합산으로 처리하는 층에 MLCM을 겹쳐 적용한다. 구조적으로 항상 `_mlcm ≤ _mlcm_national`이고 평탄 min 쪽이 국가 기준보다 과도하게 박하다(예: 상추 평탄 MLCM 0점 69지역 vs 국가구조 0점 0지역). 기존 컬럼은 이미 승인·이관된 병행 산출물이라 **의미를 조용히 바꾸지 않고** 그대로 두고 국가 구조 컬럼을 옆에 낸다. **둘 다 `total_score_{crop}`(가중평균)을 교체하지 않는다.**
 
-   | 작물 | 가중평균 | 평탄 MLCM (0점) | 국가구조 정의 (0점) | 토양이 제한요인인 지역 |
+   | 작물 | 가중평균 | 평탄 `_mlcm` (0점) | 국가구조 `_mlcm_national` (0점) | 토양이 제한요인인 지역 |
    |---|---|---|---|---|
    | 사과 | 58.4 | 11.5 (24) | 27.5 (5) | 23/150 |
    | 배 | 78.9 | 18.6 (37) | 66.6 (1) | 146/150 |
@@ -68,62 +68,56 @@
 
 - `memory/crop_rules/`: 공통 규칙과 작물별 규칙 JSON.
 - `memory/indicator_dispersion.json`: 실측 분포 기반 위험구간 감쇠폭.
-- `scripts/ml/`: 채점 곡선 계약(`scoring.py`) 및 감쇠폭 주입 로직(`dispersion.py`).
-- `data/99_codebook_modified.csv`: 물리성 등급코드 정의(2026-08-03 추가). `slope_code`·`subsoil_gravel_code`가 어떤 % 구간을 뜻하는지의 단일 소스이며, `_shared.json`의 `physical_code_maps` 환산표가 이 정의와 일치하는지 검증한다.
+- `scripts/ml/`: 로그 채점 곡선, KNN 결측 대체, 산포도·앵커·지역 점수 생성기와 회귀검사.
+- `AnswerData.csv`, `RegionalScore.csv`, `data/ml/crop_literature_anchor_experiment.csv`: FarmML 데이터로 재생성한 계약 산출물.
+- `data/99_codebook_modified.csv`: 물리성 등급코드 정의(2026-08-03 추가). `slope_code`·`subsoil_gravel_code`가 어떤 % 구간을 뜻하는지의 단일 소스이며, `_shared.json`의 `physical_code_maps` 환산표가 이 정의와 일치하는지 `test_physical_scoring.py`가 대조한다.
 
-## 이관 패키지 구성 (2026-08-05 축소 — 12파일)
+## 이관 패키지 구성
 
-### 남은 것 = ForYourFarm이 실제로 소비하는 것
+### 운영 계약
 
-| 파일 | 역할 |
-|---|---|
-| `memory/crop_rules/_shared.json` | 가중치(토양 60 / 기온 40 / 강수 0), 물리성 코드 환산표, 필수 지표 목록, 버전 |
-| `memory/crop_rules/{apple,pear,cucumber,lettuce,potato}.json` | 작물별 승인 밴드와 출처·성격 메타(`allowed_*_kind`, `cultivation_type`, `method`) |
-| `memory/indicator_dispersion.json` | 지표별 감쇠폭(`risk_width`). **없으면 `dispersion.py`가 채점을 fail-fast로 멈춘다** |
-| `scripts/ml/scoring.py` | 채점 곡선 계약 — `band_score`(로그 감쇠), `category_score`(등급코드 배점표), `boundary_score(kind)` |
-| `scripts/ml/dispersion.py` | 감쇠폭을 밴드에 주입하는 로직. 기후 보정 오프셋 적용 지점 |
-| `data/99_codebook_modified.csv` | 경사·자갈·심토토성 등급코드 원문 정의. `_shared.json.physical_code_maps`가 이 코드를 참조한다 |
-| `README.md`, `VERSIONS.json` | 이 문서와 버전·해시 대장 |
+- `memory/crop_rules/*.json`: 5작물 승인 규칙과 공유 가중치·물리성 코드 환산표.
+- `scripts/ml/`: 결정론적 점수 계산·KNN 대체·산출물 생성기와 회귀검사.
+- `AnswerData.csv`: 46개 문헌 기준 라벨 정의(v4에서 사과·배 토성 배점표 2행 추가). **범주형 행 주의**: `physical_subsoil_texture_*` 2행은 `ideal_value`/`ideal_min`/`ideal_max`가 전부 **null**이고 `unit="등급코드"`다. 밴드가 없으므로 null이며 배점표 실물은 `method`에 `등급코드→점수` 형태로 직렬화돼 있다. 최고배점 코드를 밴드처럼 읽어 연속 곡선에 태우면 중간 등급(사과 식양질 75점)이 곡선 감점으로 잘못 계산된다.
+- `RegionalScore.csv`: 150지역 원시값·대체 계보·작물별 가중점수·MLCM(평탄 + 국가 3단 구조)·백분위 결과. v4 신규 컬럼: `subsoil_texture`(원시 등급코드), `subsoil_texture_score_{crop_code}`·`subsoil_texture_missing_{crop_code}`(사과·배만), `total_score_{crop_code}_{name}_mlcm_national`.
+- `RegionalScore_region_matrix.csv`: 1행 지역 헤더, 2~6행 5작물 가중 총점, 7행 이후 토양·기온·지표·MLCM·백분위 상세점수를 둔 전치형 조회 CSV. 원본 `RegionalScore.csv`의 점수를 재계산하지 않고 재배치만 한다.
+- `RegionalScore_crop_totals_table.csv`: 지역별 1행에 지역코드·지역명과 사과·배·상추·감자·오이 가중 총점만 둔 간략 조회 CSV. 상세점수는 포함하지 않는다.
 
-**측정값 CSV는 하나도 없다.** 등급코드 정의표(`99_codebook`)만 남으며 그건 측정값이 아니라 코드북이다.
+> 🔴 **위 두 조회 CSV는 2026-08-04 기준 stale이다 — 사과 점수를 여기서 읽지 마라.**
+> 같은 날 사과 치환성 Ca가 단측 밴드에서 양측(`optimal_max 6.0` / `allowed_max 6.5`)으로
+> 복귀해 사과 주 총점 평균이 **74.9 → 68.6**, 등급이 **S16 A65 B49 C20 → S13 A36 B57 C44**로
+> 바뀌었다. `RegionalScore.csv`·`AnswerData.csv`·`data/ml/regional_score_manifest.json`은
+> `scripts/export_outcomes.py`가 갱신했지만 **이 두 파일은 생성 스크립트가 저장소에 없다**
+> (전체 grep에서 생성처 0건 — 손제작이다). 재생성할 방법이 없어 옛 숫자를 지우지도, 새 숫자로
+> 채우지도 않았다(추측 금지). 사과 값이 필요하면 `RegionalScore.csv`를 직접 읽어라.
+> 해소 경로는 둘 중 하나다 — ① 생성 스크립트를 만들어 `export_outcomes.py` `ARTIFACTS`에
+> 등록한다 ② 두 파일을 이관 대상에서 뺀다. `[확인 필요]` 어느 쪽인지는 사람 결정이다.
+- `data/ml/soil_ec_by_region.csv`: 150지역 EC 중앙값과 읍면동/시군구 매칭 단계.
+- `data/99_codebook_modified.csv`: 경사·자갈 등급코드 원문 정의.
 
-### 빠진 것과 그 이유
+### 버전·대체 감사
 
-2026-08-05 **지역 점수 트랙 폐기**(사용자 결정). 종전에는 FarmML이 150지역 점수를 CSV로 산출해 함께 이관했다. 문제는 **그 CSV가 서빙되지 않는다**는 것이다 — ForYourFarm은 흙토람·기상청 API로 자기 채점을 한다(`suitability_service.calculate_suitability` + DB `crop_growth_guide`). 두 계산의 입력 층이 애초에 다르다:
+- `data/ml/regional_score_manifest.json`: `knowledge_version=2026-08-03-v4`, `scoring_version=2026-08-03-v3`, 가중치·MLCM 근사(`mlcm_note`·`mlcm_national_note`)·토성 축 계약(`texture_axis_note`)·결측 대체·작물별 구성지표 계약.
+- `data/ml/imputation_validation.json`, `data/ml/imputation_outliers.csv`: KNN 후보 비교와 이상치 감사 자료.
+- `data/ml/crop_literature_anchor_manifest.json`: 문헌 앵커 실험의 `provisional=true`·정확도 주장 금지 경계를 명시한다.
 
-| | FarmML(폐기) | ForYourFarm(유지) |
-|---|---|---|
-| 토양 | 시군구 평균 CSV, 연 단위 | '리' 단위 흙토람 온디맨드 + 캐시 |
-| 기온 | 월평균 CSV 1컬럼 | 실황·단기예보·평년치, 야간 최저기온 축 보유 |
-| 시점 | 고정 스냅샷 | 실시간 |
+### 판단자료 — 운영 점수에 미반영
 
-같은 밭에 두 점수가 나는 구조였고, 이관되는 쪽이 서빙되지 않는 쪽이었다. **채점은 이제 ForYourFarm 한 곳에서만 산다.**
-
-계약에서 내린 것: `RegionalScore.csv`·`AnswerData.csv`·두 조회 CSV(수제)·`data/ml/*`(민감도·비교·앵커 실험·대체 감사 8건)·`docs/ml/*`(판단자료 3건 + 제안서)·지역 점수 생성기(`build_regional_score.py`·`build_answer_data.py`)·문헌 앵커(`crop_literature_anchor_experiment.py`·`crop_anchors/*.py`)·회귀 테스트 3건.
-
-- 폐기 스크립트와 문헌 앵커는 삭제하지 않고 **`Trash/retired-scoring-2026-08-05/`** 에 보관했다(FarmML `CLAUDE.md` §15). 앵커 `.py`에만 있던 값(예: 사과 `temp_grade` 임계 14.5/18.5/13.5/19.5)이 있어 삭제 대상이 아니다.
-- 채점 산출 CSV·매니페스트 13건은 **삭제**했다 — 재생성물이고 생성 스크립트가 폐기된 이상 stale 고정물이 된다. git 이력에 남아 있다.
-- 밴드 값·감쇠폭·곡선은 **하나도 바뀌지 않았다.** 폐기는 산출 트랙에 한정된다.
-
-### 채점 회귀 검증 — ForYourFarm 소관으로 이전
-
-종전에는 FarmML이 150지역 점수를 내고 그 분포로 회귀를 감시했다(`score_concordance_eval.py` 등). 채점이 한 곳으로 모였으므로 **검증도 그쪽에 둔다** — ForYourFarm 백엔드 테스트가 `scoring.py`의 곡선 계약(허용경계 60점, 성격별 경계 점수, 범주형 분기, 단측 밴드)을 자기 구현에 대해 고정한다. FarmML은 밴드·감쇠폭·곡선 코드까지만 책임진다.
+- `data/ml/ec_score_sensitivity.csv`, `docs/ml/ec_score_sensitivity.md`: EC 1:5 원값/이미 ×5 환산 두 시나리오. 원값 가정은 오이·감자·상추 각각 2/150지역 감점, ×5 가정은 모두 0/150지역 감점이다. **EC 밴드와 운영 점수는 바꾸지 않는다.**
+- `data/ml/national_grade_score_comparison.csv`, `data/ml/national_grade_multiplier_sensitivity.csv`, `docs/ml/national_grade_score_comparison.md`: 국가 25/50/75/90/100 등급과 현재 로그 곡선 비교. 현재 `RISK_SD_MULTIPLIER=2.0`은 Spearman 0.98006, 평균편차 +1.03844, MAE 2.05164이며 3.0의 MAE 개선이 0.03874점뿐이라 **2.0 유지** 판단이다.
+- `data/ml/pear_temperature_risk.csv`, `docs/ml/pear_temperature_risk.md`: 150지역 배 온도편차 정보. 저위험 99·중위험 31·고위험 6·12개월 미충족 14지역이며 `scored_in_suitability=false`다.
 
 ## ForYourFarm 적용 체크리스트
 
-0. **먼저 `VERSIONS.json`으로 들고 있는 파일이 이 버전인지 확인한다**(2026-08-05 신설, 파일별 sha256). 이번 개정(v6)의 실질 변경은 **결측 지표를 50점으로 메우지 않고 총점에서 제외**하는 것이다. 백엔드 `calculate_suitability`는 처음부터 결측을 제외했으므로 이 개정은 두 쪽 계산을 **일치시키는** 방향이다 — 백엔드 로직 변경이 아니라, 시드 값과 계약 버전 표기가 v6 것인지 확인하는 작업이다.
 1. 공유 토양 밴드 폴백을 제거하고 작물별 `soil_overrides`만 읽는다.
 2. `band_score`의 **단측 밴드**(`optimal_max`/`allowed_max`가 `null`이면 그 방향에 절벽도 taper도 두지 않는다 — 현재 사과 `ca`만 해당)와 로그 감쇠 동작을 `scripts/ml/scoring.py`와 동일하게 맞춘다.
 3. **`code_scores`를 가진 규칙은 `band_score`에 넘기지 않는다.** `scoring.category_score`(등급코드 → 배점표 조회)로 분기한다. 그 규칙엔 `optimal_min/max`가 없어 밴드 경로로 보내면 예외가 나거나 없는 순위를 가정하게 된다. 현재 대상은 사과·배 `subsoil_texture`뿐이다.
-4. **주 총점 정의는 국가 적지평가 3단 구조 `min(토양 총점, 기온)`이다**(2026-08-04). 가중평균이 주 총점이 아니다. 상세는 아래 **§2026-08-04 채점 구조 변경** 절. ~~`RegionalScore.csv` 컬럼 사용법~~ → 2026-08-05 지역 점수 트랙 폐기로 해당 CSV는 이관되지 않는다. 계약은 이제 **구조 정의**이고 산출 컬럼이 아니다.
+4. `RegionalScore.csv`의 작물별 컬럼만 사용하고 세 총점을 같은 척도로 해석하지 않는다. **주 총점은 `total_score_{crop}_{name}`이고 정의가 국가 3단 구조 `min(토양 총점, 기온)`으로 바뀌었다**(2026-08-04). 종전 가중평균은 `_weighted_mean`, 토양 지표까지 한 번에 min하는 평탄 min은 `_mlcm_flat`이다. `_mlcm`·`_mlcm_national` 컬럼은 없어졌다 — 전자는 `_mlcm_flat`으로, 후자는 주 총점으로 이름이 바뀌었다. 상세와 백엔드 쪽 필요 작업은 아래 **§2026-08-04 채점 구조 변경** 절을 본다.
 5. 배수등급 데이터가 있으면 **U자형**으로 채점한다 — 국가 배점표는 「양호 20점 > 매우양호 15점」이라 과배수도 감점이며, "배수가 좋을수록 좋다"는 단조 가정은 사과·배 양쪽에서 틀린다. FarmML엔 배수 컬럼이 없어 이관 대상이 아니다.
 6. EC 측정 스케일 확정 전까지 1:5/×5 경고를 제품 설명과 운영 로그에 유지한다.
-7. ~~국가 등급 비교와 배 위험 플래그~~ → 판단자료 CSV·md는 이관 대상에서 빠졌다(FarmML `docs/ml/`에만 있다). 필요하면 FarmML 쪽에서 읽는다.
-8. `VERSIONS.json`의 `knowledge_version`·`scoring_version`을 실제 배포 코드의 계약 버전으로 기록한다(종전에는 `regional_score_manifest.json`이 그 역할이었고, 그 파일은 이관되지 않는다).
+7. 국가 등급 비교와 배 위험 플래그는 설명·검토용으로만 이관하며 적합도 점수에 합산하지 않는다.
+8. `regional_score_manifest.json`의 버전과 구성지표를 실제 배포 코드의 계약 버전으로 기록한다.
 9. 사과·배 토성 순위가 정반대라는 것을 **제품 설명에 노출한다** — 사용자가 같은 밭에서 사과 100점·배 75점을 보고 버그로 오인할 수 있다. 근거는 국가 배점표의 작물별 차이다.
-12. **`derived` 경계 밖 점수는 「문헌 기반 점수」로 표기하지 않는다**(감사 §21, FinalReport §3-1 ⓐ). 현재 대상은 사과 `ca.allowed_max = 6.5` 하나다 — 문헌값이 아니라 우리 역산치(염기포화도 80% × CEC 10.0)이고, **그 상한을 넘는 구간의 감점 기울기에는 근거가 국내외 0건**이다. 그런데 전국 치환성 Ca 중앙값이 7.23 cmol/kg으로 상한 밖이라 다수 지역이 이 근거 없는 기울기로 감점된다. 점수를 내되 **「기준 초과」·「참고」로만 노출**하고 문헌 근거 점수와 같은 자리에 두지 않는다. 판별은 `allowed_max_kind`/`allowed_min_kind == "derived"` 로 한다(현재 이 성격은 사과 ca 상한뿐이며, FarmML 쪽 회귀검사가 그 집합을 고정한다).
-11. **평년/관측 기온 보정(`climate_baseline.offset_c` = +0.36℃)을 `literature_limit` 경계에는 적용하지 않는다**(2026-08-05, 감사 §18). 보정 근거는 "1991~2020 평년값으로 정의된 밴드를 2025 관측 척도와 맞춘다"인데, 오이 생육중지 5·35℃, 상추 한계 2.5·36℃, 감자 수량 0인 27℃는 평년값이 아니라 실험이 준 물리 임계다 — 옮기면 문헌이 준 숫자와 다른 지점에서 0점을 주게 된다(`boundary_score`가 그 경계에 정확히 0점을 준다). `optimal_min/max`와 `cultivable_range`·`heuristic` 성격의 `allowed` 경계는 종전대로 보정 대상이다. FarmML 구현은 `scripts/ml/dispersion.py::temp_rule`.
-10. **`refuted: true`인 밴드는 채점하지 않는다.** 현재 대상은 감자 `precipitation_guides`(33.3~66.7mm) 하나다 — P10(정진철 외 2003)이 강수량-품질 유의상관을 반증해 미채점으로 확정된 행이고, `allowed_min`/`allowed_max`가 `null`이라 밴드 경로로 넘기면 무완충 이진(허용경계 즉시 0점)이 된다. 값 자체는 이력 보존용으로 남겨둔 것이지 채점 입력이 아니다. `_shared.json`의 `weights.precipitation = 0`과 같은 뜻이며(=근거가 없어 채점하지 않는다), 규칙 파일을 순회하는 로더는 `refuted` 플래그를 먼저 보고 건너뛰어야 한다. FarmML 쪽에서 이 행을 채점하던 스크립트가 있었고(감사 §16) 지역 점수 트랙 폐기로 함께 폐기됐다.
 
 ## 2026-08-04 채점 구조 변경 — 백엔드가 해야 할 것
 
@@ -167,22 +161,25 @@ min하는 대안도 **채택하지 않았다** — 등급 함수가 점수에 �
 | 오이 | 72.3 | 16.2 | 21 / 148 |
 
 - 토양60/기온40 가중치는 이 구조에서 **쓰이지 않는다**(최소값에 가중 개념이 없다).
-  가중평균은 부차 지표로만 남는다.
-- **제한요인은 총점을 정한 층을 먼저 가리켜야 한다** — 토양이 결속했으면 그 안의 최악 지표명,
-  기온이 결속했으면 `"기온"`. FarmML은 이것을 `limiting_factor_{crop}` 컬럼으로 냈고 그 산출은
-  이관되지 않는다. 구조 요구사항이므로 백엔드가 자기 산출에서 같은 것을 내야 한다.
-- 🔴 **현재 구조의 근본 한계: 기온이 사실상 주 총점에 기여하지 않는다.** 생육적온이 월평균 기온에는
-  거의 항상 만족돼(사과 기온 점수 평균 99.5, S 148/150) min에서 결속하지 않는다. 사과는 주 총점이
-  토양 총점과 완전히 같았다(폐기된 FarmML 산출의 `national_minus_soil_mean` = +0.00) — 즉 주
-  총점이 실질적으로 토양 총점이다 [확인 필요]. **그 감시 수단이 사라졌다**: 그 필드는 이관되지 않는
-  `regional_score_manifest.json`에 있었다. 백엔드가 자기 산출에서 `주 총점 − 토양 총점`의 평균을
-  직접 감시해야 하며, 0에 붙어 있으면 기후층이 아무 일도 하지 않고 있다는 신호다.
+  `_weighted_mean` 산출에만 남는다.
+- `limiting_factor_{crop}`는 총점을 정한 층을 먼저 가리킨다 — 토양이 결속했으면 그 안의 최악
+  지표명, 기온이 결속했으면 문자열 `"기온"`이다.
+- 🔴 **현재 구조의 한계: 기온이 사실상 총점에 기여하지 않는다.** 생육적온이 월평균 기온에는
+  거의 항상 만족돼(사과 기온 점수 평균 99.5, S 148/150) min에서 결속하지 않는다. 사과는 주
+  총점이 토양 총점과 완전히 같다(`national_minus_soil_mean` +0.00). 즉 주 총점이 실질적으로
+  토양 총점이다 [확인 필요]. manifest의 이 필드로 감시할 수 있다.
 
 ### 3. 사과 기온이 두 지표로 갈렸다
 
-기존 `temp_09001_사과_score`(생육적온 18~28)는 "자랄 수 있는 기온인가"를 묻는다. 국가 적지 기준(arccas 적지 14.5~18.5 / 가능지 13.5~19.5)을 별도 지표로 갖기 위해 설계했으나, **계약 파일에는 이 지표가 전달되지 않는다**. 임계값(14.5/18.5/13.5/19.5)은 지역 점수 트랙 폐기 전 `Trash/retired-scoring-2026-08-05/crop_anchors/apple.py`와 `memory/crop_rules/_shared.json` 주석에만 남아 있다.
+`temp_grade_09001_사과_score` 신규. arccas 적지 14.5~18.5 / 가능지 13.5~19.5로 **적지 등급**을
+채점한다. 기존 `temp_09001_사과_score`(생육적온 18~28)는 "자랄 수 있는 기온인가", 이쪽은
+"국가가 적지로 보는가"라는 다른 질문이다.
 
-🔴 **설계 의도**: 앵커월 전국평균 20.67℃가 가능지 상한 19.5를 넘어, 한국 대부분이 이미 사과 적지가 아닐 수 있다는 국가 기준을 드러내고 싶었다. 그러나 그 판단은 문헌이 아니라 사람이 해야 하며(`[확인 필요]`), 감점 폭을 줄 근거가 없다. 다른 작물은 적지/가능지 2단계 문헌이 없어 이 지표가 없다.
+🔴 **주 총점 min 대상에 넣지 않았다.** 앵커월 전국평균 20.67℃가 가능지 상한 19.5를 넘어
+min에 넣으면 사과 주 총점이 74.9에서 30 아래로 무너지고 C등급이 130지역을 넘는다. 그 숫자가
+틀렸다는 뜻이 아니다 — 국가 기준으로는 한국 대부분이 이미 사과 적지가 아닐 수 있고, 그 판단은
+문헌이 아니라 사람이 내려야 한다 [확인 필요]. 하드 페널티(게이트)도 두지 않았다 — 감점 폭을
+줄 문헌이 없어 만들면 휴리스틱이 된다. 다른 작물은 적지/가능지 2단계 문헌이 없어 이 지표가 없다.
 
 ### 4. 상추 pH는 그대로 두었다 — 알고 남긴 것이다
 
@@ -194,31 +191,6 @@ min하는 대안도 **채택하지 않았다** — 등급 함수가 점수에 �
 추출값으로 pH를 채점하는 상황에서 한 작물만 빼면 문제를 보고하는 대신 감추는 것이 된다.
 **재개조건: 흙토람 공식 진단기준표 원문 1건 + pH 추출법 확인.**
 
-### 4-1. 시설 밴드로 노지 실측을 채점하는 지표 인벤토리 (2026-08-05, 감사 §20)
-
-`cultivation_type`은 모든 밴드에 적혀 있지만 **그 값을 보고 분기하는 코드는 어느 쪽에도 없다.**
-FarmML에서 이 필드로 필터하는 코드는 0건이었고(채점 트랙 폐기로 지금은 채점 자체가 백엔드
-소관), 백엔드 `load_guides`는 지표당 노지/시설 2행이 있을 때 `open_field`를 고르지만 **시설
-행 하나만 있는 지표에서는 그 행을 그대로 쓴다.** 아래 20개 지표가 그 경우다 — 노지 시군구
-실측을 시설재배 기준으로 채점한다.
-
-| 작물 | `facility` 밴드 | `open_field` 밴드 |
-|---|---|---|
-| 오이 | 토양 7개 전부(ph·organic_matter·available_p·k·ca·mg·ec) | 기온, slope_pct |
-| 상추 | 토양 7개 전부 | 기온, slope_pct |
-| 감자 | 토양 6개(organic_matter·available_p·k·ca·mg·ec) | **ph**, 기온, slope_pct, gravel_pct |
-| 사과·배 | 0개 | 전부 |
-
-출처는 RDA 「작물별 비료사용처방」 5차(2022)의 **「시설재배토양」** 화학성 진단기준표(오이 p103 /
-감자 p83 / 상추 p169)이고, 노지 기준표가 없어 그대로 채택한 것은 사용자 결정이다 — 각 밴드
-`source`에 불일치가 적혀 있다. **UI에 재배형을 노출한다**: 사용자가 노지 밭 점수를 보면서
-그 기준이 시설 기준인지 알 수 없으면 안 된다. 상추 pH가 이 구조의 대표 사례다(§4).
-
-⚠️ [확인 필요] **감자 유기물의 재배형 표기는 그 자체 근거와 어긋난다.** `potato.json`의
-`organic_matter`는 `cultivation_type: "facility"`인데 같은 필드 `source`가 2010 개정증보판
-노지 행도 20~30이라고 적어놨고, `_shared.json`은 pH와 유기물이 재배형이 실제로 갈리는 두
-지표라고 본다. 둘 다 참일 수 없다 — 값을 바꾸지 않고 남긴다(추측 확정 금지, CLAUDE.md §3-2).
-
 ### 5. 아직 이관되지 않은 백엔드 짝 작업
 
 `crop_growth_guide`에 성격 메타 4컬럼(`cultivation_type`·`allowed_min_kind`·`allowed_max_kind`·
@@ -226,11 +198,11 @@ FarmML에서 이 필드로 필터하는 코드는 0건이었고(채점 트랙 �
 `0032_weather_snapshot_daily_max_and_hourly`(단기 예보 캐시)가 쓰고 있다. 계약 테스트로 두
 구현의 `boundary_score()`를 7개 성격 전부에서 대조할 것을 권한다.
 
-### 6. 스키마·UI 제안서 (파일 이관 안 됨)
+### 6. 스키마·UI 제안서 (FarmML에 실물이 없는 8건)
 
-2026-08-05 지역 점수 트랙 폐기로 백엔드 제안 문서가 FarmML에서 삭제됐다. `FinalReport.md`의 33항목 중
-작업분류 **D(DB 스키마) · E(UI 표기) · F(표기·메타)** 로 분류된 항목은 **ForYourFarm 소유 작업**이며,
-현재 FarmML에서 진행할 수 있는 조치가 없다. 아래는 지역 점수 시스템이 운영되던 v4 시점의 기록이다.
+`docs/ml/foryourfarm_proposals_2026-08-04.md` — `FinalReport.md` 33항목 중 작업분류 **D(DB 스키마) ·
+E(UI 표기) · F(표기·메타)** 로 분류돼 **ForYourFarm이 소유한** 항목의 제안서다. FarmML에는 대상 실물이
+없어 제안 외에 할 수 있는 조치가 없다.
 
 | 항목 | 팀 결정 | `available` |
 |---|---|---|
@@ -255,40 +227,34 @@ FarmML에서 이 필드로 필터하는 코드는 0건이었고(채점 트랙 �
 - `scripts/ml/build_validation_reports.py`: FarmML 원시·가공 입력에 의존하는 분석 생성기다. ForYourFarm에는 검증이 끝난 고정 CSV와 보고서만 전달한다.
 - 원시 문헌·탐색 문서·Streamlit 화면: 근거 연구 및 내부 확인용이며 운영 계약이 아니다.
 
-**들고 있는 파일이 이 버전인지 확인하는 명령.** `outcomes/`를 복사받은 쪽에서 그 디렉터리를
-작업 디렉터리로 두고 실행한다 — 지역 점수 트랙 폐기로 `outcomes/`에 테스트가 남아 있지 않으므로
-무결성 확인은 `VERSIONS.json`의 sha256 대조가 유일한 수단이다.
+연구 산출물은 FarmML 루트에서 다음 순서로 재생성한다.
 
 ```powershell
-python -c "
-import hashlib, json, pathlib
-v = json.load(open('VERSIONS.json', encoding='utf-8'))
-print(v['knowledge_version'], '/', v['scoring_version'])
-bad = 0
-for rel, meta in v['files'].items():
-    p = pathlib.Path(rel)
-    if not p.is_file():
-        print('MISSING', rel); bad += 1; continue
-    h = hashlib.sha256(p.read_bytes()).hexdigest()
-    if h != meta['sha256']:
-        print('MISMATCH', rel); bad += 1
-# VERSIONS.json에 없는 파일도 계약 위반이다(누가 무언가를 끼워 넣었다).
-listed = set(v['files']) | {'VERSIONS.json'}
-for p in pathlib.Path('.').rglob('*'):
-    rel = p.as_posix()
-    if p.is_file() and '__pycache__' not in rel and rel not in listed:
-        print('UNLISTED', rel); bad += 1
-raise SystemExit(bad)
-"
+python scripts/ml/build_indicator_dispersion.py
+python scripts/ml/crop_literature_anchor_experiment.py
+python scripts/ml/build_answer_data.py
+python scripts/ml/build_regional_score.py
+python scripts/ml/test_crop_literature_anchor.py
+python scripts/ml/test_imputation.py
+python scripts/ml/test_physical_scoring.py
 ```
 
-exit 0이면 v6 원본과 바이트 동일하다. `MISMATCH`가 나온 파일은 **이 버전이 아니다** — 그 파일의
-숫자를 v6 것이라고 믿으면 안 된다. `generated_by`가 `null`인 파일(현재 `README.md`)은 FarmML 루트에
-원본이 없어 재생성으로 검증할 수 없고 해시 대조만 가능하다.
+이관 복사본은 다음 명령으로 검증한다.
 
-곡선 자체의 회귀 검증은 ForYourFarm 소관이다(위 **§채점 회귀 검증** 절) — 백엔드 테스트가 이관된
-`scoring.py`의 계약(허용경계 60점, 성격별 경계 점수, 범주형 분기, 단측 밴드)을 자기 구현에 대해 고정한다.
+```powershell
+python outcomes/scripts/ml/test_crop_literature_anchor.py
+python outcomes/scripts/ml/test_imputation.py
+python outcomes/scripts/ml/test_physical_scoring.py
+```
 
-채점 기본 원리: 문헌 밴드 대비 점진 편차 점수. 최적구간 100점, 최적구간 직후 95점, 허용경계 60점이며 위험구간은 `risk_width`까지 로그 감쇠한다. **결측 처리(v6)**: 토양 결측은 채점에서 **제외**(`FILL_MISSING = False`). 기상 결측은 거리역수 가중 KNN으로 대체.
+고정 판단자료 검증 기준은 다음과 같다.
+
+- EC 민감도 900행 = 150지역 × 3작물 × 2시나리오.
+- 국가 등급 상세 750행 = 150지역 × 5지표, multiplier 민감도 25행 = 5지표 × 5후보.
+- 배 위험 150행, 위험 수준은 `low|medium|high|unknown`, 모든 행의 `scored_in_suitability=false`.
+- `RegionalScore.csv` 150지역 유일성과 모든 점수의 0~100 범위 유지.
+- `RegionalScore_region_matrix.csv` 72행 × 156열 = 메타데이터 6열 + 150지역; 2~6행은 정확히 5작물 가중 총점이며 모든 점수는 0~100.
+
+채점은 문헌 밴드 대비 점진 편차 점수다. 최적구간 100점, 최적구간 직후 95점, 허용경계 60점이며 위험구간은 `risk_width`까지 로그 감쇠한다. 결측치는 원시값 공간 거리역수 가중 KNN으로 대체하고 방법·출처를 `RegionalScore.csv`에 남긴다.
 
 `outcomes/`는 수동 이관 경계다. ForYourFarm은 FarmML의 `data/`, `memory/`, `scripts/`를 직접 import하지 않고 검증된 이 디렉터리만 복사해 사용한다.

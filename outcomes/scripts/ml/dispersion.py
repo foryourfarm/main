@@ -12,8 +12,6 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from scoring import LITERATURE_LIMIT_KIND
-
 ROOT = Path(__file__).resolve().parents[2]
 PATH = ROOT / "memory" / "indicator_dispersion.json"
 
@@ -78,24 +76,13 @@ def temp_rule(rule: dict, crop_code: str) -> dict:
     """기온 규칙 + risk_width + 평년/관측 척도 보정. 작물마다 앵커월이 달라 산포도도 작물별이다.
 
     보정은 밴드를 offset만큼 **상향 이동**한다(관측이 평년보다 따뜻하므로 문헌 밴드를 같은
-    만큼 올려야 같은 척도가 된다). 관측값을 내리지 않는 이유는 산출물에 실린 원시 기온이
-    실제 관측값 그대로여야 사람이 검증할 수 있기 때문이다.
-
-    🔴 `literature_limit` 경계는 옮기지 않는다(2026-08-05, 감사 §18). 보정의 근거는
-    "1991~2020 평년값으로 정의된 밴드를 2025 관측과 맞춘다"인데, 생리적 절대한계(오이 생육중지
-    5·35℃, 감자 수량 0인 27℃, 상추 한계 2.5·36℃)는 평년값이 아니라 실험에서 나온 물리적
-    임계다 — 평년 기준이 아닌 값에 평년 보정을 걸면 문헌이 준 숫자와 다른 경계로 채점하게 된다
-    (그 경계는 `boundary_score`가 정확히 0점을 주는 지점이라 영향이 직접적이다).
+    만큼 올려야 같은 척도가 된다). 관측값을 내리지 않는 이유는 `RegionalScore.csv`에 실린
+    원시 기온이 실제 관측값 그대로여야 사람이 검증할 수 있기 때문이다.
     """
     offset = _climate_offset()
     if offset:
-        shifted = {}
-        for key in ("optimal_min", "optimal_max", "allowed_min", "allowed_max"):
-            if rule.get(key) is None:
-                continue
-            if rule.get(f"{key}_kind") == LITERATURE_LIMIT_KIND:
-                continue
-            shifted[key] = rule[key] + offset
-        rule = {**rule, **shifted}
+        rule = {**rule, **{k: rule[k] + offset
+                           for k in ("optimal_min", "optimal_max", "allowed_min", "allowed_max")
+                           if rule.get(k) is not None}}
     width = load()["temp_by_crop"].get(crop_code, {}).get("risk_width")
     return _with_width(rule, width or None)
