@@ -42,7 +42,10 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0039"
-down_revision: str | None = "0038"
+# 🔴 0038이 아니라 0042다. 아래 `_assert_band`가 지침 행의 존재·허용경계를 검증하는데,
+# 프로덕션에는 `0019` 부분 적용으로 6건이 결손돼 있어 이 마이그레이션이 RuntimeError로 죽었다
+# (2026-08-05 실배포). `0042`가 그 결손을 먼저 메운다 — 자세한 경위는 0042 docstring 참고.
+down_revision: str | None = "0042"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
