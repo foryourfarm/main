@@ -4,13 +4,13 @@
   "note": "outcomes/ 전 파일의 버전·해시 대장. `python scripts/export_outcomes.py`가 생성한다. 위 두 버전은 memory/crop_rules/_shared.json 실값이며 이 디렉터리 전체의 계약 버전이다. generated_by=null은 루트에 원본이 없는 파일(outcomes/ 전용 문서 또는 수제 산출물)이며 재생성으로 검증할 수 없다 — 그 파일의 숫자가 위 버전 것이라고 보증하지 않는다. 소비 측 사용법: 들고 있는 파일의 sha256이 여기 값과 다르면 그 파일은 이 버전이 아니다.",
   "files": {
     "data/99_codebook_modified.csv": {
-      "sha256": "f92947e12504c90ac697980f7a0897de50aa973f0d752d8927f07981085ef844",
-      "bytes": 1879,
+      "sha256": "c92d1401dec3f09f7ae04e5c3993e5bab2fb092c6e6f2e587175230ad914bdb6",
+      "bytes": 1813,
       "generated_by": "data/99_codebook_modified.csv"
     },
     "memory/crop_rules/_shared.json": {
-      "sha256": "4e7135935915fe6f505f90b00141fcb08446415de69f912316c48359e1000972",
-      "bytes": 24544,
+      "sha256": "3c1d81f5287e5ba2151a6757b7c2f695c8bbe7d6d999dde9a1b35b7513104b5e",
+      "bytes": 24473,
       "generated_by": "memory/crop_rules/_shared.json"
     },
     "memory/crop_rules/apple.json": {
@@ -39,23 +39,23 @@
       "generated_by": "memory/crop_rules/potato.json"
     },
     "memory/indicator_dispersion.json": {
-      "sha256": "44d6a907b9adbf4307538b20f22bddd0e5fe554db4714059d86eeb4b47a91927",
-      "bytes": 7164,
+      "sha256": "31d8b2b7180c99de39c397701e782782a1cdce11bd58d0ab90e2df082c739f83",
+      "bytes": 6971,
       "generated_by": "memory/indicator_dispersion.json"
     },
     "README.md": {
-      "sha256": "2fcc1e1d69a0da1f3806dffcedcd8de130df0e47108eab63ecc2cf39363c7666",
-      "bytes": 33142,
+      "sha256": "4bba2e0330b09fa41b7a6a474cd5665e6756344f6c5fdfb553bd3b8b4d4b6155",
+      "bytes": 32848,
       "generated_by": null
     },
     "scripts/ml/dispersion.py": {
-      "sha256": "a1fee14a5e1d2fd333d41e8d855c0cf46c1d306b60ee4fb981a0f79953d6800a",
-      "bytes": 5609,
+      "sha256": "3a891c6d27a203ad0c15942f2dee580a1a45b70dae1ec9b1a2ce57221bcce21b",
+      "bytes": 5508,
       "generated_by": "scripts/ml/dispersion.py"
     },
     "scripts/ml/scoring.py": {
-      "sha256": "1f713c05af742f0daa02dc35d3599493fbf3be9978c46426b80d6dcb36f204cf",
-      "bytes": 10656,
+      "sha256": "1045e6e449c9269979b3d444c206074f85451c3bac7464de05881defce5abb18",
+      "bytes": 10475,
       "generated_by": "scripts/ml/scoring.py"
     }
   }
