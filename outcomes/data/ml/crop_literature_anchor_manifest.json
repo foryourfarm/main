@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-08-04T17:35:05",
+  "anchor_source": "memory/crop-domain-knowledge-3crops.md",
+  "score_year": 2025,
+  "crops": {
+    "09001": "사과",
+    "09011": "배",
+    "07001": "상추",
+    "03001": "감자",
+    "04009": "오이"
+  },
+  "unscored_literature_anchors": {},
+  "environment_rules": {
+    "04009": [
+      {
+        "environment": "Air Temperature (°C)",
+        "min": 22,
+        "max": 28,
+        "optimal": 25,
+        "source": "P14"
+      },
+      {
+        "environment": "Night Temperature (°C)",
+        "min": 18,
+        "max": 20,
+        "optimal": 19,
+        "source": "P14"
+      },
+      {
+        "environment": "Relative Humidity (%)",
+        "min": 70,
+        "max": 85,
+        "optimal": 80,
+        "source": "P14"
+      },
+      {
+        "environment": "Soil Temperature (°C)",
+        "min": 20,
+        "max": 25,
+        "optimal": 22,
+        "source": "P14"
+      },
+      {
+        "environment": "CO2 (ppm)",
+        "min": 600,
+        "max": 1000,
+        "optimal": 800,
+        "source": "P14"
+      }
+    ]
+  },
+  "corrections_applied": [
+    "오이 구 대기 기온 앵커(20-22, P09) 제거(근권 지온 혼동)",
+    "오이 신규 대기 기온 앵커(22-28, P14) 등록·반영(2026-07-25 사용자 승인)",
+    "감자 강수 앵커 제거(문헌 반증)"
+  ],
+  "data_reality": {
+    "regions": 150,
+    "soil_chem_join": "실패(150중 2, 05 기준) — 토양 편차 점수 제외",
+    "score_component": "기온만"
+  },
+  "unsupervised": {
+    "k": 4,
+    "silhouette": 0.361,
+    "usable_regions": 136,
+    "features": [
+      "annual_mean_temp",
+      "growing_temp",
+      "temp_seasonality",
+      "annual_precip"
+    ]
+  },
+  "provisional": true,
+  "approved_rules_touched": true,
+  "claim_boundary": "문헌 기반 예상 적합도(기온) + 기후 군집. 성과 예측·ML 정확도 주장 아님(§9). 오이 앵커는 시설값의 노지 근사([확인 필요])."
+}

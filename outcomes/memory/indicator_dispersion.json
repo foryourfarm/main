@@ -14,56 +14,49 @@
       "median": 5.908,
       "sd": 0.2619,
       "robust_sd": 0.232,
-      "risk_width": 0.4641,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 0.4641
     },
     "organic_matter": {
       "n": 126,
       "median": 23.97,
       "sd": 6.7336,
       "robust_sd": 4.6035,
-      "risk_width": 9.2069,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 9.2069
     },
     "available_p": {
       "n": 126,
       "median": 419.6565,
       "sd": 178.2121,
       "robust_sd": 137.6661,
-      "risk_width": 275.3322,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 275.3322
     },
     "k": {
       "n": 105,
       "median": 0.739,
       "sd": 0.2819,
       "robust_sd": 0.252,
-      "risk_width": 0.5041,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 0.5041
     },
     "ca": {
       "n": 103,
       "median": 7.231,
       "sd": 2.0305,
       "robust_sd": 1.8888,
-      "risk_width": 3.7777,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 3.7777
     },
     "mg": {
       "n": 103,
       "median": 1.859,
       "sd": 0.5613,
       "robust_sd": 0.6316,
-      "risk_width": 1.2632,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 1.2632
     },
     "ec": {
       "n": 103,
       "median": 0.49,
       "sd": 0.6864,
       "robust_sd": 0.1927,
-      "risk_width": 0.3855,
-      "risk_width_basis": "robust_sd"
+      "risk_width": 0.3855
     }
   },
   "physical": {
@@ -73,7 +66,6 @@
       "sd": 14.723,
       "robust_sd": 7.413,
       "risk_width": 14.826,
-      "risk_width_basis": "robust_sd",
       "source_column": "slope_code"
     },
     "gravel_pct": {
@@ -81,12 +73,11 @@
       "median": 15.0,
       "sd": 29.5197,
       "robust_sd": 0.0,
-      "risk_width": 59.0394,
-      "risk_width_basis": "sd",
+      "risk_width": 0.0,
       "source_column": "subsoil_gravel_code"
     }
   },
-  "physical_note": "등급코드를 등급 상한 %로 환산한 값의 전국 산포도(_shared.json physical_code_maps). 값이 이산적이라 한 등급에 표본이 몰리면 robust_sd(MAD 기반)가 0이 된다 — 그때는 risk_width를 sd로 낸다(risk_width_basis 필드에 어느 쪽인지 기록). 종전에는 risk_width=0으로 내보내 완충폭(±50% 휴리스틱)으로 폴백했고, 그 결과 감자 자갈 등급 3(=100%)이 허용경계 52.5 + 완충폭 17.5 밖으로 나가 정확히 0점이 됐다(150지역 중 21곳 0점 / 나머지 전부 100점 = 실효 이진, 감사 §17).",
+  "physical_note": "등급코드를 등급 상한 %로 환산한 값의 전국 산포도(_shared.json physical_code_maps). 값이 이산적이라 robust_sd가 0이 될 수 있고, 그러면 risk_width도 0이라 dispersion.physical_rule이 주입을 건너뛰고 완충폭으로 폴백한다.",
   "temp_by_crop": {
     "09001": {
       "n": 136,
@@ -94,43 +85,12 @@
       "sd": 1.2674,
       "robust_sd": 1.1119,
       "risk_width": 2.2239,
-      "risk_width_basis": "robust_sd",
       "months": [
         4,
         5,
         6,
         7,
         8,
-        9,
-        10
-      ]
-    },
-    "04009": {
-      "n": 136,
-      "median": 21.55,
-      "sd": 1.21,
-      "robust_sd": 1.0625,
-      "risk_width": 2.1251,
-      "risk_width_basis": "robust_sd",
-      "months": [
-        4,
-        5,
-        6,
-        7,
-        8,
-        9
-      ]
-    },
-    "07001": {
-      "n": 136,
-      "median": 17.125,
-      "sd": 1.4115,
-      "robust_sd": 1.2231,
-      "risk_width": 2.4463,
-      "risk_width_basis": "robust_sd",
-      "months": [
-        4,
-        5,
         9,
         10
       ]
@@ -141,7 +101,6 @@
       "sd": 1.2674,
       "robust_sd": 1.1119,
       "risk_width": 2.2239,
-      "risk_width_basis": "robust_sd",
       "months": [
         4,
         5,
@@ -152,18 +111,45 @@
         10
       ]
     },
+    "07001": {
+      "n": 136,
+      "median": 17.125,
+      "sd": 1.4115,
+      "robust_sd": 1.2231,
+      "risk_width": 2.4463,
+      "months": [
+        4,
+        5,
+        9,
+        10
+      ]
+    },
     "03001": {
       "n": 136,
       "median": 14.95,
       "sd": 1.2452,
       "robust_sd": 1.0378,
       "risk_width": 2.0756,
-      "risk_width_basis": "robust_sd",
       "months": [
         3,
         4,
         5,
         6
+      ]
+    },
+    "04009": {
+      "n": 136,
+      "median": 21.55,
+      "sd": 1.21,
+      "robust_sd": 1.0625,
+      "risk_width": 2.1251,
+      "months": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
       ]
     }
   },
@@ -172,9 +158,7 @@
     "median": 107.5208,
     "sd": 38.3176,
     "robust_sd": 25.544,
-    "risk_width": 51.0879,
-    "risk_width_basis": "robust_sd",
-    "scale_mismatch_warning": "🔴 확인됨(2026-08-05, 감사 P2): 이 risk_width는 data/03_weather_monthly_modified.csv의 **월 mm 합계** 기준(지역별 월합계의 평균)이다. 저장소의 유일한 강수 밴드는 potato.json precipitation_guides(optimal 33.3~66.7, **mm/week**, monthly_to_weekly_divisor=4.345)뿐이라 척도가 다르다 — 이 값을 그대로 그 밴드의 감쇠폭으로 배선하면 폭이 4.345배(약 222mm) 넓어져 사실상 감쇠가 걸리지 않는다. 현재 소비처: 없음(orphan) — 그 감자 강수 밴드는 refuted=true이고 _shared.json weights.precipitation=0이라 scripts/ml/dispersion.py에 rainfall_monthly를 읽는 로더 자체가 없다(soil_rule/physical_rule/temp_rule만 있고 rainfall_rule은 없다). 값은 바꾸지 않는다 — 배선하려면 먼저 mm/week 기준으로 재계산해야 한다."
+    "risk_width": 51.0879
   },
   "backend_indicator_risk_width": {
     "ph": 0.4641,
@@ -186,8 +170,5 @@
     "ec": 0.3855,
     "temp_day": 2.219
   },
-  "backend_note": "temp_night_min·rainfall_daily는 이 데이터로 지역간 산포도를 낼 수 없어 제외한다 — 백엔드는 그 지표에서 종전 완충폭 기준으로 폴백한다(숨기지 않음). temp_day는 작물별 앵커월 산포도의 평균이다 [확인 필요].",
-  "backend_indicator_risk_width_scale_mismatch": {
-    "p2o5": "🟡 SUSPECTED(2026-08-05, 감사 P2 — 백엔드 코드가 이 저장소에 없어 확인 불가): 이 값은 data/01_soil_chemistry_modified.csv available_p의 **Lancaster** 척도 산포도다(Lancaster 국내 실측은 대략 200~550 mg/kg 급). 백엔드가 'p2o5' 지표로 이 값을 조회할 때 대응하는 실제 채점 밴드가 Bray-1 척도(예: 30~50 mg/kg급)로 되어 있다면 약 10배 척도 차가 난다 — 30 mg/kg 폭 밴드에 275 mg/kg 감쇠폭을 쓰면 밴드 밖 모든 값이 사실상 허용경계 점수(60점) 근처에 고정돼 감쇠가 무의미해진다. 참고로 FarmML 자체의 apple·pear available_p 밴드는 이미 Lancaster로 확정돼(memory/crop_rules/_shared.json method_note, 2026-08-03) 이 값과 같은 척도라 FarmML 내부에는 이 불일치가 없다 — 의심 대상은 백엔드가 'p2o5'라는 이름으로 별도로 갖고 있을 수 있는 문헌 앵커다. 실제 배선 여부·척도는 이 저장소에서 검증 불가하므로 SUSPECTED로만 남긴다. 값은 바꾸지 않는다."
-  }
+  "backend_note": "temp_night_min·rainfall_daily는 이 데이터로 지역간 산포도를 낼 수 없어 제외한다 — 백엔드는 그 지표에서 종전 완충폭 기준으로 폴백한다(숨기지 않음). temp_day는 작물별 앵커월 산포도의 평균이다 [확인 필요]."
 }
