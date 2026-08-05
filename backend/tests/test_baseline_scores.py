@@ -38,8 +38,10 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from collections import Counter
+
 from app.models import CropGrowthGuide, CropGrowthStage, SoilState, WeatherClimatology
-from app.services.suitability_service import build_monthly_rows
+from app.services.suitability_service import WEATHER_INDICATORS, build_monthly_rows
 
 SNAPSHOT_PATH = Path(__file__).parent / "fixtures" / "baseline_scores_pre_v6.json"
 
@@ -341,15 +343,69 @@ class TestBaselineSnapshotExists(unittest.TestCase):
 ALLOWED_TEMP_DAY_CHANGE_CROPS = frozenset({3, 4, 5})
 
 
+def _independent_national_total(
+    indicator_scores: dict[str, float | None], status: str
+) -> float | None:
+    """`national_total()` 구현을 베끼지 않고 계약 문구(`min(토양 축, 기후 축)`)만 보고
+    스냅샷 지표 점수에서 다시 계산한다(finalplan.md P3 검증 요구사항).
+
+    토양 축 = 채점된 지표 중 `WEATHER_INDICATORS` 아닌 것들의 균등 평균, 기후 축 =
+    `WEATHER_INDICATORS`에 속한 채점 지표의 min. `dormant`는 서비스가 총점을 일부러
+    비운다(§18-4, 계절 판정 근거 없음) — 그 규칙만 여기서도 그대로 반영한다.
+    """
+    if status == "dormant":
+        return None
+    soil = [s for ind, s in indicator_scores.items() if s is not None and ind not in WEATHER_INDICATORS]
+    weather = [s for ind, s in indicator_scores.items() if s is not None and ind in WEATHER_INDICATORS]
+    soil_total = round(sum(soil) / len(soil), 1) if soil else None
+    temp_score = min(weather) if weather else None
+    if soil_total is None:
+        return temp_score
+    if temp_score is None:
+        return soil_total
+    return min(soil_total, temp_score)
+
+
+def _flat_min_total(indicator_scores: dict[str, float | None], status: str) -> float | None:
+    """비교 대상 "평탄 min" — 토양·기후를 축으로 나누지 않고 채점된 지표 전부를 한 번에
+    min한다(outcomes/README.md §2026-08-04 §2가 대조하는 대안 구조). 국가 3단 구조가
+    이보다 C등급을 늘리지 않는다는 것을 검증하는 기준선이다.
+    """
+    if status == "dormant":
+        return None
+    scored = [s for s in indicator_scores.values() if s is not None]
+    return min(scored) if scored else None
+
+
+def _grade_for(score: float | None) -> str | None:
+    """S/A/B/C 경계(90/75/60) — `suitability_service._grade`와 같은 경계를 이 테스트가
+    독립적으로 다시 적는다(구현을 그대로 베끼지 않는다는 검증 요구사항)."""
+    if score is None:
+        return None
+    if score >= 90:
+        return "S"
+    if score >= 75:
+        return "A"
+    if score >= 60:
+        return "B"
+    return "C"
+
+
 class TestBaselineSnapshotMatches(unittest.TestCase):
     def test_current_output_matches_snapshot_with_expected_deltas(self):
-        """현행 산출과 스냅샷을 대조하되 **허용된 변동만** 통과시킨다(finalplan.md 작업 6).
+        """현행 산출과 스냅샷을 대조하되 **허용된 변동만** 통과시킨다(finalplan.md 작업 6, P3).
 
-        허용 규칙: 오이(3)·감자(4)·상추(5) 셀의 `temp_day` 지표 점수 변동과 그로부터 파생되는
-        `score`·`grade`·`risk_flags`만 허용한다. `status`·`growth_stage`는 지표 변동과 무관하게
-        항상 같아야 한다. 사과(1)·배(2)는 한 셀도, 한 지표도 바뀌면 안 된다 — 잘못 붙으면 사과
-        0점 지역이 93→121로 늘어난다(계약 문서 실측 기록). 기대 변동이 하나도 없으면 실패한다
-        (분기가 아예 동작하지 않은 경우를 잡는다).
+        지표별 점수(`indicator_scores`)는 P2가 허용한 변동(오이·감자·상추 `temp_day`) 외에는
+        여전히 무변동이어야 한다 — P3은 총점 **결합 방식**만 바꾸므로 개별 지표 점수를
+        건드리면 안 된다. `risk_flags`도 지표 판정에서만 나오므로 지표가 안 바뀌면 그대로다.
+
+        `score`·`grade`는 P3(국가 3단 구조 도입)로 **전면 변동을 허용**하되, 각 셀에서 새
+        총점이 실제로 `min(토양 균등평균, 기후 min)`과 같은지 별도 루프
+        (`test_score_matches_independently_recomputed_national_total`)에서 재계산해 검증한다.
+        `status`·`growth_stage`는 지표 변동과 무관하게 항상 같아야 한다. 사과(1)·배(2)는
+        지표가 한 셀도 바뀌면 안 된다 — 잘못 붙으면 사과 0점 지역이 93→121로 늘어난다
+        (계약 문서 실측 기록). 기대 변동이 하나도 없으면 실패한다(분기가 아예 동작하지 않은
+        경우를 잡는다).
         """
         data = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
         expected = _index(data["records"])
@@ -382,11 +438,14 @@ class TestBaselineSnapshotMatches(unittest.TestCase):
             }
 
             if not changed_indicators:
-                for field in ("score", "grade", "risk_flags"):
-                    if exp.get(field) != cur.get(field):
-                        unexpected.append(
-                            f"{label}: 지표 변동 없이 {field} {exp.get(field)!r} -> {cur.get(field)!r}"
-                        )
+                # P3은 결합 방식만 바꾼다 — 지표가 그대로면 risk_flags도 그대로여야 한다.
+                # score·grade는 여기서 더 이상 동결 확인하지 않는다(총점 구조가 바뀌어
+                # 전면 변동이 정상이다) — 대신 아래 별도 테스트가 새 값을 재계산해 검증한다.
+                if exp.get("risk_flags") != cur.get("risk_flags"):
+                    unexpected.append(
+                        f"{label}: 지표 변동 없이 risk_flags {exp.get('risk_flags')!r} -> "
+                        f"{cur.get('risk_flags')!r}"
+                    )
                 continue
 
             if changed_indicators != {"temp_day"}:
@@ -421,6 +480,66 @@ class TestBaselineSnapshotMatches(unittest.TestCase):
         print(f"\n[baseline diff] temp_day 변동 {len(temp_day_changes)}건 (작물, 지역, 연-월: 이전 -> 새값):")
         for crop_id, region, year, month, old, new in temp_day_changes:
             print(f"  crop={crop_id} region={region} {year}-{month:02d}: {old} -> {new}")
+
+    def test_score_matches_independently_recomputed_national_total(self):
+        """각 셀의 새 `score`가 `min(토양 균등평균, 기후 min)`과 실제로 같은지, 구현을 베끼지
+        않고 스냅샷 지표 점수에서 다시 계산해 대조한다(finalplan.md P3 검증 요구사항)."""
+        current = _build_records()
+        mismatches: list[str] = []
+        for rec in current:
+            expected_score = _independent_national_total(rec["indicator_scores"], rec["status"])
+            if rec["score"] != expected_score:
+                mismatches.append(
+                    f"crop={rec['crop_id']} region={rec['region']} {rec['year']}-{rec['month']:02d}: "
+                    f"score={rec['score']!r} != 독립 재계산={expected_score!r}"
+                )
+            expected_grade = _grade_for(expected_score)
+            if rec["grade"] != expected_grade:
+                mismatches.append(
+                    f"crop={rec['crop_id']} region={rec['region']} {rec['year']}-{rec['month']:02d}: "
+                    f"grade={rec['grade']!r} != 독립 재계산={expected_grade!r}"
+                )
+        self.assertEqual([], mismatches, "\n" + "\n".join(mismatches))
+
+    def test_national_structure_has_fewer_or_equal_c_grades_than_flat_min(self):
+        """국가 3단 구조(축별로 나눠 min)는 "평탄 min"(전 지표를 한 번에 min)보다 총점이
+        낮을 수 없다 — 토양 축이 **평균**(≥ 그 축의 최솟값)이기 때문이다. 그래서 C등급
+        수는 국가구조 ≤ 평탄 min이어야 한다(계약 실측 방향: 사과 138→17, 상추 148→42 등,
+        outcomes/README.md §2026-08-04 §2). 스냅샷 3지역(테스트 고정 픽스처)에서 작물별로
+        확인하고, 등급 분포 before/after를 사람이 읽을 수 있게 출력한다.
+        """
+        data = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        pre_v6_grades: dict[int, Counter[str | None]] = {}
+        for rec in data["records"]:
+            pre_v6_grades.setdefault(rec["crop_id"], Counter())[rec["grade"]] += 1
+
+        current = _build_records()
+        national_grades: dict[int, Counter[str | None]] = {}
+        flat_min_grades: dict[int, Counter[str | None]] = {}
+        crop_names: dict[int, str] = {}
+        for rec in current:
+            crop_names[rec["crop_id"]] = rec["crop_name"]
+            national_grades.setdefault(rec["crop_id"], Counter())[rec["grade"]] += 1
+            flat_score = _flat_min_total(rec["indicator_scores"], rec["status"])
+            flat_min_grades.setdefault(rec["crop_id"], Counter())[_grade_for(flat_score)] += 1
+
+        print("\n[baseline diff] 작물별 등급 분포 (pre-v6 가중평균 / 국가 3단 총점 / 평탄 min):")
+        failures: list[str] = []
+        for crop_id in sorted(crop_names):
+            name = crop_names[crop_id]
+            pre = pre_v6_grades.get(crop_id, Counter())
+            national = national_grades.get(crop_id, Counter())
+            flat = flat_min_grades.get(crop_id, Counter())
+            print(
+                f"  {name}(crop={crop_id}): pre-v6={dict(pre)} national={dict(national)} "
+                f"flat_min={dict(flat)}"
+            )
+            if national["C"] > flat["C"]:
+                failures.append(
+                    f"{name}(crop={crop_id}): 국가구조 C등급 {national['C']}건 > 평탄 min C등급 "
+                    f"{flat['C']}건 (구현이 축을 나누지 않고 있을 수 있다)"
+                )
+        self.assertEqual([], failures, "\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":

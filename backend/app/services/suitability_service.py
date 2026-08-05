@@ -1,4 +1,5 @@
 """DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
+import logging
 from calendar import monthrange
 from math import log1p
 from collections.abc import Iterable, Mapping, Sequence
@@ -19,6 +20,8 @@ from app.services.climatology_service import (
 )
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
 # 최적구간을 벗어나는 순간의 점수. 100에서 이어지지 않고 여기서 시작한다 — "최적 이탈" 자체에
@@ -448,6 +451,89 @@ WEATHER_INDICATORS = frozenset(
 )
 
 
+def national_total(
+    breakdown: Mapping[str, Mapping[str, object]],
+) -> tuple[float | None, float | None, float | None, str | None, str | None]:
+    """국가 적지평가 3단 구조의 주 총점: `min(토양 축, 기후 축)`(장기 탭 전용).
+
+    심교문(2016) 구조 그대로다 — 토양은 요인별 점수제로 **균등 평균**(국가 배점표가
+    항목당 동일 만점이라 지침 `weight`를 쓰지 않는다), 기후는 **최대저해인자법**(MLCM,
+    축 내부 min), 두 결과를 다시 **MLCM으로 통합**한다(outcomes/README.md
+    §2026-08-04 §2). MLCM은 여기(기후 내부·토양↔기후 통합)에서만 쓰고 토양 내부에는
+    쓰지 않는다.
+
+    `calculate_suitability`(단기 탭도 호출)는 그대로 가중평균만 반환한다 — 이 함수는
+    장기 계층(`build_monthly_rows`/`compute_farm_suitability`)에서 그 결과의
+    `breakdown`을 받아 별도로 총점을 다시 낸다. 단기 탭 구조를 바꾸지 않기 위한
+    분리다.
+
+    반환: `(총점, 토양 총점, 기온 점수, limiting_factor, limiting_layer)`.
+    한 축에 채점된 지표가 없으면 다른 축이 곧 총점이다. 두 축 다 비면 전부 `None`.
+    """
+    soil_scores: dict[str, float] = {}
+    weather_scores: dict[str, float] = {}
+    for indicator, entry in breakdown.items():
+        score = entry.get("score")
+        if score is None:
+            continue
+        target = weather_scores if indicator in WEATHER_INDICATORS else soil_scores
+        target[indicator] = float(score)
+
+    soil_total = round(sum(soil_scores.values()) / len(soil_scores), 1) if soil_scores else None
+    temp_score = min(weather_scores.values()) if weather_scores else None
+
+    if soil_total is None and temp_score is None:
+        return None, None, None, None, None
+    if temp_score is None:
+        # 기후 축이 비어 있으면 토양 축이 곧 총점이다.
+        worst = min(soil_scores, key=lambda ind: (soil_scores[ind], ind))
+        return soil_total, soil_total, None, INDICATOR_NAMES.get(worst, worst), "토양"
+    if soil_total is None:
+        # 토양 축이 비어 있으면 기후 축이 곧 총점이다.
+        return temp_score, None, temp_score, "기온", "기온"
+
+    # 동점(soil_total == temp_score)은 토양을 결속으로 본다 — 토양 축은 여러 지표의
+    # 합산이라 "어느 지표가 문제인지"까지 짚을 수 있고, "기온"이라는 뭉뚱그린 이름보다
+    # 정보량이 많다(2026-08-05 결정, 동점 처리는 결정론적이어야 한다는 요구사항 충족).
+    if soil_total <= temp_score:
+        worst = min(soil_scores, key=lambda ind: (soil_scores[ind], ind))
+        return soil_total, soil_total, temp_score, INDICATOR_NAMES.get(worst, worst), "토양"
+    return temp_score, soil_total, temp_score, "기온", "기온"
+
+
+def _log_national_total_climate_delta(
+    crop_id: int,
+    region_id: int,
+    year: int,
+    month: int,
+    score: float | None,
+    soil_total: float | None,
+    temp_score: float | None,
+) -> None:
+    """G11: 기후 축이 min 구조에서 실제로 결속하는지 감시한다(outcomes/README.md
+    §2026-08-04 §2 — 계약 실측: 사과 `national_minus_soil_mean` = +0.00).
+
+    `총점 - 토양 총점`이 0에 붙어 있으면 기후 축이 아무 일도 안 하고 있다는 신호다.
+    응답에는 싣지 않고 로그 한 줄로만 남긴다(`app/core/log_config.py`의 구조화 로깅을
+    타는 표준 로거 — 새 테이블·엔드포인트는 만들지 않는다. 집계는 로그 쪽에서 한다).
+
+    두 축이 다 채점됐을 때만 의미 있는 신호라 그 경우에만 로그를 남긴다(한쪽이 비면
+    delta가 항상 0이라 신호가 아니다). 로그가 응답 경로를 죽이면 안 되므로 통째로
+    감싼다.
+    """
+    if score is None or soil_total is None or temp_score is None:
+        return
+    try:
+        logger.info(
+            "national_total climate_delta crop_id=%s region_id=%s year=%s month=%s "
+            "score=%s soil_total=%s temp_score=%s delta=%s",
+            crop_id, region_id, year, month, score, soil_total, temp_score,
+            round(score - soil_total, 2),
+        )
+    except Exception:  # ponytail: 감시용 로그, 실패해도 응답 경로를 막지 않는다
+        pass
+
+
 def derive_status(
     has_guides: bool,
     score: float | None,
@@ -543,6 +629,17 @@ def compute_farm_suitability(
     # 토양 지표가 어떻게 평가됐는지는 확인할 수 있게 한다.
     is_dormant = status == "dormant"
 
+    # P3: 주 총점은 국가 적지평가 3단 구조 min(토양 축, 기후 축)이다(outcomes/README.md
+    # §2026-08-04 §2). 종전 가중평균(`result["score"]`)은 `score_weighted`로 병기만
+    # 한다 — `calculate_suitability` 자체는 단기 탭도 호출하므로 바꾸지 않는다.
+    total_score, soil_total, temp_score, limiting_factor, limiting_layer = national_total(
+        result["breakdown"]
+    )
+    _log_national_total_climate_delta(
+        farm.crop_id, farm.region_id, on_date.year, on_date.month,
+        total_score, soil_total, temp_score,
+    )
+
     return {
         "farm_id": farm.id,
         "crop_id": farm.crop_id,
@@ -550,8 +647,11 @@ def compute_farm_suitability(
         "growth_stage": stage,
         "as_of": on_date,
         "status": status,
-        "score": None if is_dormant else result["score"],
-        "grade": None if is_dormant else result["grade"],
+        "score": None if is_dormant else total_score,
+        "grade": None if is_dormant or total_score is None else _grade(total_score),
+        "score_weighted": None if is_dormant else result["score"],
+        "limiting_factor": None if is_dormant else limiting_factor,
+        "limiting_layer": None if is_dormant else limiting_layer,
         "label": SUITABILITY_LABEL,
         "breakdown": result["breakdown"],
         "risk_flags": result["risk_flags"],
@@ -649,6 +749,8 @@ def build_monthly_rows(
     corrections: Mapping[tuple[int, int, str], Decimal] | None = None,
     clim_source: ClimatologySource | None = None,
     published_by_month: Mapping[tuple[int, int], datetime] | None = None,
+    crop_id: int | None = None,
+    region_id: int | None = None,
 ) -> list[dict[str, object]]:
     """창의 각 달 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
 
@@ -661,6 +763,10 @@ def build_monthly_rows(
 
     clim_source를 받는 이유: 일조시간은 clim_source에서만 나온다. 이걸 빼면 히트맵(월별)과
     일별 적합도가 같은 달의 일조를 서로 다르게 채점한다 — 두 화면이 어긋난다.
+
+    `crop_id`/`region_id`는 G11 감시 로그(`_log_national_total_climate_delta`)에만 쓰는
+    선택 인자다 — 순수성 검증 테스트(`test_monthly_outlook.py`)는 안 넘겨도 되고, 그때는
+    로그가 생략된다(둘 다 있어야 로그를 남긴다).
     """
     rows: list[dict[str, object]] = []
     stages = list(stage_rows)
@@ -679,14 +785,30 @@ def build_monthly_rows(
         status = derive_status(bool(guides), result["score"], result["breakdown"])
         # 휴면기(기상 판정 근거 없음)는 점수·등급을 내보내지 않는다 — §18-4.
         is_dormant = status == "dormant"
+
+        # P3: 히트맵 총점도 국가 3단 구조 min(토양 축, 기후 축)이다 — 대시보드
+        # (compute_farm_suitability)와 같은 총점 축을 써야 같은 밭·같은 달에 다른
+        # 총점이 뜨지 않는다(outcomes/README.md §2026-08-04 §2).
+        total_score, soil_total, temp_score, limiting_factor, limiting_layer = national_total(
+            result["breakdown"]
+        )
+        if crop_id is not None and region_id is not None:
+            _log_national_total_climate_delta(
+                crop_id, region_id, year, month, total_score, soil_total, temp_score
+            )
+
         rows.append(
             {
                 "year": year,
                 "month": month,
                 "growth_stage": stage,
                 "status": status,
-                "score": None if is_dormant else result["score"],
-                "grade": None if is_dormant else result["grade"],
+                "score": None if is_dormant else total_score,
+                "grade": None if is_dormant or total_score is None else _grade(total_score),
+                # 종전 가중평균(토양60/기온40) — 병기만 한다. min 구조엔 가중 개념이 없다.
+                "score_weighted": None if is_dormant else result["score"],
+                "limiting_factor": None if is_dormant else limiting_factor,
+                "limiting_layer": None if is_dormant else limiting_layer,
                 "risk_flags": result["risk_flags"],
                 "outlook_applied": bool(applied),
                 # 칸마다 다른 발표분에서 올 수 있다 — 최상위에 하나로 두면 반드시 한쪽이
@@ -744,6 +866,8 @@ def compute_monthly_outlook(
         corrections,
         clim_source,
         published_by_month,
+        farm.crop_id,
+        farm.region_id,
     )
 
     limitations = [
