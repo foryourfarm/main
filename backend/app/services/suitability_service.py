@@ -108,6 +108,9 @@ INDICATOR_NAMES: dict[str, str] = {
     "ec": "토양 염류(EC)",
     "p2o5": "유효인산",
     "organic": "유기물",
+    # 범주형 지표(등급코드 → 배점표). 한글명이 없으면 `limiting_factor`에 `subsoil_texture`
+    # 라는 raw 키가 사용자 화면까지 그대로 나간다(0041).
+    "subsoil_texture": "심토 토성",
 }
 
 
@@ -441,6 +444,17 @@ def gather_indicator_values(
         "k": soil.k if soil else None,
         "ca": soil.ca if soil else None,
         "mg": soil.mg if soil else None,
+        # 심토토성 **원본 등급코드**(1~6, 99 — 0040). 한글 변환값이 아니다: 배점표
+        # (`code_scores`)의 키가 코드이고, 토성엔 단조 순위가 없어 %·순위로 환산하면
+        # 사과·배 중 한쪽이 반드시 틀린다(사과 최적 사양질 vs 배 최적 식양질).
+        # `category_score`가 표에 없는 코드(99 등)를 채점 제외로 처리한다 — 50점으로
+        # 메우지 않는다. 사과·배만 지침이 있어 나머지 작물은 룰 엔진이 알아서 제외한다.
+        #
+        # ⚠️ 이 값은 현재 프로덕션에서 항상 None이다. `soil_state.subsoil_texture_code`를
+        # 채우는 경로가 없다 — `soil_profile_client.get_soil_profile`은 호출자가 0건이고
+        # PNU(19자리 지번코드)를 요구하는데 `user_farm`은 `bjd_code`까지만 안다. 적재 배선은
+        # v6 적용 범위 밖이며 `docs/farmml-v6-contract.md`에 미해결로 기록한다.
+        "subsoil_texture": soil.subsoil_texture_code if soil else None,
     }
 
 

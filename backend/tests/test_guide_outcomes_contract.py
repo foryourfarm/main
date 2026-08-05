@@ -360,5 +360,89 @@ class TestBoundaryKindBackfillContract(unittest.TestCase):
                 self.assertIn(kind, shipped)
 
 
+MIGRATION_SUBSOIL_TEXTURE = VERSIONS / "0041_apple_pear_subsoil_texture_guides.py"
+
+# outcomes/data/99_codebook_modified.csv의 subsoil_texture 코드북(등급코드→이름). 여기서 다시
+# 손으로 옮겨 적지 않고 CSV를 직접 읽어 대조한다 — 코드북이 바뀌면 이 테스트도 따라 실패해야
+# 한다(주석에만 적어두면 드리프트를 못 잡는다).
+CODEBOOK = ROOT / "outcomes" / "data" / "99_codebook_modified.csv"
+
+
+def _load_subsoil_texture_labels() -> dict[str, str]:
+    """CSV에서 code_type=subsoil_texture 행만 code(선행 0 제거)→label로 뽑는다."""
+    import csv
+
+    labels: dict[str, str] = {}
+    with CODEBOOK.open(encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            if row["code_type"] == "subsoil_texture":
+                labels[str(int(row["code"]))] = row["label"]
+    return labels
+
+
+def _load_subsoil_texture_migration():
+    return _load_module("m0041", MIGRATION_SUBSOIL_TEXTURE)
+
+
+class TestSubsoilTextureCategoryScoreContract(unittest.TestCase):
+    """0041의 code_scores 상수 표가 계약(outcomes/memory/crop_rules/{apple,pear}.json)과
+    키·값 전수 일치하는지, 그리고 category_score()가 그 표를 계약과 같게 조회하는지 검증한다
+    (finalplan.md P4 완료조건 — 사과·배 순위가 정반대인 것을 값으로 못박는다)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.migration = _load_subsoil_texture_migration()
+        cls.rules = {
+            filename: json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
+            for filename in ("apple.json", "pear.json")
+        }
+        cls.labels = _load_subsoil_texture_labels()
+        from app.services.suitability_service import category_score
+
+        cls.category_score = staticmethod(category_score)
+
+    def test_migration_file_exists(self):
+        self.assertTrue(MIGRATION_SUBSOIL_TEXTURE.is_file(), f"{MIGRATION_SUBSOIL_TEXTURE} 가 없다")
+
+    def test_codebook_confirms_texture_labels(self):
+        """코드북에서 실제로 02=사양질, 05=미사식양질임을 읽어 확인한다(주석이 아니라 값)."""
+        self.assertEqual(self.labels["2"], "사양질")
+        self.assertEqual(self.labels["5"], "미사식양질")
+
+    def test_apple_code_scores_match_outcomes_exactly(self):
+        contract = self.rules["apple.json"]["physical_overrides"]["subsoil_texture"]["code_scores"]
+        self.assertEqual(contract.keys(), self.migration._APPLE_CODE_SCORES.keys())
+        for key, expected in contract.items():
+            with self.subTest(code=key):
+                self.assertEqual(self.migration._APPLE_CODE_SCORES[key], expected)
+
+    def test_pear_code_scores_match_outcomes_exactly(self):
+        contract = self.rules["pear.json"]["physical_overrides"]["subsoil_texture"]["code_scores"]
+        self.assertEqual(contract.keys(), self.migration._PEAR_CODE_SCORES.keys())
+        for key, expected in contract.items():
+            with self.subTest(code=key):
+                self.assertEqual(self.migration._PEAR_CODE_SCORES[key], expected)
+
+    def test_apple_and_pear_rank_sandy_loam_and_silty_clay_loam_oppositely(self):
+        """코드북 02=사양질, 05=미사식양질(위 테스트로 확인) 기준 — 사과 사양질=100/배
+        사양질=75, 사과 미사식양질=50/배 미사식양질=100. 뒤집히면 실패해야 한다."""
+        self.assertEqual(self.labels["2"], "사양질")
+        self.assertEqual(self.labels["5"], "미사식양질")
+        self.assertEqual(self.category_score(2, self.migration._APPLE_CODE_SCORES), 100.0)
+        self.assertEqual(self.category_score(2, self.migration._PEAR_CODE_SCORES), 75.0)
+        self.assertEqual(self.category_score(5, self.migration._APPLE_CODE_SCORES), 50.0)
+        self.assertEqual(self.category_score(5, self.migration._PEAR_CODE_SCORES), 100.0)
+
+    def test_code_99_is_excluded_not_zero(self):
+        """기타(99)는 채점 제외(None)여야 한다 — 0점으로 메우면 안 된다."""
+        self.assertIsNone(self.category_score(99, self.migration._APPLE_CODE_SCORES))
+        self.assertIsNone(self.category_score(99, self.migration._PEAR_CODE_SCORES))
+
+    def test_unknown_code_is_none(self):
+        """표에 없는 코드(예: 7 — codebook에도 없다)는 결측이지 0점이 아니다."""
+        self.assertIsNone(self.category_score(7, self.migration._APPLE_CODE_SCORES))
+        self.assertIsNone(self.category_score(7, self.migration._PEAR_CODE_SCORES))
+
+
 if __name__ == "__main__":
     unittest.main()
