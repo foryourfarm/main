@@ -3,7 +3,14 @@ import unittest
 from decimal import Decimal
 
 from app.models import CropGrowthGuide
-from app.services.suitability_service import calculate_suitability
+from app.services.suitability_service import (
+    ALLOWED_BOUNDARY_SCORE,
+    ALLOWED_KINDS,
+    LITERATURE_LIMIT_KIND,
+    boundary_score,
+    calculate_suitability,
+    category_score,
+)
 
 
 def guide(
@@ -14,6 +21,9 @@ def guide(
     allowed_max: str | None = None,
     weight: str = "1",
     risk_width: str | None = None,
+    allowed_min_kind: str | None = None,
+    allowed_max_kind: str | None = None,
+    code_scores: dict[str, float | None] | None = None,
 ) -> CropGrowthGuide:
     return CropGrowthGuide(
         crop_id=1,
@@ -25,6 +35,9 @@ def guide(
         allowed_max=Decimal(allowed_max) if allowed_max else None,
         weight=Decimal(weight),
         risk_width=Decimal(risk_width) if risk_width else None,
+        allowed_min_kind=allowed_min_kind,
+        allowed_max_kind=allowed_max_kind,
+        code_scores=code_scores,
     )
 
 
@@ -139,6 +152,142 @@ class TestSuitabilityService(unittest.TestCase):
         result = calculate_suitability([guide("ca", "5", None, "4.5", None)], {"ca": 4.0})
         self.assertEqual(result["risk_flags"], ["ca:outside_allowed"])
         self.assertLess(result["score"], 100.0)
+
+
+class TestBoundaryScore(unittest.TestCase):
+    """계약(outcomes/scripts/ml/scoring.py:61-85) `boundary_score`와의 값 대조 — 7개 경우 전부.
+
+    🔴 NULL kind가 조용히 0점을 받는 것이 이번 작업의 최대 위험이다 — NULL=60(종전 동작)을
+    명시적으로 못박는다.
+    """
+
+    def test_null_kind_keeps_previous_behavior_at_60(self):
+        self.assertEqual(boundary_score(None), ALLOWED_BOUNDARY_SCORE)
+        self.assertEqual(boundary_score(None), 60.0)
+
+    def test_literature_limit_is_zero(self):
+        self.assertEqual(boundary_score(LITERATURE_LIMIT_KIND), 0.0)
+        self.assertEqual(boundary_score("literature_limit"), 0.0)
+
+    def test_other_five_kinds_stay_at_60(self):
+        for kind in ALLOWED_KINDS - {LITERATURE_LIMIT_KIND}:
+            with self.subTest(kind=kind):
+                self.assertEqual(boundary_score(kind), 60.0)
+
+    def test_unknown_kind_raises(self):
+        with self.assertRaises(ValueError):
+            boundary_score("literture_limit")  # 오타
+
+    def test_all_six_known_kinds_and_none_covered(self):
+        """계약이 정의한 6개 kind + None 전부를 한 번에 대조한다."""
+        expected = {
+            None: 60.0,
+            "literature_limit": 0.0,
+            "cultivable_range": 60.0,
+            "literature_threshold": 60.0,
+            "derived": 60.0,
+            "heuristic": 60.0,
+            "not_applicable": 60.0,
+        }
+        self.assertEqual(set(expected) - {None}, ALLOWED_KINDS)
+        for kind, score in expected.items():
+            with self.subTest(kind=kind):
+                self.assertEqual(boundary_score(kind), score)
+
+
+class TestIndicatorScoreBoundaryKind(unittest.TestCase):
+    """`_indicator_score`가 방향별 kind에 따라 허용경계 점수를 다르게 주는지(작업 2)."""
+
+    def test_literature_limit_lower_boundary_scores_zero(self):
+        g = guide("temp_day", "20", "22", "15", "30", allowed_min_kind="literature_limit")
+        result = calculate_suitability([g], {"temp_day": 15})
+        self.assertEqual(result["score"], 0.0)
+
+    def test_literature_limit_upper_boundary_scores_zero(self):
+        g = guide("temp_day", "20", "22", "15", "30", allowed_max_kind="literature_limit")
+        result = calculate_suitability([g], {"temp_day": 30})
+        self.assertEqual(result["score"], 0.0)
+
+    def test_non_literature_limit_boundary_still_scores_60(self):
+        g = guide("temp_day", "20", "22", "15", "30", allowed_min_kind="heuristic")
+        result = calculate_suitability([g], {"temp_day": 15})
+        self.assertEqual(result["score"], 60.0)
+
+    def test_null_kind_boundary_still_scores_60(self):
+        """kind 표기가 없는 밴드는 종전 동작(60)을 유지해야 한다 — 회귀 가드."""
+        g = guide("temp_day", "20", "22", "15", "30")
+        result = calculate_suitability([g], {"temp_day": 15})
+        self.assertEqual(result["score"], 60.0)
+
+    def test_literature_limit_risk_zone_stays_zero_throughout(self):
+        """boundary=0이면 위험구간 전체가 0이다 — 감쇠할 여지가 없다(작업 2)."""
+        g = guide("temp_day", "20", "22", "15", "30", allowed_max_kind="literature_limit")
+        for value in (31, 33, 35):
+            with self.subTest(value=value):
+                self.assertEqual(calculate_suitability([g], {"temp_day": value})["score"], 0.0)
+
+
+class TestCategoryScore(unittest.TestCase):
+    """계약(outcomes/scripts/ml/scoring.py:162-181) `category_score`와의 계약 대조(작업 3)."""
+
+    def test_known_code_returns_table_value(self):
+        self.assertEqual(category_score(1, {"1": 100.0, "2": 75.0}), 100.0)
+
+    def test_unknown_code_returns_none_not_zero(self):
+        """표에 없는 코드(예: 99)는 채점 제외 — 0점이 아니다."""
+        self.assertIsNone(category_score(99, {"1": 100.0, "2": 75.0}))
+
+    def test_missing_code_returns_none(self):
+        self.assertIsNone(category_score(None, {"1": 100.0}))
+
+    def test_missing_code_scores_returns_none(self):
+        self.assertIsNone(category_score(1, None))
+
+    def test_calculate_suitability_routes_code_scores_guides_to_category_path(self):
+        """code_scores가 있는 지침은 밴드 경로(_indicator_score)로 보내지 않는다(작업 3).
+
+        지표명은 실제 대상(subsoil_texture, 심토토성)을 쓴다 — "ph"는 `_is_valid`가
+        0~14로 검증해 등급코드(1~6, 99)를 그대로 넣으면 값 자체가 무효 처리된다.
+        """
+        g = guide("subsoil_texture", None, None, code_scores={"1": 100.0, "2": 75.0, "3": 50.0})
+        result = calculate_suitability([g], {"subsoil_texture": 2})
+        self.assertEqual(result["score"], 75.0)
+        self.assertEqual(result["breakdown"]["subsoil_texture"]["status"], "category")
+
+    def test_unscored_code_is_excluded_not_zeroed(self):
+        """표에 없는 코드는 총점에서 제외된다 — 0점으로 채점되면 "판정 불가"가 "부적합"이 된다."""
+        g = guide("subsoil_texture", None, None, code_scores={"1": 100.0})
+        result = calculate_suitability([g], {"subsoil_texture": 99})
+        self.assertIsNone(result["score"])
+        self.assertEqual(result["risk_flags"], ["subsoil_texture:unscored_code"])
+
+
+class TestRefutedRainfallMonthlyNeverBackfilled(unittest.TestCase):
+    """`rainfall_monthly` 지침은 0013이 삭제했고 계약도 refuted 확정이다(작업 4).
+
+    0013 이후 어떤 마이그레이션도 이 지표를 다시 INSERT하면 실패한다 — 근거:
+    outcomes/README.md ForYourFarm 적용 체크리스트 10번.
+    """
+
+    def test_no_migration_after_0013_reinserts_rainfall_monthly(self):
+        import re
+        from pathlib import Path
+
+        versions_dir = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+        offenders = []
+        for path in sorted(versions_dir.glob("*.py")):
+            match = re.match(r"(\d{4})_", path.name)
+            if not match or int(match.group(1)) <= 13:
+                continue  # 0013 자체(그 downgrade가 되돌리는 용도)와 그 이전은 대상 밖.
+            text = path.read_text(encoding="utf-8")
+            upgrade_src = text.split("def downgrade")[0]  # downgrade()는 되돌리기용, 제외.
+            if "rainfall_monthly" in upgrade_src and "insert" in upgrade_src.lower():
+                offenders.append(path.name)
+        self.assertEqual(
+            offenders, [],
+            f"rainfall_monthly가 0013 이후 다시 INSERT됐다: {offenders} — "
+            "이 지표는 refuted 확정(outcomes/README.md 체크리스트 10번)이라 채점 대상이 아니다.",
+        )
 
 
 if __name__ == "__main__":
