@@ -59,6 +59,8 @@ def _guide(
     allowed_max: float | None,
     weight: float,
     risk_width: float | None = None,
+    allowed_min_kind: str | None = None,
+    allowed_max_kind: str | None = None,
 ) -> CropGrowthGuide:
     return CropGrowthGuide(
         crop_id=crop_id,
@@ -70,6 +72,8 @@ def _guide(
         allowed_max=allowed_max,
         weight=weight,
         risk_width=risk_width,
+        allowed_min_kind=allowed_min_kind,
+        allowed_max_kind=allowed_max_kind,
     )
 
 
@@ -80,10 +84,15 @@ def _stage(crop_id: int, stage: str, mode: str, start: int, end: int, priority: 
 
 
 # ---------------------------------------------------------------------------
-# crop_growth_guide 최종 상태 (0001~0037 replay 재확인, crop_id는 0003 시드 기준
+# crop_growth_guide 최종 상태 (0001~0039 replay 재확인, crop_id는 0003 시드 기준
 # 1=사과 2=배 3=오이 4=감자 5=상추). 각 지표의 근거 마이그레이션은 옆 주석 참고.
 # 삭제된 행 2개는 넣지 않는다 — 사과 coloring temp_night_min(0021 삭제),
 # 감자 NULL rainfall_monthly(0013 삭제, 이후 어떤 크롭도 rainfall_monthly 지표가 없다).
+#
+# temp_day 행의 allowed_min_kind/allowed_max_kind는 0039(성격 메타 백필)의 TEMP_ROWS를
+# 그대로 옮긴다 — P2(경계 성격별 점수)가 실제로 건드리는 지점이 정확히 여기라, 이 값이
+# 없으면 스냅샷이 P2 변동을 못 잡는다(finalplan.md 작업 6). 사과는 3행 전부 None/None
+# (계약과 값이 달라 성격을 옮기지 않음, 0039 주석 참고) — 무변동 회귀 가드다.
 # ---------------------------------------------------------------------------
 
 APPLE_GUIDES = [
@@ -100,7 +109,8 @@ APPLE_GUIDES = [
 ]
 
 PEAR_GUIDES = [
-    _guide(2, "growing", "temp_day", 18.5, 21.5, 17, 23, 2.0, 2.219),  # 0004(0015가 단계 범위만 확장), rw 0023
+    _guide(2, "growing", "temp_day", 18.5, 21.5, 17, 23, 2.0, 2.219,  # 0004(0015가 단계 범위만 확장), rw 0023
+           allowed_min_kind="cultivable_range", allowed_max_kind="cultivable_range"),  # 0039
     _guide(2, None, "ph", 6.0, 6.5, 5.75, 6.75, 1.5, 0.4641),  # 0012 신설 → 0023이 교체
     _guide(2, None, "organic", 25, 35, 20, 40, 1.0, 9.2069),  # 0023 신설
     _guide(2, None, "p2o5", 200, 300, 150, 350, 1.0, 275.3322),  # 0023 신설
@@ -111,7 +121,8 @@ PEAR_GUIDES = [
 ]
 
 CUCUMBER_GUIDES = [
-    _guide(3, "growing", "temp_day", 25, 28, 5, 35, 2.0, 2.219),  # 0019(전기간→growing 이동), rw 0023
+    _guide(3, "growing", "temp_day", 25, 28, 5, 35, 2.0, 2.219,  # 0019(전기간→growing 이동), rw 0023
+           allowed_min_kind="literature_limit", allowed_max_kind="literature_limit"),  # 0039
     _guide(3, None, "ph", 6.0, 6.5, 5.5, 6.8, 1.5, 0.4641),  # 0019 신설 → 0031이 6.0/6.5/5.5/6.8로 교체
     _guide(3, None, "rainfall_daily", 0, 30, None, 50, 1.5, None),  # 0012
     _guide(3, None, "organic", 20, 30, 15, 35, 1.0, 9.2069),  # 0031 신설
@@ -123,8 +134,10 @@ CUCUMBER_GUIDES = [
 ]
 
 POTATO_GUIDES = [
-    _guide(4, "early", "temp_day", 14, 23, -3, 27, 1.5, 2.219),  # 0004+0012, rw 0023
-    _guide(4, "tuber", "temp_day", 23, 24, None, 27, 2.5, 2.219),  # 0004, rw 0023 (단계 범위는 0026이 46~112로 축소)
+    _guide(4, "early", "temp_day", 14, 23, -3, 27, 1.5, 2.219,  # 0004+0012, rw 0023
+           allowed_max_kind="literature_limit"),  # 0039(allowed_min=-3은 계약과 불일치, kind 없음)
+    _guide(4, "tuber", "temp_day", 23, 24, None, 27, 2.5, 2.219,  # 0004, rw 0023 (단계 범위는 0026이 46~112로 축소)
+           allowed_max_kind="literature_limit"),  # 0039
     _guide(4, "tuber", "temp_night_min", 10, 14, None, 28, 2.0, None),  # 0004+0012, rw 없음
     _guide(4, None, "rainfall_daily", 0, 30, None, 50, 1.5, None),  # 0012 (0004 rainfall/rainfall_monthly는 0013이 삭제)
     _guide(4, None, "organic", 20, 30, 15, 35, 1.0, 9.2069),  # 0019/0027 신설(30/47/10/55.5) → 0035가 교체
@@ -137,8 +150,10 @@ POTATO_GUIDES = [
 ]
 
 LETTUCE_GUIDES = [
-    _guide(5, "spring", "temp_day", 22, 24, 2.5, 36, 2.0, 2.219),  # 0019 값을 0025가 spring/fall로 분리, rw 0023
-    _guide(5, "fall", "temp_day", 22, 24, 2.5, 36, 2.0, 2.219),
+    _guide(5, "spring", "temp_day", 22, 24, 2.5, 36, 2.0, 2.219,  # 0019 값을 0025가 spring/fall로 분리, rw 0023
+           allowed_min_kind="literature_limit", allowed_max_kind="literature_limit"),  # 0039
+    _guide(5, "fall", "temp_day", 22, 24, 2.5, 36, 2.0, 2.219,
+           allowed_min_kind="literature_limit", allowed_max_kind="literature_limit"),  # 0039
     _guide(5, None, "ph", 6.5, 7.0, 6.25, 7.25, 1.5, 0.4641),  # 0019 신설
     _guide(5, None, "p2o5", 250, 400, 175, 475, 1.0, 275.3322),  # 0019 신설
     _guide(5, None, "rainfall_daily", 0, 30, None, 50, 1.5, None),  # 0012
@@ -319,35 +334,93 @@ class TestBaselineSnapshotExists(unittest.TestCase):
         self.assertGreater(len(data["records"]), 0)
 
 
+# P2(경계 성격별 점수, 2026-08-05)가 boundary_score(literature_limit)를 반영하는 crop_id.
+# 0039 TEMP_ROWS 기준 literature_limit이 붙은 기온 행을 가진 작물 — 오이(3)·감자(4)·상추(5).
+# 사과(1)·배(2)는 여기 없다(사과는 kind가 전부 None, 배는 cultivable_range라 60점 그대로 유지) —
+# 이 두 작물의 어떤 셀·지표도 바뀌면 안 된다(사과 기온 성격이 잘못 붙었는지 잡는 회귀 가드).
+ALLOWED_TEMP_DAY_CHANGE_CROPS = frozenset({3, 4, 5})
+
+
 class TestBaselineSnapshotMatches(unittest.TestCase):
-    def test_current_output_matches_snapshot(self):
-        """현행 산출과 스냅샷이 완전 일치해야 한다. 불일치는 (작물,지역,연,월)별로 어느 필드가
-        어떻게 달라졌는지 실패 메시지에 담는다 — P2·P3에서 이 메시지가 변동 설명서가 된다."""
+    def test_current_output_matches_snapshot_with_expected_deltas(self):
+        """현행 산출과 스냅샷을 대조하되 **허용된 변동만** 통과시킨다(finalplan.md 작업 6).
+
+        허용 규칙: 오이(3)·감자(4)·상추(5) 셀의 `temp_day` 지표 점수 변동과 그로부터 파생되는
+        `score`·`grade`·`risk_flags`만 허용한다. `status`·`growth_stage`는 지표 변동과 무관하게
+        항상 같아야 한다. 사과(1)·배(2)는 한 셀도, 한 지표도 바뀌면 안 된다 — 잘못 붙으면 사과
+        0점 지역이 93→121로 늘어난다(계약 문서 실측 기록). 기대 변동이 하나도 없으면 실패한다
+        (분기가 아예 동작하지 않은 경우를 잡는다).
+        """
         data = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
         expected = _index(data["records"])
         current = _index(_build_records())
 
-        mismatches: list[str] = []
-        for key in sorted(set(expected) | set(current), key=lambda k: (k[0], k[1], k[2], k[3])):
-            exp = expected.get(key)
-            cur = current.get(key)
+        self.assertEqual(
+            set(expected), set(current), "레코드 키 집합이 달라졌다 — 셀이 추가/삭제됐다(허용 범위 밖)"
+        )
+
+        unexpected: list[str] = []
+        temp_day_changes: list[tuple[int, str, int, int, object, object]] = []
+
+        for key in sorted(expected, key=lambda k: (k[0], k[1], k[2], k[3])):
+            exp = expected[key]
+            cur = current[key]
             crop_id, region, year, month = key
             label = f"crop={crop_id} region={region} {year}-{month:02d}"
-            if exp is None:
-                mismatches.append(f"{label}: 스냅샷에 없음(현행에만 존재)")
-                continue
-            if cur is None:
-                mismatches.append(f"{label}: 현행에 없음(스냅샷에만 존재)")
-                continue
-            diffs = [
-                f"{field}: {exp.get(field)!r} -> {cur.get(field)!r}"
-                for field in ("score", "grade", "status", "growth_stage", "risk_flags", "indicator_scores")
-                if exp.get(field) != cur.get(field)
-            ]
-            if diffs:
-                mismatches.append(f"{label}: " + "; ".join(diffs))
 
-        self.assertEqual([], mismatches, "\n" + "\n".join(mismatches))
+            # status·growth_stage는 지표 변동과 무관하게 항상 같아야 한다 — 이번 변경 대상이 아니다.
+            for field in ("status", "growth_stage"):
+                if exp.get(field) != cur.get(field):
+                    unexpected.append(
+                        f"{label}: {field} {exp.get(field)!r} -> {cur.get(field)!r} (변동 대상 아닌 필드)"
+                    )
+
+            exp_ind = exp.get("indicator_scores") or {}
+            cur_ind = cur.get("indicator_scores") or {}
+            changed_indicators = {
+                ind for ind in set(exp_ind) | set(cur_ind) if exp_ind.get(ind) != cur_ind.get(ind)
+            }
+
+            if not changed_indicators:
+                for field in ("score", "grade", "risk_flags"):
+                    if exp.get(field) != cur.get(field):
+                        unexpected.append(
+                            f"{label}: 지표 변동 없이 {field} {exp.get(field)!r} -> {cur.get(field)!r}"
+                        )
+                continue
+
+            if changed_indicators != {"temp_day"}:
+                unexpected.append(
+                    f"{label}: temp_day 외 지표가 바뀌었다 {sorted(changed_indicators)} "
+                    f"({ {i: (exp_ind.get(i), cur_ind.get(i)) for i in changed_indicators} })"
+                )
+                continue
+
+            old_score, new_score = exp_ind.get("temp_day"), cur_ind.get("temp_day")
+            if crop_id not in ALLOWED_TEMP_DAY_CHANGE_CROPS:
+                unexpected.append(
+                    f"{label}: crop={crop_id}는 temp_day 변동이 허용되지 않는다(사과·배 무변동 가드) "
+                    f"{old_score!r} -> {new_score!r}"
+                )
+                continue
+
+            if old_score is not None and new_score is not None and new_score > old_score:
+                unexpected.append(
+                    f"{label}: temp_day 점수가 올라갔다 {old_score} -> {new_score} "
+                    "(경계 점수가 60→0으로 내려갔으므로 방향이 반대다 — 구현 오류)"
+                )
+                continue
+
+            temp_day_changes.append((crop_id, region, year, month, old_score, new_score))
+
+        self.assertEqual([], unexpected, "\n" + "\n".join(unexpected))
+        self.assertTrue(
+            temp_day_changes,
+            "기대 변동이 하나도 없다 — boundary_score(literature_limit) 분기가 동작하지 않았을 수 있다",
+        )
+        print(f"\n[baseline diff] temp_day 변동 {len(temp_day_changes)}건 (작물, 지역, 연-월: 이전 -> 새값):")
+        for crop_id, region, year, month, old, new in temp_day_changes:
+            print(f"  crop={crop_id} region={region} {year}-{month:02d}: {old} -> {new}")
 
 
 if __name__ == "__main__":

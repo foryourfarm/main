@@ -29,6 +29,22 @@ OPTIMAL_EXIT_SCORE = 95.0
 # 한쪽 날개 모양이 된다. 2026-07-27 사용자 선택(선형·이차·로그 중 로그).
 DECAY_CURVATURE = 9.0
 
+# 🔴 이 성격의 허용경계만 0점이 된다(2026-08-04). 이관 계약(outcomes/scripts/ml/scoring.py)의
+# 같은 이름 상수와 반드시 같아야 한다 — 두 구현의 점수가 갈리면 안 되는 계약이다
+# (test_farmml_contract.py가 텍스트로 대조한다).
+LITERATURE_LIMIT_KIND = "literature_limit"
+
+# allowed_min_kind/allowed_max_kind에 허용되는 값 전체(마이그레이션 0038 CHECK 제약과 동일).
+# 이관 계약의 ALLOWED_KINDS와 이름·값이 같아야 한다.
+ALLOWED_KINDS = frozenset({
+    "literature_limit",
+    "cultivable_range",
+    "literature_threshold",
+    "derived",
+    "heuristic",
+    "not_applicable",
+})
+
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
 # temp_day는 일 실측 컬럼이 없어 월평년으로 근사(승인됨). 조용한 대체 아님 — 응답/UI에 병기.
@@ -161,19 +177,45 @@ def _log_falloff(x: float) -> float:
     return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
 
 
-def _allowed_score(nearness: float) -> float:
+def boundary_score(kind: str | None) -> float:
+    """허용경계에 줄 점수. 그 경계의 **성격**이 정한다(계약 scoring.py:61-85와 동일).
+
+    종전에는 성격과 무관하게 일괄 60점(B등급 하한)이었다. 그런데 그 칸에는 ±50% 휴리스틱과
+    **문헌이 준 생리적 절대한계**가 섞여 있었고, 후자는 생장이 완전히 멈추는 점인데 60점을
+    받고 있었다. `literature_limit`만 0점으로 내린다 — 나머지 성격은 60점을 유지한다
+    (2026-08-04 사용자 결정: "literature_limit만 0점, 나머지 60점 유지").
+
+    `kind`가 `None`(밴드에 성격 표기 자체가 없는 경우)이면 종전과 동일하게 60점이다 — NULL은
+    종전 동작 유지다. 표기가 **있는데** `ALLOWED_KINDS`에 없으면 오타로 보고 즉시 실패한다 —
+    이 검증이 없으면 `literature_limit`의 오타가 조용히 60점(정상 완충)으로 채점된다.
+    """
+    if kind is None:
+        return ALLOWED_BOUNDARY_SCORE
+    if kind not in ALLOWED_KINDS:
+        raise ValueError(
+            f"모르는 allowed_*_kind: {kind!r}. 허용값은 {sorted(ALLOWED_KINDS)} 중 하나여야 한다."
+        )
+    return 0.0 if kind == LITERATURE_LIMIT_KIND else ALLOWED_BOUNDARY_SCORE
+
+
+def _allowed_score(nearness: float, boundary: float = ALLOWED_BOUNDARY_SCORE) -> float:
     """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
 
     최적 근처에서는 거의 안 깎이고 허용경계에 다가갈수록 가파르게 떨어진다 — 소폭 이탈은
     실제로 해가 적고 내성 한계에 가까울수록 위험이 커진다는 쪽에 맞춘 곡선.
+
+    `boundary`가 0(literature_limit)이면 곡선이 0→95로 펴진다(2026-08-05, 계약과 동일).
     """
-    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
-        nearness
-    )
+    return boundary + (OPTIMAL_EXIT_SCORE - boundary) * _log_falloff(nearness)
 
 
-def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None) -> float:
-    """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
+def _risk_score(
+    overshoot: float,
+    buffer: float,
+    risk_width: float | None = None,
+    boundary: float = ALLOWED_BOUNDARY_SCORE,
+) -> float:
+    """허용구간을 벗어난 뒤 `boundary` → 0으로 떨어지는 로그 감쇠 점수.
 
     절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
     허용구간과 곡률을 반대로 걸어(여기는 급락 후 완만) 전체가 정규분포 한쪽 날개처럼 이어진다.
@@ -185,6 +227,9 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     산포도 기반 절대폭, 마이그레이션 0020)가 있으면 그것을 감쇠 거리로 쓴다.
     없으면 종전대로 완충폭 1배로 폴백한다 — 산포도를 낼 수 없는 지표(temp_night_min,
     rainfall_daily)에서 척도를 지어내지 않는다. 둘 다 없으면 종전대로 0점.
+
+    `boundary`가 0(literature_limit, 2026-08-05)이면 이 구간 전체가 0이다 — 생장이 멈춘
+    지점을 이미 지났으므로 감쇠할 여지가 없다(수식상 `boundary * (...)`이 자동으로 0이 된다).
     """
     width = risk_width if risk_width and risk_width > 0 else buffer
     if width <= 0:
@@ -192,7 +237,7 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     t = overshoot / width
     if t >= 1:
         return 0.0
-    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+    return boundary * (1 - _log_falloff(t))
 
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
@@ -210,16 +255,39 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
+        # 경계 점수는 그 **방향**의 성격이 정한다(2026-08-04, 계약 band_score()와 동일).
+        boundary = boundary_score(guide.allowed_min_kind)
         if value >= edge:
-            return _allowed_score((value - edge) / (lo - edge)), "allowed"
-        return _risk_score(edge - value, lo - edge, risk_width), "risk"
+            return _allowed_score((value - edge) / (lo - edge), boundary), "allowed"
+        return _risk_score(edge - value, lo - edge, risk_width, boundary), "risk"
     # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
+    boundary = boundary_score(guide.allowed_max_kind)
     if value <= edge:
-        return _allowed_score((edge - value) / (edge - hi)), "allowed"
-    return _risk_score(value - edge, edge - hi, risk_width), "risk"
+        return _allowed_score((edge - value) / (edge - hi), boundary), "allowed"
+    return _risk_score(value - edge, edge - hi, risk_width, boundary), "risk"
+
+
+def category_score(
+    code: float | int | None, code_scores: Mapping[str, float | None] | None
+) -> float | None:
+    """범주형 등급코드 → 0~100 점수 조회(계약 scoring.py:162-181 `category_score`와 동일 계약).
+
+    밴드(연속 구간)가 아니라 문헌 배점표를 코드로 직접 조회한다 — 심토토성처럼 순서 가정
+    자체가 불가능한 지표(작물별로 순위가 뒤집힘)를 위한 경로다.
+
+    표에 없는 코드(예: 99 기타)와 결측은 `None` — 0점이 아니다. 0으로 두면 "판정 불가"가
+    "부적합"으로 조용히 바뀐다(추측 금지).
+
+    계약은 pandas/numpy(`np.nan`)를 쓰지만 백엔드는 pandas·numpy를 의존성에 갖지 않으므로
+    결측·미등록 코드는 `NaN` 대신 `None`으로 옮긴다(§14 불필요한 의존성 금지).
+    """
+    if code is None or code_scores is None:
+        return None
+    score = code_scores.get(str(int(code)))
+    return None if score is None else float(score)
 
 
 def _is_valid(indicator: str, value: float) -> bool:
@@ -278,16 +346,26 @@ def calculate_suitability(
             breakdown[indicator] = {"value": value, "status": "invalid"}
             risk_flags.append(f"{indicator}:invalid")
             continue
-        # 단측 밴드(2026-08-03)에서 optimal_min·optimal_max 중 하나만 None인 건 정상
-        # 계약이다 — 둘 다 없을 때만 채점 불가(outcomes/scripts/ml/scoring.py band_score()와
-        # 같은 기준). 예전엔 하나만 없어도 여기서 걸러 사과 Ca 같은 단측 지표를 통째로
-        # 스킵시켰다.
-        if guide.optimal_min is None and guide.optimal_max is None:
-            breakdown[indicator] = {"value": value, "status": "invalid_guide"}
-            risk_flags.append(f"{indicator}:invalid_guide")
-            continue
-
-        score, status = _indicator_score(value, guide)
+        # 범주형 등급코드 지침(예: 심토토성)은 밴드 경로로 보내지 않는다 — code_scores가
+        # 있는 지침엔 optimal_min/max가 없어 밴드에 태우면 예외가 나거나 없는 순위를 가정한다
+        # (계약 outcomes/README.md 체크리스트 3번, 2026-08-05).
+        if guide.code_scores is not None:
+            score = category_score(value, guide.code_scores)
+            if score is None:
+                breakdown[indicator] = {"value": value, "status": "unscored_code"}
+                risk_flags.append(f"{indicator}:unscored_code")
+                continue
+            status = "category"
+        else:
+            # 단측 밴드(2026-08-03)에서 optimal_min·optimal_max 중 하나만 None인 건 정상
+            # 계약이다 — 둘 다 없을 때만 채점 불가(outcomes/scripts/ml/scoring.py band_score()와
+            # 같은 기준). 예전엔 하나만 없어도 여기서 걸러 사과 Ca 같은 단측 지표를 통째로
+            # 스킵시켰다.
+            if guide.optimal_min is None and guide.optimal_max is None:
+                breakdown[indicator] = {"value": value, "status": "invalid_guide"}
+                risk_flags.append(f"{indicator}:invalid_guide")
+                continue
+            score, status = _indicator_score(value, guide)
         weight = float(guide.weight)
         entry: dict[str, object] = {
             "value": value,
