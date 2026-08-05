@@ -1,0 +1,4470 @@
+{
+  "meta": {
+    "note": "v6 이전 baseline 스냅샷(finalplan.md P0). DB 없이 코드 픽스처로 산출 (test_baseline_scores.py 모듈 docstring 참고). 3개 지역은 테스트용 고정 프로파일이며 corrections는 비웠다(장기예보 보정 없음).",
+    "window": [
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+    ],
+    "regions": [
+      "central_soil_optimal",
+      "coastal_soil_allowed",
+      "mountain_soil_risk"
+    ]
+  },
+  "records": [
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 77.0,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 2.4,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 100.0,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 100.0,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 97.8,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 90.5,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 97.1,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 87.6,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 86.7,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 87.9,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 9.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "maturity",
+      "status": "ok",
+      "score": 81.2,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "ph": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 70.4,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 17.8,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 89.7,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 89.7,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 88.1,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 92.9,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 87.5,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 90.5,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 75.0,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 75.0,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "maturity",
+      "status": "ok",
+      "score": 70.3,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "ph": 75.7,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 5.0,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 24.1,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 81.1,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 28.5,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 28.5,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fruit_growth",
+      "status": "ok",
+      "score": 28.5,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 5.7,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "coloring",
+      "status": "ok",
+      "score": 9.8,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 31.1,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "maturity",
+      "status": "ok",
+      "score": 5.3,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 1,
+      "crop_name": "사과",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "ph:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "ph": 0.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 76.5,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 97.5,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 97.5,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 76.5,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 76.5,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 97.5,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 77.0,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 2.4,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 66.2,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 89.7,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 87.3,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 66.8,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 2.4,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 66.2,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 80.3,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 60.0,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 80.3,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 60.0,
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "organic": 100.0,
+        "p2o5": 88.2,
+        "k": 89.6,
+        "ca": 83.2,
+        "mg": 88.2
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 5.0,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 9.2,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 17.8,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 28.5,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 9.2,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 17.8,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 9.2,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 17.8,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 26.1,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 5.0,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 2,
+      "crop_name": "배",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 0.0,
+        "p2o5": 29.0,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 82.0,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 83.2,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 83.2,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 89.2,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 84.0,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 92.8,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 85.5,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 85.5,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 84.0,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 92.8,
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "k:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "organic": 100.0,
+        "p2o5": 29.0,
+        "k": 33.3,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 73.9,
+      "grade": "B",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 84.6,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 75.1,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 90.2,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 75.7,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 92.8,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 77.2,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 77.2,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 75.8,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 93.6,
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 81.1,
+        "organic": 83.2,
+        "p2o5": 11.0,
+        "k": 60.0,
+        "ca": 83.2,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 18.6,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 77.9,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 20.5,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 87.1,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 21.3,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 91.1,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 22.0,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 94.3,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 22.0,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 94.3,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "growing",
+      "status": "ok",
+      "score": 20.9,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 89.2,
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 3,
+      "crop_name": "오이",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "organic:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "organic": 6.3,
+        "p2o5": 0.5,
+        "k": 0.0,
+        "ca": 1.8,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 97.8,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 86.6,
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 99.0,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 94.2,
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 79.2,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 100.0,
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 77.8,
+      "grade": "A",
+      "risk_flags": [
+        "temp_day:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 91.7,
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 93.7,
+      "grade": "S",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 81.1,
+        "temp_night_min": 85.9,
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "organic": 100.0,
+        "ph": 100.0,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 100.0,
+        "mg": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 77.1,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 89.2,
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 78.9,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 63.3,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 100.0,
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 62.0,
+      "grade": "B",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 91.7,
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 79.9,
+      "grade": "A",
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 89.6,
+        "temp_night_min": 87.6,
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "p2o5:outside_allowed",
+        "ca:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 83.2,
+        "ph": 100.0,
+        "p2o5": 46.9,
+        "k": 60.0,
+        "ca": 45.9,
+        "mg": 88.2,
+        "ec": 85.9
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 20.3,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 79.7,
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "early",
+      "status": "ok",
+      "score": 22.2,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 91.4,
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 5.2,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "temp_night_min:outside_allowed",
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 0.0,
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 21.9,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 0.0,
+        "temp_night_min": 100.0,
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": "tuber",
+      "status": "ok",
+      "score": 41.2,
+      "grade": "C",
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "temp_night_min": 90.5,
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 4,
+      "crop_name": "감자",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "organic:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "organic": 6.3,
+        "ph": 14.0,
+        "p2o5": 18.5,
+        "k": 0.0,
+        "ca": 5.3,
+        "mg": 11.9,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 84.0,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 74.6,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 86.6,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 86.8,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 87.7,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 91.9,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 89.4,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 87.5,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 91.1,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 89.4,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 87.1,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 89.1,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 84.6,
+      "grade": "A",
+      "risk_flags": [],
+      "indicator_scores": {
+        "temp_day": 77.1,
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "central_soil_optimal",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [],
+      "indicator_scores": {
+        "ph": 75.7,
+        "p2o5": 100.0,
+        "k": 100.0,
+        "ca": 60.0,
+        "mg": 75.7,
+        "organic": 100.0,
+        "ec": 100.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 79.6,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 79.2,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 81.5,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 88.0,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 82.5,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 92.7,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 84.0,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 82.4,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 92.5,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 84.0,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 82.1,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 91.0,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 80.4,
+      "grade": "A",
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 82.7,
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "coastal_soil_allowed",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "mg:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 100.0,
+        "p2o5": 67.1,
+        "k": 85.9,
+        "ca": 100.0,
+        "mg": 27.4,
+        "organic": 83.2,
+        "ec": 84.5
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 1,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 2,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 3,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 9.7,
+      "grade": "C",
+      "risk_flags": [
+        "temp_day:outside_allowed",
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 31.1,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 4,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 20.6,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 82.7,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 5,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 22.1,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 90.1,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 6,
+      "growth_stage": "spring",
+      "status": "ok",
+      "score": 22.8,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 93.5,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 7,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 8,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 24.2,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 100.0,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 9,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 22.5,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 91.9,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 10,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 20.9,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 84.2,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 11,
+      "growth_stage": "fall",
+      "status": "ok",
+      "score": 16.4,
+      "grade": "C",
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "temp_day": 63.2,
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    },
+    {
+      "crop_id": 5,
+      "crop_name": "상추",
+      "region": "mountain_soil_risk",
+      "year": 2026,
+      "month": 12,
+      "growth_stage": null,
+      "status": "dormant",
+      "score": null,
+      "grade": null,
+      "risk_flags": [
+        "ph:outside_allowed",
+        "p2o5:outside_allowed",
+        "k:outside_allowed",
+        "ca:outside_allowed",
+        "mg:outside_allowed",
+        "organic:outside_allowed",
+        "ec:outside_allowed"
+      ],
+      "indicator_scores": {
+        "ph": 0.0,
+        "p2o5": 23.2,
+        "k": 0.0,
+        "ca": 0.0,
+        "mg": 0.2,
+        "organic": 6.3,
+        "ec": 0.0
+      }
+    }
+  ]
+}

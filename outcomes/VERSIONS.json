@@ -1,0 +1,62 @@
+{
+  "knowledge_version": "2026-08-05-v6",
+  "scoring_version": "2026-08-05-v6",
+  "note": "outcomes/ 전 파일의 버전·해시 대장. `python scripts/export_outcomes.py`가 생성한다. 위 두 버전은 memory/crop_rules/_shared.json 실값이며 이 디렉터리 전체의 계약 버전이다. generated_by=null은 루트에 원본이 없는 파일(outcomes/ 전용 문서 또는 수제 산출물)이며 재생성으로 검증할 수 없다 — 그 파일의 숫자가 위 버전 것이라고 보증하지 않는다. 소비 측 사용법: 들고 있는 파일의 sha256이 여기 값과 다르면 그 파일은 이 버전이 아니다.",
+  "files": {
+    "data/99_codebook_modified.csv": {
+      "sha256": "c92d1401dec3f09f7ae04e5c3993e5bab2fb092c6e6f2e587175230ad914bdb6",
+      "bytes": 1813,
+      "generated_by": "data/99_codebook_modified.csv"
+    },
+    "memory/crop_rules/_shared.json": {
+      "sha256": "3c1d81f5287e5ba2151a6757b7c2f695c8bbe7d6d999dde9a1b35b7513104b5e",
+      "bytes": 24473,
+      "generated_by": "memory/crop_rules/_shared.json"
+    },
+    "memory/crop_rules/apple.json": {
+      "sha256": "7cd739802a741e2c58638e0403725f281f2ac23d4a90e4fe0d6287d1d8926255",
+      "bytes": 19832,
+      "generated_by": "memory/crop_rules/apple.json"
+    },
+    "memory/crop_rules/cucumber.json": {
+      "sha256": "a2f494f3e781101eb5b91531f5cdf7714a1e0904e9fc9373d652774f89abbd36",
+      "bytes": 10465,
+      "generated_by": "memory/crop_rules/cucumber.json"
+    },
+    "memory/crop_rules/lettuce.json": {
+      "sha256": "c350a8d9a4ddbeb8b1181cfb3d860dc7c281ddba103deb4cd4124e14b00077c9",
+      "bytes": 9892,
+      "generated_by": "memory/crop_rules/lettuce.json"
+    },
+    "memory/crop_rules/pear.json": {
+      "sha256": "98eef336b051867c47f948b97559402beba5d219a7768e09668a94c1b2f5b4d2",
+      "bytes": 13012,
+      "generated_by": "memory/crop_rules/pear.json"
+    },
+    "memory/crop_rules/potato.json": {
+      "sha256": "a646149d2e3086a6291babe6e0e2045457961574fbf4c65fce79d99357af4c74",
+      "bytes": 17496,
+      "generated_by": "memory/crop_rules/potato.json"
+    },
+    "memory/indicator_dispersion.json": {
+      "sha256": "31d8b2b7180c99de39c397701e782782a1cdce11bd58d0ab90e2df082c739f83",
+      "bytes": 6971,
+      "generated_by": "memory/indicator_dispersion.json"
+    },
+    "README.md": {
+      "sha256": "4bba2e0330b09fa41b7a6a474cd5665e6756344f6c5fdfb553bd3b8b4d4b6155",
+      "bytes": 32848,
+      "generated_by": null
+    },
+    "scripts/ml/dispersion.py": {
+      "sha256": "3a891c6d27a203ad0c15942f2dee580a1a45b70dae1ec9b1a2ce57221bcce21b",
+      "bytes": 5508,
+      "generated_by": "scripts/ml/dispersion.py"
+    },
+    "scripts/ml/scoring.py": {
+      "sha256": "1045e6e449c9269979b3d444c206074f85451c3bac7464de05881defce5abb18",
+      "bytes": 10475,
+      "generated_by": "scripts/ml/scoring.py"
+    }
+  }
+}

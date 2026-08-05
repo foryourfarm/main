@@ -84,6 +84,15 @@ export interface MonthlyOutlookEntry {
   status: SuitabilityStatus;
   score: number | null;
   grade: Grade | null;
+  /** 종전 토양60/기온40 가중평균 총점(부차 지표). 주 총점(`score`)은 P3부터
+   * `min(토양 축, 기후 축)` 구조라 가중평균과 다르다 — 응답 필드라 항상 채워지지만
+   * 백엔드 기본값이 null인 필드는 채점 불가 달에서 null로 온다. */
+  score_weighted: number | null;
+  /** 총점을 결속한 축 안에서 가장 낮은 지표의 한글명, 기후 축이 결속했으면 "기온".
+   * 두 축 다 비었거나 미채점이면 null. */
+  limiting_factor: string | null;
+  /** 총점을 결속한 축 — "토양" | "기온". `limiting_factor`가 어느 층 얘기인지 먼저 가리킨다. */
+  limiting_layer: string | null;
   risk_flags: string[];
   /** 그 달 기온·강수에 3개월전망 보정이 반영됐는지. false면 평년치만 쓴 칸. */
   outlook_applied: boolean;
@@ -100,7 +109,34 @@ export interface HourlyTemp {
   t: string;
 }
 
-/** 지표별 채점 내역. 밴드 경계는 지침에 없으면 null이다. */
+/** 그 지표 밴드 기준표의 출처. `open_field`(노지) | `facility`(시설) — 오이·상추는 토양
+ * 7개 전부, 감자는 6개가 시설재배 기준표로 노지 실측을 채점한다(백엔드
+ * `suitability_service`, outcomes/README.md 적용 체크리스트 4-1). */
+export type CultivationType = "open_field" | "facility";
+
+/** 결속한 경계 방향의 성격. `derived`는 우리가 역산한 경계라 그 밖 점수는 문헌 근거가
+ * 없다(`score_tier === "reference"`로 이어짐). 백엔드 `crop_growth_guide.allowed_min_kind`
+ * / `allowed_max_kind`와 동일한 값. */
+export type BoundaryKind =
+  | "literature_limit"
+  | "cultivable_range"
+  | "literature_threshold"
+  | "derived"
+  | "heuristic"
+  | "not_applicable";
+
+/** 이 점수가 문헌 기반(`literature`)인지 참고용(`reference`)인지. `reference`는 문헌값이
+ * 아니라 역산 경계(`derived`) 밖 점수라는 뜻이라 문헌 기반 점수와 같은 자리에 두면 안 된다
+ * (outcomes/README.md 적용 체크리스트 12번). */
+export type ScoreTier = "literature" | "reference";
+
+/** 지표별 채점 내역. 밴드 경계는 지침에 없으면 null이다.
+ *
+ * `cultivation_type`/`boundary_kind`/`score_tier`는 채점된 지표(optimal/allowed/risk/
+ * category)에만 실린다 — missing/invalid/invalid_guide/unscored_code는 백엔드가 키 자체를
+ * 안 실어 보내(`suitability_service.calculate_suitability`) 여기서도 옵셔널(undefined
+ * 가능)로 둔다. 채점됐지만 결속한 방향/기준이 없는 경우(optimal 구간, category 상태,
+ * 지침에 cultivation_type 미기재)는 명시적 `null`로 온다. */
 export interface IndicatorBreakdown {
   value?: number | null;
   score?: number | null;
@@ -109,6 +145,9 @@ export interface IndicatorBreakdown {
   optimal_max?: number | null;
   allowed_min?: number | null;
   allowed_max?: number | null;
+  cultivation_type?: CultivationType | null;
+  boundary_kind?: BoundaryKind | null;
+  score_tier?: ScoreTier | null;
 }
 
 /** 단기 탭 하루치. 계약: PR #33 + 0032(표시·채점 기온 분리).
@@ -257,6 +296,7 @@ const INDICATOR_NAMES: Record<string, string> = {
   ec: "토양 염류(EC)",
   p2o5: "유효인산",
   organic: "유기물",
+  subsoil_texture: "심토 토성",
 };
 
 const REASON_NAMES: Record<string, string> = {

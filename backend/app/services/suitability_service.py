@@ -1,9 +1,11 @@
 """DB 생육 지침을 적용하는 결정론적 적합도 룰 엔진 + 밭 단위 조회 오케스트레이션."""
+import logging
 from calendar import monthrange
 from math import log1p
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -20,6 +22,8 @@ from app.services.climatology_service import (
 from app.services.growth_stage_service import pick_stage, resolve_growth_stage
 from app.services.outlook_correction import apply_corrections, load_corrections
 
+logger = logging.getLogger(__name__)
+
 ALLOWED_BOUNDARY_SCORE = 60.0  # 승인됨: B등급 하한(60)을 허용구간 끝점 점수로 사용.
 # 최적구간을 벗어나는 순간의 점수. 100에서 이어지지 않고 여기서 시작한다 — "최적 이탈" 자체에
 # 붙는 고정 감점(5점)이라 경계를 넘었다는 사실이 점수에 바로 드러난다. 2026-07-27 사용자 지정.
@@ -28,6 +32,27 @@ OPTIMAL_EXIT_SCORE = 95.0
 # 허용구간(완만→급락)과 위험구간(급락→완만)에 같은 곡률을 반대로 걸어 전체가 정규분포
 # 한쪽 날개 모양이 된다. 2026-07-27 사용자 선택(선형·이차·로그 중 로그).
 DECAY_CURVATURE = 9.0
+
+# 🔴 이 성격의 허용경계만 0점이 된다(2026-08-04). 이관 계약(outcomes/scripts/ml/scoring.py)의
+# 같은 이름 상수와 반드시 같아야 한다 — 두 구현의 점수가 갈리면 안 되는 계약이다
+# (test_farmml_contract.py가 텍스트로 대조한다).
+LITERATURE_LIMIT_KIND = "literature_limit"
+
+# 이 성격의 경계 밖(risk) 점수는 「문헌 기반」이 아니라 「참고」로만 표기한다(P6,
+# outcomes/README.md 적용 체크리스트 12번) — 문헌값이 아니라 역산치이고 그 경계 밖 감점
+# 기울기에 근거가 없다는 뜻. kind로만 판정하므로 특정 지표를 코드로 특별취급하지 않는다.
+DERIVED_KIND = "derived"
+
+# allowed_min_kind/allowed_max_kind에 허용되는 값 전체(마이그레이션 0038 CHECK 제약과 동일).
+# 이관 계약의 ALLOWED_KINDS와 이름·값이 같아야 한다.
+ALLOWED_KINDS = frozenset({
+    "literature_limit",
+    "cultivable_range",
+    "literature_threshold",
+    "derived",
+    "heuristic",
+    "not_applicable",
+})
 
 # 출력 명칭은 항상 이것 — ML 정확도 검증 완료가 아님(§13, 핸드오프 §5.2).
 SUITABILITY_LABEL = "문헌 기반 예상 적합도"
@@ -65,6 +90,30 @@ MONTHLY_STAGE_LIMITATION = (
 MONTHLY_SOIL_LIMITATION = (
     "토양 지표는 3개월 전체에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
 )
+FACILITY_CULTIVATION = "facility"
+# 계약 §4-1(감사 §20). `cultivation_type`이 밴드에 적혀 있어도 그 값을 보고 분기하는 코드가
+# 어느 쪽에도 없었다 — 오이·상추는 토양 7개 전부, 감자는 6개가 RDA 「시설재배토양」 진단
+# 기준표로 **노지 시군구 실측을 채점**하고 있다. 값은 바꾸지 않는 것이 사용자 결정이고,
+# 대신 그 사실을 노출한다. 지표별 꼬리표는 breakdown을 그리는 화면에만 뜨는데 장기 탭은
+# 지표 UI가 없으므로 여기 한계 표기로도 함께 낸다 — 두 탭 다 덮으려면 이 경로가 필요하다.
+FACILITY_BAND_LIMITATION_TEMPLATE = (
+    "다음 지표는 시설재배 기준표로 채점합니다(노지 기준표가 없어 그대로 사용) — {names}. "
+    "노지 밭이면 실제보다 후하거나 박하게 나올 수 있습니다."
+)
+# 계약 체크리스트 9번. 같은 밭 같은 흙에서 사과 100점·배 75점이 나온다 — 토성엔 단조 순위가
+# 없고 국가 배점표가 작물별로 다르기 때문이다(사과 최적은 사양질, 배 최적은 식양질). 근거를
+# 안 밝히면 사용자가 버그로 오인한다. 문구를 프론트에 두지 않고 여기 두는 이유는 다른 모든
+# 한계 표기와 같은 경로를 쓰기 위해서다 — 두 곳에 적으면 반드시 갈린다(§18-2와 같은 취지).
+SUBSOIL_TEXTURE_RANK_LIMITATION = (
+    "심토 토성 점수는 작물마다 순위가 다릅니다 — 같은 흙이 사과에서는 최적, 배에서는 보통이 "
+    "될 수 있습니다. 국가 토양 적지평가 배점표가 작물별로 다르기 때문이며 오류가 아닙니다."
+)
+# 계약 체크리스트 6번([확인 필요] 유지). 흙토람 elcd가 1:5 비환산인지 지도자료용 ×5 환산인지
+# 미확인이다. ×5라면 EC 밴드가 통째로 어긋난다 — 확정 전까지 제품 설명에 유지한다.
+EC_SCALE_LIMITATION = (
+    "토양 염류(EC)는 측정 환산 방식이 확정되지 않아 값이 실제보다 크거나 작을 수 있습니다 — "
+    "EC 점수는 참고로만 보십시오."
+)
 OUTLOOK_APPLIED_LIMITATION = (
     "기온·강수는 과거 평균에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
     "전망이 없는 월·지표(야간최저기온·일조 등)는 과거 평균을 그대로 씁니다."
@@ -89,7 +138,37 @@ INDICATOR_NAMES: dict[str, str] = {
     "ec": "토양 염류(EC)",
     "p2o5": "유효인산",
     "organic": "유기물",
+    # 범주형 지표(등급코드 → 배점표). 한글명이 없으면 `limiting_factor`에 `subsoil_texture`
+    # 라는 raw 키가 사용자 화면까지 그대로 나간다(0041).
+    "subsoil_texture": "심토 토성",
 }
+
+
+def indicator_limitations(
+    breakdowns: Iterable[Mapping[str, Mapping[str, object]]],
+) -> list[str]:
+    """그 밭의 지침에 걸린 지표 때문에 붙는 한계 표기(계약 체크리스트 6·9번).
+
+    지침이 **걸렸는지**만 보고 채점 여부는 보지 않는다 — 결측이어도 그 작물이 그 지표로
+    평가되는 축이라는 사실은 같고, 심토토성은 적재 배선 부재로 현재 항상 결측이라
+    채점 여부를 조건에 걸면 안내가 영구히 안 뜬다.
+    """
+    indicators: set[str] = set()
+    facility: set[str] = set()
+    for breakdown in breakdowns:
+        for indicator, entry in breakdown.items():
+            indicators.add(indicator)
+            if entry.get("cultivation_type") == FACILITY_CULTIVATION:
+                facility.add(indicator)
+    out: list[str] = []
+    if facility:
+        names = "·".join(INDICATOR_NAMES.get(i, i) for i in sorted(facility))
+        out.append(FACILITY_BAND_LIMITATION_TEMPLATE.format(names=names))
+    if "subsoil_texture" in indicators:
+        out.append(SUBSOIL_TEXTURE_RANK_LIMITATION)
+    if "ec" in indicators:
+        out.append(EC_SCALE_LIMITATION)
+    return out
 
 
 def coverage_limitation(breakdowns: Iterable[Mapping[str, Mapping[str, object]]]) -> str | None:
@@ -161,19 +240,45 @@ def _log_falloff(x: float) -> float:
     return log1p(DECAY_CURVATURE * x) / log1p(DECAY_CURVATURE)
 
 
-def _allowed_score(nearness: float) -> float:
+def boundary_score(kind: str | None) -> float:
+    """허용경계에 줄 점수. 그 경계의 **성격**이 정한다(계약 scoring.py:61-85와 동일).
+
+    종전에는 성격과 무관하게 일괄 60점(B등급 하한)이었다. 그런데 그 칸에는 ±50% 휴리스틱과
+    **문헌이 준 생리적 절대한계**가 섞여 있었고, 후자는 생장이 완전히 멈추는 점인데 60점을
+    받고 있었다. `literature_limit`만 0점으로 내린다 — 나머지 성격은 60점을 유지한다
+    (2026-08-04 사용자 결정: "literature_limit만 0점, 나머지 60점 유지").
+
+    `kind`가 `None`(밴드에 성격 표기 자체가 없는 경우)이면 종전과 동일하게 60점이다 — NULL은
+    종전 동작 유지다. 표기가 **있는데** `ALLOWED_KINDS`에 없으면 오타로 보고 즉시 실패한다 —
+    이 검증이 없으면 `literature_limit`의 오타가 조용히 60점(정상 완충)으로 채점된다.
+    """
+    if kind is None:
+        return ALLOWED_BOUNDARY_SCORE
+    if kind not in ALLOWED_KINDS:
+        raise ValueError(
+            f"모르는 allowed_*_kind: {kind!r}. 허용값은 {sorted(ALLOWED_KINDS)} 중 하나여야 한다."
+        )
+    return 0.0 if kind == LITERATURE_LIMIT_KIND else ALLOWED_BOUNDARY_SCORE
+
+
+def _allowed_score(nearness: float, boundary: float = ALLOWED_BOUNDARY_SCORE) -> float:
     """허용구간 점수. `nearness`는 최적경계에 얼마나 가까운지(1=최적경계, 0=허용경계).
 
     최적 근처에서는 거의 안 깎이고 허용경계에 다가갈수록 가파르게 떨어진다 — 소폭 이탈은
     실제로 해가 적고 내성 한계에 가까울수록 위험이 커진다는 쪽에 맞춘 곡선.
+
+    `boundary`가 0(literature_limit)이면 곡선이 0→95로 펴진다(2026-08-05, 계약과 동일).
     """
-    return ALLOWED_BOUNDARY_SCORE + (OPTIMAL_EXIT_SCORE - ALLOWED_BOUNDARY_SCORE) * _log_falloff(
-        nearness
-    )
+    return boundary + (OPTIMAL_EXIT_SCORE - boundary) * _log_falloff(nearness)
 
 
-def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None) -> float:
-    """허용구간을 벗어난 뒤 60 → 0으로 떨어지는 로그 감쇠 점수.
+def _risk_score(
+    overshoot: float,
+    buffer: float,
+    risk_width: float | None = None,
+    boundary: float = ALLOWED_BOUNDARY_SCORE,
+) -> float:
+    """허용구간을 벗어난 뒤 `boundary` → 0으로 떨어지는 로그 감쇠 점수.
 
     절벽(경계 넘자마자 0)은 "1도 초과"와 "10도 초과"를 똑같이 취급해 위험의 정도를 못 보여준다.
     허용구간과 곡률을 반대로 걸어(여기는 급락 후 완만) 전체가 정규분포 한쪽 날개처럼 이어진다.
@@ -185,6 +290,9 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     산포도 기반 절대폭, 마이그레이션 0020)가 있으면 그것을 감쇠 거리로 쓴다.
     없으면 종전대로 완충폭 1배로 폴백한다 — 산포도를 낼 수 없는 지표(temp_night_min,
     rainfall_daily)에서 척도를 지어내지 않는다. 둘 다 없으면 종전대로 0점.
+
+    `boundary`가 0(literature_limit, 2026-08-05)이면 이 구간 전체가 0이다 — 생장이 멈춘
+    지점을 이미 지났으므로 감쇠할 여지가 없다(수식상 `boundary * (...)`이 자동으로 0이 된다).
     """
     width = risk_width if risk_width and risk_width > 0 else buffer
     if width <= 0:
@@ -192,7 +300,20 @@ def _risk_score(overshoot: float, buffer: float, risk_width: float | None = None
     t = overshoot / width
     if t >= 1:
         return 0.0
-    return ALLOWED_BOUNDARY_SCORE * (1 - _log_falloff(t))
+    return boundary * (1 - _log_falloff(t))
+
+
+def _boundary_direction(value: float, lo: float | None, hi: float | None) -> str | None:
+    """최적구간(`lo`~`hi`)에서 `value`가 이탈한 방향 — `"min"` | `"max"` | `None`(최적구간 안).
+
+    `_indicator_score`(점수 계산)와 `calculate_suitability`(breakdown의 결속 방향 표기, P6)가
+    같은 판단을 써야 한다 — 각자 `lo`/`hi` 비교를 따로 적으면 두 곳의 판단이 갈릴 수 있다.
+    이 함수를 공유해 그 위험을 없앤다. `_indicator_score`의 반환 튜플 자체는 바꾸지 않는다 —
+    `tests/test_farmml_contract.py`가 `(score, status)` 2-tuple로 직접 호출·언패킹한다.
+    """
+    if (lo is None or lo <= value) and (hi is None or value <= hi):
+        return None
+    return "min" if lo is not None and value < lo else "max"
 
 
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
@@ -204,22 +325,46 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
     hi = None if guide.optimal_max is None else float(guide.optimal_max)
     # 지침에 감쇠폭이 있으면 위험구간 척도로 쓴다(없으면 _risk_score가 완충폭으로 폴백).
     risk_width = None if guide.risk_width is None else float(guide.risk_width)
-    if (lo is None or lo <= value) and (hi is None or value <= hi):
+    direction = _boundary_direction(value, lo, hi)
+    if direction is None:
         return 100.0, "optimal"
-    if lo is not None and value < lo:
+    if direction == "min":
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
+        # 경계 점수는 그 **방향**의 성격이 정한다(2026-08-04, 계약 band_score()와 동일).
+        boundary = boundary_score(guide.allowed_min_kind)
         if value >= edge:
-            return _allowed_score((value - edge) / (lo - edge)), "allowed"
-        return _risk_score(edge - value, lo - edge, risk_width), "risk"
-    # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
+            return _allowed_score((value - edge) / (lo - edge), boundary), "allowed"
+        return _risk_score(edge - value, lo - edge, risk_width, boundary), "risk"
+    # direction == "max" — hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
+    boundary = boundary_score(guide.allowed_max_kind)
     if value <= edge:
-        return _allowed_score((edge - value) / (edge - hi)), "allowed"
-    return _risk_score(value - edge, edge - hi, risk_width), "risk"
+        return _allowed_score((edge - value) / (edge - hi), boundary), "allowed"
+    return _risk_score(value - edge, edge - hi, risk_width, boundary), "risk"
+
+
+def category_score(
+    code: float | int | None, code_scores: Mapping[str, float | None] | None
+) -> float | None:
+    """범주형 등급코드 → 0~100 점수 조회(계약 scoring.py:162-181 `category_score`와 동일 계약).
+
+    밴드(연속 구간)가 아니라 문헌 배점표를 코드로 직접 조회한다 — 심토토성처럼 순서 가정
+    자체가 불가능한 지표(작물별로 순위가 뒤집힘)를 위한 경로다.
+
+    표에 없는 코드(예: 99 기타)와 결측은 `None` — 0점이 아니다. 0으로 두면 "판정 불가"가
+    "부적합"으로 조용히 바뀐다(추측 금지).
+
+    계약은 pandas/numpy(`np.nan`)를 쓰지만 백엔드는 pandas·numpy를 의존성에 갖지 않으므로
+    결측·미등록 코드는 `NaN` 대신 `None`으로 옮긴다(§14 불필요한 의존성 금지).
+    """
+    if code is None or code_scores is None:
+        return None
+    score = code_scores.get(str(int(code)))
+    return None if score is None else float(score)
 
 
 def _is_valid(indicator: str, value: float) -> bool:
@@ -278,17 +423,43 @@ def calculate_suitability(
             breakdown[indicator] = {"value": value, "status": "invalid"}
             risk_flags.append(f"{indicator}:invalid")
             continue
-        # 단측 밴드(2026-08-03)에서 optimal_min·optimal_max 중 하나만 None인 건 정상
-        # 계약이다 — 둘 다 없을 때만 채점 불가(outcomes/scripts/ml/scoring.py band_score()와
-        # 같은 기준). 예전엔 하나만 없어도 여기서 걸러 사과 Ca 같은 단측 지표를 통째로
-        # 스킵시켰다.
-        if guide.optimal_min is None and guide.optimal_max is None:
-            breakdown[indicator] = {"value": value, "status": "invalid_guide"}
-            risk_flags.append(f"{indicator}:invalid_guide")
-            continue
-
-        score, status = _indicator_score(value, guide)
+        # 범주형 등급코드 지침(예: 심토토성)은 밴드 경로로 보내지 않는다 — code_scores가
+        # 있는 지침엔 optimal_min/max가 없어 밴드에 태우면 예외가 나거나 없는 순위를 가정한다
+        # (계약 outcomes/README.md 체크리스트 3번, 2026-08-05).
+        if guide.code_scores is not None:
+            score = category_score(value, guide.code_scores)
+            if score is None:
+                breakdown[indicator] = {"value": value, "status": "unscored_code"}
+                risk_flags.append(f"{indicator}:unscored_code")
+                continue
+            status = "category"
+        else:
+            # 단측 밴드(2026-08-03)에서 optimal_min·optimal_max 중 하나만 None인 건 정상
+            # 계약이다 — 둘 다 없을 때만 채점 불가(outcomes/scripts/ml/scoring.py band_score()와
+            # 같은 기준). 예전엔 하나만 없어도 여기서 걸러 사과 Ca 같은 단측 지표를 통째로
+            # 스킵시켰다.
+            if guide.optimal_min is None and guide.optimal_max is None:
+                breakdown[indicator] = {"value": value, "status": "invalid_guide"}
+                risk_flags.append(f"{indicator}:invalid_guide")
+                continue
+            score, status = _indicator_score(value, guide)
         weight = float(guide.weight)
+        # 결속한 경계 방향(P6, FE 근거 표기용) — code_scores 경로(status="category")는 밴드
+        # 자체가 없어 lo/hi가 항상 None이라 _boundary_direction이 그대로 None을 낸다.
+        lo = None if guide.optimal_min is None else float(guide.optimal_min)
+        hi = None if guide.optimal_max is None else float(guide.optimal_max)
+        direction = _boundary_direction(value, lo, hi)
+        boundary_kind = (
+            guide.allowed_min_kind if direction == "min"
+            else guide.allowed_max_kind if direction == "max"
+            else None
+        )
+        # `derived`(역산치) 경계 밖 위험 점수만 「참고」다 — outcomes/README.md 체크리스트
+        # 12번. kind만으로 판정하므로 특정 작물·지표를 코드로 특별취급하지 않는다.
+        score_tier: Literal["literature", "reference"] = (
+            "reference" if status == "risk" and boundary_kind == DERIVED_KIND
+            else "literature"
+        )
         entry: dict[str, object] = {
             "value": value,
             "score": round(score, 1),
@@ -299,6 +470,9 @@ def calculate_suitability(
             # 지침을 두 곳에서 각자 읽으면 어긋난다(§18-2는 기준값 하드코딩 금지).
             "allowed_min": float(guide.allowed_min) if guide.allowed_min is not None else None,
             "allowed_max": float(guide.allowed_max) if guide.allowed_max is not None else None,
+            "cultivation_type": guide.cultivation_type,
+            "boundary_kind": boundary_kind,
+            "score_tier": score_tier,
         }
         if applied and indicator in applied:
             baseline, correction = applied[indicator]
@@ -360,6 +534,17 @@ def gather_indicator_values(
         "k": soil.k if soil else None,
         "ca": soil.ca if soil else None,
         "mg": soil.mg if soil else None,
+        # 심토토성 **원본 등급코드**(1~6, 99 — 0040). 한글 변환값이 아니다: 배점표
+        # (`code_scores`)의 키가 코드이고, 토성엔 단조 순위가 없어 %·순위로 환산하면
+        # 사과·배 중 한쪽이 반드시 틀린다(사과 최적 사양질 vs 배 최적 식양질).
+        # `category_score`가 표에 없는 코드(99 등)를 채점 제외로 처리한다 — 50점으로
+        # 메우지 않는다. 사과·배만 지침이 있어 나머지 작물은 룰 엔진이 알아서 제외한다.
+        #
+        # ⚠️ 이 값은 현재 프로덕션에서 항상 None이다. `soil_state.subsoil_texture_code`를
+        # 채우는 경로가 없다 — `soil_profile_client.get_soil_profile`은 호출자가 0건이고
+        # PNU(19자리 지번코드)를 요구하는데 `user_farm`은 `bjd_code`까지만 안다. 적재 배선은
+        # v6 적용 범위 밖이며 `docs/farmml-v6-contract.md`에 미해결로 기록한다.
+        "subsoil_texture": soil.subsoil_texture_code if soil else None,
     }
 
 
@@ -368,6 +553,91 @@ def gather_indicator_values(
 WEATHER_INDICATORS = frozenset(
     {"temp_day", "temp_night_min", "rainfall_monthly", "rainfall_daily", "sunlight"}
 )
+
+
+def national_total(
+    breakdown: Mapping[str, Mapping[str, object]],
+) -> tuple[float | None, float | None, float | None, str | None, str | None]:
+    """국가 적지평가 3단 구조의 주 총점: `min(토양 축, 기후 축)`(장기 탭 전용).
+
+    심교문(2016) 구조 그대로다 — 토양은 요인별 점수제로 **균등 평균**(국가 배점표가
+    항목당 동일 만점이라 지침 `weight`를 쓰지 않는다), 기후는 **최대저해인자법**(MLCM,
+    축 내부 min), 두 결과를 다시 **MLCM으로 통합**한다(outcomes/README.md
+    §2026-08-04 §2). MLCM은 여기(기후 내부·토양↔기후 통합)에서만 쓰고 토양 내부에는
+    쓰지 않는다.
+
+    `calculate_suitability`(단기 탭도 호출)는 그대로 가중평균만 반환한다 — 이 함수는
+    장기 계층(`build_monthly_rows`/`compute_farm_suitability`)에서 그 결과의
+    `breakdown`을 받아 별도로 총점을 다시 낸다. 단기 탭 구조를 바꾸지 않기 위한
+    분리다.
+
+    반환: `(총점, 토양 총점, 기온 점수, limiting_factor, limiting_layer)`.
+    한 축에 채점된 지표가 없으면 다른 축이 곧 총점이다. 두 축 다 비면 전부 `None`.
+    """
+    soil_scores: dict[str, float] = {}
+    weather_scores: dict[str, float] = {}
+    for indicator, entry in breakdown.items():
+        score = entry.get("score")
+        if score is None:
+            continue
+        target = weather_scores if indicator in WEATHER_INDICATORS else soil_scores
+        target[indicator] = float(score)
+
+    soil_total = round(sum(soil_scores.values()) / len(soil_scores), 1) if soil_scores else None
+    temp_score = min(weather_scores.values()) if weather_scores else None
+
+    if soil_total is None and temp_score is None:
+        return None, None, None, None, None
+    if temp_score is None:
+        # 기후 축이 비어 있으면 토양 축이 곧 총점이다.
+        worst = min(soil_scores, key=lambda ind: (soil_scores[ind], ind))
+        return soil_total, soil_total, None, INDICATOR_NAMES.get(worst, worst), "토양"
+    if soil_total is None:
+        # 토양 축이 비어 있으면 기후 축이 곧 총점이다.
+        return temp_score, None, temp_score, "기온", "기온"
+
+    # 동점(soil_total == temp_score)은 토양을 결속으로 본다 — 토양 축은 여러 지표의
+    # 합산이라 "어느 지표가 문제인지"까지 짚을 수 있고, "기온"이라는 뭉뚱그린 이름보다
+    # 정보량이 많다(2026-08-05 결정, 동점 처리는 결정론적이어야 한다는 요구사항 충족).
+    if soil_total <= temp_score:
+        worst = min(soil_scores, key=lambda ind: (soil_scores[ind], ind))
+        return soil_total, soil_total, temp_score, INDICATOR_NAMES.get(worst, worst), "토양"
+    return temp_score, soil_total, temp_score, "기온", "기온"
+
+
+def _log_national_total_climate_delta(
+    crop_id: int,
+    region_id: int,
+    year: int,
+    month: int,
+    score: float | None,
+    soil_total: float | None,
+    temp_score: float | None,
+) -> None:
+    """G11: 기후 축이 min 구조에서 실제로 결속하는지 감시한다(outcomes/README.md
+    §2026-08-04 §2 — 계약 실측: 사과 `national_minus_soil_mean` = +0.00).
+
+    `총점 - 토양 총점`이 0에 붙어 있으면 기후 축이 아무 일도 안 하고 있다는 신호다.
+    응답에는 싣지 않고 로그 한 줄로만 남긴다(`app/core/log_config.py`의 구조화 로깅을
+    타는 표준 로거 — 새 테이블·엔드포인트는 만들지 않는다. 집계는 로그 쪽에서 한다).
+
+    두 축이 다 채점됐을 때만 의미 있는 신호라 그 경우에만 로그를 남긴다(한쪽이 비면
+    delta가 항상 0이라 신호가 아니다). 로그가 응답 경로를 죽이면 안 되므로 통째로
+    감싼다.
+    """
+    if score is None or soil_total is None or temp_score is None:
+        return
+    try:
+        logger.info(
+            "national_total climate_delta crop_id=%s region_id=%s year=%s month=%s "
+            "score=%s soil_total=%s temp_score=%s delta=%s",
+            crop_id, region_id, year, month, score, soil_total, temp_score,
+            round(score - soil_total, 2),
+        )
+    except Exception:
+        # 감시용 로그라 실패해도 응답 경로를 막지 않는다. 다만 통째로 삼키면 이 감시 자체가
+        # 조용히 영구 중단돼도 아무도 모른다 — 최소한 트레이스는 남긴다.
+        logger.debug("national_total climate_delta 로깅 실패", exc_info=True)
 
 
 def derive_status(
@@ -460,10 +730,22 @@ def compute_farm_suitability(
         limitations.append(APPLE_STAGE_LIMITATION)
     if stage in ("spring", "fall"):
         limitations.append(LETTUCE_SEASON_LIMITATION)
+    limitations.extend(indicator_limitations([result["breakdown"]]))
 
     # 휴면기는 기상 판정 근거가 없어 점수를 내보내지 않는다(§18-4). breakdown은 남겨
     # 토양 지표가 어떻게 평가됐는지는 확인할 수 있게 한다.
     is_dormant = status == "dormant"
+
+    # P3: 주 총점은 국가 적지평가 3단 구조 min(토양 축, 기후 축)이다(outcomes/README.md
+    # §2026-08-04 §2). 종전 가중평균(`result["score"]`)은 `score_weighted`로 병기만
+    # 한다 — `calculate_suitability` 자체는 단기 탭도 호출하므로 바꾸지 않는다.
+    total_score, soil_total, temp_score, limiting_factor, limiting_layer = national_total(
+        result["breakdown"]
+    )
+    _log_national_total_climate_delta(
+        farm.crop_id, farm.region_id, on_date.year, on_date.month,
+        total_score, soil_total, temp_score,
+    )
 
     return {
         "farm_id": farm.id,
@@ -472,8 +754,11 @@ def compute_farm_suitability(
         "growth_stage": stage,
         "as_of": on_date,
         "status": status,
-        "score": None if is_dormant else result["score"],
-        "grade": None if is_dormant else result["grade"],
+        "score": None if is_dormant else total_score,
+        "grade": None if is_dormant or total_score is None else _grade(total_score),
+        "score_weighted": None if is_dormant else result["score"],
+        "limiting_factor": None if is_dormant else limiting_factor,
+        "limiting_layer": None if is_dormant else limiting_layer,
         "label": SUITABILITY_LABEL,
         "breakdown": result["breakdown"],
         "risk_flags": result["risk_flags"],
@@ -571,6 +856,8 @@ def build_monthly_rows(
     corrections: Mapping[tuple[int, int, str], Decimal] | None = None,
     clim_source: ClimatologySource | None = None,
     published_by_month: Mapping[tuple[int, int], datetime] | None = None,
+    crop_id: int | None = None,
+    region_id: int | None = None,
 ) -> list[dict[str, object]]:
     """창의 각 달 적합도를 계산한다. 순수 함수(DB 무관) — 결정론 검증 대상.
 
@@ -583,6 +870,10 @@ def build_monthly_rows(
 
     clim_source를 받는 이유: 일조시간은 clim_source에서만 나온다. 이걸 빼면 히트맵(월별)과
     일별 적합도가 같은 달의 일조를 서로 다르게 채점한다 — 두 화면이 어긋난다.
+
+    `crop_id`/`region_id`는 G11 감시 로그(`_log_national_total_climate_delta`)에만 쓰는
+    선택 인자다 — 순수성 검증 테스트(`test_monthly_outlook.py`)는 안 넘겨도 되고, 그때는
+    로그가 생략된다(둘 다 있어야 로그를 남긴다).
     """
     rows: list[dict[str, object]] = []
     stages = list(stage_rows)
@@ -601,14 +892,30 @@ def build_monthly_rows(
         status = derive_status(bool(guides), result["score"], result["breakdown"])
         # 휴면기(기상 판정 근거 없음)는 점수·등급을 내보내지 않는다 — §18-4.
         is_dormant = status == "dormant"
+
+        # P3: 히트맵 총점도 국가 3단 구조 min(토양 축, 기후 축)이다 — 대시보드
+        # (compute_farm_suitability)와 같은 총점 축을 써야 같은 밭·같은 달에 다른
+        # 총점이 뜨지 않는다(outcomes/README.md §2026-08-04 §2).
+        total_score, soil_total, temp_score, limiting_factor, limiting_layer = national_total(
+            result["breakdown"]
+        )
+        if crop_id is not None and region_id is not None:
+            _log_national_total_climate_delta(
+                crop_id, region_id, year, month, total_score, soil_total, temp_score
+            )
+
         rows.append(
             {
                 "year": year,
                 "month": month,
                 "growth_stage": stage,
                 "status": status,
-                "score": None if is_dormant else result["score"],
-                "grade": None if is_dormant else result["grade"],
+                "score": None if is_dormant else total_score,
+                "grade": None if is_dormant or total_score is None else _grade(total_score),
+                # 종전 가중평균(토양60/기온40) — 병기만 한다. min 구조엔 가중 개념이 없다.
+                "score_weighted": None if is_dormant else result["score"],
+                "limiting_factor": None if is_dormant else limiting_factor,
+                "limiting_layer": None if is_dormant else limiting_layer,
                 "risk_flags": result["risk_flags"],
                 "outlook_applied": bool(applied),
                 # 칸마다 다른 발표분에서 올 수 있다 — 최상위에 하나로 두면 반드시 한쪽이
@@ -666,6 +973,8 @@ def compute_monthly_outlook(
         corrections,
         clim_source,
         published_by_month,
+        farm.crop_id,
+        farm.region_id,
     )
 
     limitations = [
@@ -693,6 +1002,7 @@ def compute_monthly_outlook(
         limitations.append(APPLE_STAGE_LIMITATION)
     if any(m["growth_stage"] in ("spring", "fall") for m in months):
         limitations.append(LETTUCE_SEASON_LIMITATION)
+    limitations.extend(indicator_limitations(m["breakdown"] for m in months))
     # 창이 전부 비었으면 화면이 통째로 "제철 아님"이라 유저가 다음에 언제 보러 와야 할지
     # 알 수 없다. 창을 늘려 채우지 않고 문구로만 알린다(PRD §4.4).
     following: tuple[int, int] | None = None
