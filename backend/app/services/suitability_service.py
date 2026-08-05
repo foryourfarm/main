@@ -5,6 +5,7 @@ from math import log1p
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -36,6 +37,11 @@ DECAY_CURVATURE = 9.0
 # 같은 이름 상수와 반드시 같아야 한다 — 두 구현의 점수가 갈리면 안 되는 계약이다
 # (test_farmml_contract.py가 텍스트로 대조한다).
 LITERATURE_LIMIT_KIND = "literature_limit"
+
+# 이 성격의 경계 밖(risk) 점수는 「문헌 기반」이 아니라 「참고」로만 표기한다(P6,
+# outcomes/README.md 적용 체크리스트 12번) — 문헌값이 아니라 역산치이고 그 경계 밖 감점
+# 기울기에 근거가 없다는 뜻. kind로만 판정하므로 특정 지표를 코드로 특별취급하지 않는다.
+DERIVED_KIND = "derived"
 
 # allowed_min_kind/allowed_max_kind에 허용되는 값 전체(마이그레이션 0038 CHECK 제약과 동일).
 # 이관 계약의 ALLOWED_KINDS와 이름·값이 같아야 한다.
@@ -246,6 +252,19 @@ def _risk_score(
     return boundary * (1 - _log_falloff(t))
 
 
+def _boundary_direction(value: float, lo: float | None, hi: float | None) -> str | None:
+    """최적구간(`lo`~`hi`)에서 `value`가 이탈한 방향 — `"min"` | `"max"` | `None`(최적구간 안).
+
+    `_indicator_score`(점수 계산)와 `calculate_suitability`(breakdown의 결속 방향 표기, P6)가
+    같은 판단을 써야 한다 — 각자 `lo`/`hi` 비교를 따로 적으면 두 곳의 판단이 갈릴 수 있다.
+    이 함수를 공유해 그 위험을 없앤다. `_indicator_score`의 반환 튜플 자체는 바꾸지 않는다 —
+    `tests/test_farmml_contract.py`가 `(score, status)` 2-tuple로 직접 호출·언패킹한다.
+    """
+    if (lo is None or lo <= value) and (hi is None or value <= hi):
+        return None
+    return "min" if lo is not None and value < lo else "max"
+
+
 def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
     # 단측 밴드(outcomes/scripts/ml/scoring.py band_score()와 같은 계약, 2026-08-03):
     # optimal_min/optimal_max 중 하나가 None이면 그 방향엔 감점을 두지 않는다. 문헌이
@@ -255,9 +274,10 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
     hi = None if guide.optimal_max is None else float(guide.optimal_max)
     # 지침에 감쇠폭이 있으면 위험구간 척도로 쓴다(없으면 _risk_score가 완충폭으로 폴백).
     risk_width = None if guide.risk_width is None else float(guide.risk_width)
-    if (lo is None or lo <= value) and (hi is None or value <= hi):
+    direction = _boundary_direction(value, lo, hi)
+    if direction is None:
         return 100.0, "optimal"
-    if lo is not None and value < lo:
+    if direction == "min":
         if guide.allowed_min is None:
             return 0.0, "risk"
         edge = float(guide.allowed_min)
@@ -266,7 +286,7 @@ def _indicator_score(value: float, guide: CropGrowthGuide) -> tuple[float, str]:
         if value >= edge:
             return _allowed_score((value - edge) / (lo - edge), boundary), "allowed"
         return _risk_score(edge - value, lo - edge, risk_width, boundary), "risk"
-    # 여기 도달했다는 건 hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
+    # direction == "max" — hi가 None이 아니고 value > hi라는 뜻이다(위 optimal 체크 참고).
     if guide.allowed_max is None:
         return 0.0, "risk"
     edge = float(guide.allowed_max)
@@ -373,6 +393,22 @@ def calculate_suitability(
                 continue
             score, status = _indicator_score(value, guide)
         weight = float(guide.weight)
+        # 결속한 경계 방향(P6, FE 근거 표기용) — code_scores 경로(status="category")는 밴드
+        # 자체가 없어 lo/hi가 항상 None이라 _boundary_direction이 그대로 None을 낸다.
+        lo = None if guide.optimal_min is None else float(guide.optimal_min)
+        hi = None if guide.optimal_max is None else float(guide.optimal_max)
+        direction = _boundary_direction(value, lo, hi)
+        boundary_kind = (
+            guide.allowed_min_kind if direction == "min"
+            else guide.allowed_max_kind if direction == "max"
+            else None
+        )
+        # `derived`(역산치) 경계 밖 위험 점수만 「참고」다 — outcomes/README.md 체크리스트
+        # 12번. kind만으로 판정하므로 특정 작물·지표를 코드로 특별취급하지 않는다.
+        score_tier: Literal["literature", "reference"] = (
+            "reference" if status == "risk" and boundary_kind == DERIVED_KIND
+            else "literature"
+        )
         entry: dict[str, object] = {
             "value": value,
             "score": round(score, 1),
@@ -383,6 +419,9 @@ def calculate_suitability(
             # 지침을 두 곳에서 각자 읽으면 어긋난다(§18-2는 기준값 하드코딩 금지).
             "allowed_min": float(guide.allowed_min) if guide.allowed_min is not None else None,
             "allowed_max": float(guide.allowed_max) if guide.allowed_max is not None else None,
+            "cultivation_type": guide.cultivation_type,
+            "boundary_kind": boundary_kind,
+            "score_tier": score_tier,
         }
         if applied and indicator in applied:
             baseline, correction = applied[indicator]
