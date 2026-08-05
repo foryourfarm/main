@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>For Your Farm — 시안 A · 따뜻한 흙</title>
+
+<!--
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  For Your Farm — 디자인 시안 A "따뜻한 흙 (Warm Soil)"                        ║
+║  현재 배포본의 정보구조(상단 탭 / 밭 카드 / 밭 상세 / 상담)는 그대로 두고,      ║
+║  톤·타이포·형태·여백만 전면 재설계한 버전입니다.                              ║
+║                                                                              ║
+║  [폰트]  ─ 눈누 https://noonnu.cc 에서 상업용 무료 배포                        ║
+║   ① Cafe24 Ssurround (제목·로고 / 둥근 굵은 고딕)                             ║
+║      눈누 → https://noonnu.cc/font_page/121                                  ║
+║      로컬 사용 시 ./fonts/Cafe24Ssurround.woff2 로 저장                       ║
+║   ② Pretendard (본문 / 가독성 최우선 고딕)                                    ║
+║      눈누 → https://noonnu.cc/font_page/335   ※ CDN 자동 로드                ║
+║   ③ 온글잎 만두몽키 or 나눔손글씨 (마스코트 말풍선 손글씨 악센트, 선택)         ║
+║      눈누 → https://noonnu.cc  검색: "온글잎 만두몽키"                        ║
+║      로컬 사용 시 ./fonts/Ownglyph_mandumonkey.woff2                          ║
+║   ④ Baloo 2 (숫자 전용 / 통통한 라운드 숫자, Google Fonts 자동 로드)           ║
+║                                                                              ║
+║  ※ 각 @font-face의 src 첫 줄이 로컬 ./fonts/ 경로입니다.                      ║
+║    파일을 넣으면 로컬 폰트가, 없으면 CDN → Google 대체 폰트가 적용됩니다.       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+-->
+
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Jua&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+
+<style>
+/* ── 폰트 정의 (로컬 → CDN → Google 대체) ─────────────────────────────── */
+@font-face{
+  font-family:'Cafe24Ssurround';
+  src:url('./fonts/Cafe24Ssurround.woff2') format('woff2'),
+      url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/Cafe24Ssurround.woff') format('woff');
+  font-weight:700; font-display:swap;
+}
+@font-face{
+  font-family:'Ownglyph';
+  src:url('./fonts/Ownglyph_mandumonkey.woff2') format('woff2');
+  font-weight:400; font-display:swap;
+}
+
+/* ── 디자인 토큰 ──────────────────────────────────────────────────────── */
+:root{
+  --paper:#FAF3E6;      --paper2:#FFFDF7;   --paper3:#F3E9D6;
+  --ink:#2C2620;        --ink2:#75695C;     --ink3:#A2947F;
+  --line:#E8DBC2;
+  --green:#2F5D3A;      --green-mid:#4E8B52; --green-l:#8CC271;  --green-wash:#EAF3E2;
+  --soil:#A9703F;       --soil-d:#7A4A2E;    --soil-wash:#F6E7D2;
+  --sun:#EFA43A;        --warn:#D46A3A;      --sky:#6FA9CE;      --sky-wash:#E6F0F7;
+  --s:#2E8B57; --a:#4C9A5B; --b:#DB9E33; --c:#CF6A48;
+  --r-xl:34px; --r-l:26px; --r-m:18px; --r-s:12px;
+  --shadow:0 2px 0 rgba(122,74,46,.06), 0 14px 30px -18px rgba(122,74,46,.34);
+  --shadow-lift:0 4px 0 rgba(122,74,46,.08), 0 26px 44px -22px rgba(122,74,46,.42);
+  --font-d:'Cafe24Ssurround','Jua','Pretendard Variable',sans-serif;
+  --font-b:'Pretendard Variable',Pretendard,-apple-system,'Malgun Gothic',sans-serif;
+  --font-n:'Baloo 2','Cafe24Ssurround',sans-serif;
+  --font-h:'Ownglyph','Gaegu','Pretendard Variable',cursive;
+}
+[data-theme="dark"]{
+  --paper:#241C16; --paper2:#2F251D; --paper3:#3A2E24;
+  --ink:#F6EDDE; --ink2:#C4B3A0; --ink3:#8E7E6D;
+  --line:#463628;
+  --green-wash:#26332A; --soil-wash:#3A2C21; --sky-wash:#26313A;
+  --green-l:#9BD07F; --sun:#F3B65B;
+  --shadow:0 2px 0 rgba(0,0,0,.2), 0 14px 30px -18px rgba(0,0,0,.7);
+  --shadow-lift:0 4px 0 rgba(0,0,0,.25), 0 26px 44px -22px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-b); color:var(--ink); background:var(--paper);
+  -webkit-font-smoothing:antialiased; line-height:1.6; letter-spacing:-.01em;
+  /* 배경 텍스처: 아주 옅은 흙 알갱이 도트 */
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(140,194,113,.16), transparent 42%),
+    radial-gradient(circle at 92% 22%, rgba(239,164,58,.14), transparent 38%),
+    radial-gradient(circle at 70% 96%, rgba(169,112,63,.12), transparent 40%),
+    radial-gradient(rgba(122,74,46,.055) 1px, transparent 1px);
+  background-size:auto,auto,auto,22px 22px;
+  min-height:100vh;
+}
+.num{font-family:var(--font-n); font-weight:800; font-variant-numeric:tabular-nums}
+h1,h2,h3,h4{font-family:var(--font-d); font-weight:700; letter-spacing:-.02em; line-height:1.28}
+
+/* ── 상단 바 ──────────────────────────────────────────────────────────── */
+.topbar{
+  position:sticky; top:0; z-index:40;
+  backdrop-filter:blur(14px);
+  background:color-mix(in srgb, var(--paper) 78%, transparent);
+  border-bottom:1.5px solid var(--line);
+}
+.topbar-in{max-width:1240px; margin:0 auto; padding:14px 26px; display:flex; align-items:center; gap:18px}
+.brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit}
+.brand .mk{font-family:var(--font-d); font-size:23px; color:var(--green); letter-spacing:-.03em}
+[data-theme="dark"] .brand .mk{color:var(--green-l)}
+.brand .mk small{font-size:13px; color:var(--soil); display:block; letter-spacing:0; font-family:var(--font-b); font-weight:600; margin-top:-4px}
+.brand svg{width:38px; height:42px; flex:none}
+
+.navpill{
+  margin-left:auto; display:flex; gap:4px; padding:5px;
+  background:var(--paper3); border-radius:999px; border:1.5px solid var(--line);
+}
+.navpill button{
+  font:inherit; font-weight:700; font-size:14.5px; cursor:pointer;
+  border:0; background:none; color:var(--ink2);
+  padding:9px 18px; border-radius:999px; display:flex; gap:7px; align-items:center;
+  transition:.18s;
+}
+.navpill button:hover{color:var(--ink)}
+.navpill button[aria-current="true"]{
+  background:var(--green); color:#fff; box-shadow:0 3px 10px -3px rgba(47,93,58,.6);
+}
+[data-theme="dark"] .navpill button[aria-current="true"]{background:var(--green-l); color:#1D2A1E}
+.chip-user{
+  display:flex; align-items:center; gap:9px; padding:7px 8px 7px 14px;
+  border-radius:999px; background:var(--paper2); border:1.5px solid var(--line);
+  font-size:14px; font-weight:700;
+}
+.chip-user b{color:var(--soil-d)} [data-theme="dark"] .chip-user b{color:var(--sun)}
+.chip-user .av{width:30px;height:30px;border-radius:50%;background:var(--green-wash);display:grid;place-items:center;font-size:15px}
+.iconbtn{
+  width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);
+  background:var(--paper2); cursor:pointer; font-size:17px; display:grid; place-items:center; transition:.18s;
+}
+.iconbtn:hover{transform:translateY(-2px); box-shadow:var(--shadow)}
+
+/* ── 레이아웃 ─────────────────────────────────────────────────────────── */
+.wrap{max-width:1240px; margin:0 auto; padding:26px 26px 80px}
+.view{display:none} .view.on{display:block; animation:rise .4s cubic-bezier(.2,.9,.25,1)}
+@keyframes rise{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+
+/* ── 인사 히어로 ──────────────────────────────────────────────────────── */
+.hero{
+  position:relative; overflow:hidden;
+  background:linear-gradient(135deg,#3B6B44 0%,#2F5D3A 46%,#27512F 100%);
+  border-radius:var(--r-xl); padding:30px 34px; color:#F6F1E4;
+  display:grid; grid-template-columns:1fr auto; gap:24px; align-items:center;
+  box-shadow:var(--shadow-lift);
+}
+.hero::before{ /* 언덕 실루엣 */
+  content:''; position:absolute; inset:auto 0 -12px 0; height:120px;
+  background:
+    radial-gradient(120px 60px at 12% 100%, rgba(140,194,113,.30), transparent 70%),
+    radial-gradient(180px 80px at 55% 108%, rgba(140,194,113,.22), transparent 70%),
+    radial-gradient(140px 70px at 92% 104%, rgba(239,164,58,.18), transparent 70%);
+}
+.hero-txt{position:relative}
+.hero .kicker{font-size:13.5px; font-weight:700; letter-spacing:.06em; color:#BEDCA8; margin-bottom:8px}
+.hero h1{font-size:clamp(24px,3vw,35px); color:#fff}
+.hero h1 em{font-style:normal; color:#FFD489}
+.hero .sub{margin-top:10px; color:#D9E8CE; font-size:15px; max-width:52ch}
+.hero-strip{display:flex; gap:8px; margin-top:18px; flex-wrap:wrap}
+.mini{
+  display:flex; align-items:center; gap:9px; padding:9px 15px 9px 11px;
+  background:rgba(255,255,255,.13); border:1.5px solid rgba(255,255,255,.22);
+  border-radius:999px; font-size:13.5px; font-weight:700; color:#F4EEE0;
+}
+.mini .num{font-size:17px; color:#FFD489}
+.hero-mascot{position:relative; align-self:end; margin-bottom:-16px}
+.speech{
+  position:absolute; right:calc(100% + 12px); top:6px; width:216px;
+  background:#FFFDF7; color:#3A3129; border-radius:22px 22px 6px 22px;
+  padding:14px 16px; font-size:14.5px; font-weight:600; line-height:1.5;
+  box-shadow:0 12px 26px -14px rgba(0,0,0,.5);
+}
+.speech b{color:var(--warn)}
+.speech-hand{font-family:var(--font-h); font-size:17px}
+
+/* ── 벤토 그리드 (비대칭) ─────────────────────────────────────────────── */
+.bento{display:grid; grid-template-columns:repeat(12,1fr); gap:18px; margin-top:22px}
+.card{
+  background:var(--paper2); border:1.5px solid var(--line); border-radius:var(--r-l);
+  padding:22px; box-shadow:var(--shadow); position:relative; transition:.2s;
+}
+.card.sp7{grid-column:span 7} .card.sp5{grid-column:span 5}
+.card.sp6{grid-column:span 6} .card.sp4{grid-column:span 4} .card.sp3{grid-column:span 3}
+.card.sp8{grid-column:span 8} .card.sp12{grid-column:span 12}
+.card-h{display:flex; align-items:center; gap:10px; margin-bottom:16px}
+.card-h h3{font-size:17.5px}
+.card-h .tag{
+  margin-left:auto; font-size:11.5px; font-weight:800; letter-spacing:.02em;
+  padding:5px 11px; border-radius:999px; background:var(--paper3); color:var(--ink2);
+}
+.dot-ic{width:30px;height:30px;border-radius:11px;display:grid;place-items:center;font-size:15px;flex:none}
+
+/* ── 밭 카드 ──────────────────────────────────────────────────────────── */
+.field{cursor:pointer; overflow:hidden}
+.field:hover{transform:translateY(-4px); box-shadow:var(--shadow-lift); border-color:var(--green-l)}
+.field .terrain{position:absolute; inset:0 0 auto 0; height:96px; opacity:.5; pointer-events:none}
+.field-top{display:flex; align-items:flex-start; gap:14px; position:relative}
+.crop-badge{
+  width:52px;height:52px;border-radius:19px; display:grid; place-items:center; font-size:26px; flex:none;
+  background:var(--green-wash); border:1.5px solid var(--line);
+}
+.field-name{font-family:var(--font-d); font-size:21px; line-height:1.2}
+.field-loc{font-size:13.5px; color:var(--ink2); font-weight:600; margin-top:3px}
+.field-loc .sep{color:var(--ink3); margin:0 6px}
+.gauge-wrap{margin-left:auto; text-align:center; position:relative; width:96px}
+.gauge{width:96px; height:96px; display:block; transform:rotate(-90deg)}
+.gauge .bg{stroke:var(--paper3)}
+.gauge .fg{stroke-dasharray:301.6; stroke-dashoffset:calc(301.6 * (1 - var(--p))); transition:stroke-dashoffset 1s cubic-bezier(.2,.9,.25,1)}
+.gauge-val{position:absolute; inset:0; display:grid; place-content:center; gap:0}
+.gauge-val .num{font-size:27px; line-height:1}
+.gauge-val small{font-size:11px; font-weight:800; color:var(--ink2); letter-spacing:.06em}
+.grade{
+  display:inline-flex; align-items:center; gap:5px; margin-top:6px;
+  font-family:var(--font-n); font-weight:800; font-size:13px; color:#fff;
+  padding:3px 12px 4px; border-radius:999px;
+}
+
+/* 생육 단계 웨이브 스테퍼 */
+.stages{width:100%; height:74px; margin:16px 0 2px; display:block}
+.stage-labels{display:flex; justify-content:space-between; font-size:11.5px; font-weight:700; color:var(--ink3)}
+.stage-labels b{color:var(--green); font-size:12.5px}
+[data-theme="dark"] .stage-labels b{color:var(--green-l)}
+
+/* 예보 칩 */
+.fc{display:flex; gap:8px; margin-top:16px}
+.fc-day{
+  flex:1; background:var(--sky-wash); border:1.5px solid var(--line); border-radius:var(--r-m);
+  padding:11px 8px; text-align:center;
+}
+.fc-day .d{font-size:11.5px; font-weight:800; color:var(--ink2)}
+.fc-day .ic{font-size:21px; line-height:1.5}
+.fc-day .t{font-family:var(--font-n); font-weight:700; font-size:14px}
+.fc-day .t i{font-style:normal; color:var(--sky)}
+.risk{
+  margin-top:14px; display:flex; gap:11px; align-items:flex-start;
+  background:linear-gradient(180deg,#FDF0E3,#FBE7D6); border:1.5px solid #F0CFAE;
+  border-radius:var(--r-m); padding:13px 15px; font-size:13.5px; font-weight:600; color:#7A3F1E;
+}
+[data-theme="dark"] .risk{background:#3A2A1E; border-color:#5A3E28; color:#F0C79C}
+.risk .ex{width:24px;height:24px;border-radius:50%;background:var(--warn);color:#fff;display:grid;place-items:center;font-weight:800;flex:none;font-size:14px}
+.nodata{
+  display:flex; gap:12px; align-items:center; padding:14px; border-radius:var(--r-m);
+  background:var(--paper3); border:1.5px dashed var(--line); font-size:13.5px; font-weight:600; color:var(--ink2);
+}
+
+/* 밭 추가 카드 */
+.addfield{
+  grid-column:span 3; border:2.5px dashed var(--line); border-radius:var(--r-l);
+  background:transparent; display:grid; place-items:center; padding:30px; cursor:pointer;
+  text-align:center; color:var(--ink2); font-weight:700; transition:.2s; min-height:190px;
+}
+.addfield:hover{border-color:var(--green-l); background:var(--green-wash); color:var(--green)}
+.addfield .plus{
+  width:56px;height:56px;border-radius:22px;background:var(--paper2);border:1.5px solid var(--line);
+  display:grid;place-items:center;font-size:27px;margin:0 auto 12px; color:var(--green);
+}
+
+/* ── 체크리스트 ───────────────────────────────────────────────────────── */
+.todo{list-style:none; display:flex; flex-direction:column; gap:9px}
+.todo li{
+  display:flex; gap:12px; align-items:flex-start; padding:13px 14px; border-radius:var(--r-m);
+  background:var(--paper); border:1.5px solid var(--line); cursor:pointer; transition:.16s;
+}
+.todo li:hover{border-color:var(--green-l); transform:translateX(3px)}
+.todo .box{
+  width:24px;height:24px;border-radius:9px;border:2.5px solid var(--ink3);flex:none;
+  display:grid;place-items:center;color:transparent;font-size:14px;font-weight:900;transition:.16s;
+}
+.todo li.done .box{background:var(--green-mid); border-color:var(--green-mid); color:#fff}
+.todo li.done .tx{text-decoration:line-through; color:var(--ink3)}
+.todo .tx{font-size:14px; font-weight:600; flex:1}
+.todo .tx small{display:block; color:var(--ink2); font-weight:600; font-size:12.5px; margin-top:2px}
+.todo .when{font-size:11.5px; font-weight:800; color:var(--soil); background:var(--soil-wash); padding:4px 9px; border-radius:999px; flex:none}
+
+/* ── 타임라인 ─────────────────────────────────────────────────────────── */
+.tl{list-style:none; position:relative; padding-left:26px}
+.tl::before{content:''; position:absolute; left:8px; top:8px; bottom:8px; width:3px; border-radius:3px;
+  background:repeating-linear-gradient(180deg,var(--line) 0 6px, transparent 6px 12px)}
+.tl li{position:relative; padding:0 0 18px}
+.tl li:last-child{padding-bottom:0}
+.tl li::before{content:''; position:absolute; left:-22px; top:5px; width:14px; height:14px; border-radius:50%;
+  background:var(--paper2); border:3.5px solid var(--green-l)}
+.tl li.warn::before{border-color:var(--warn)}
+.tl .t{font-size:14px; font-weight:700}
+.tl .m{font-size:12.5px; color:var(--ink2); font-weight:600}
+
+/* ── 근거 칩 ──────────────────────────────────────────────────────────── */
+.chips{display:flex; flex-wrap:wrap; gap:8px}
+.src{
+  display:inline-flex; align-items:center; gap:7px; padding:8px 13px; border-radius:999px;
+  background:var(--paper); border:1.5px solid var(--line); font-size:12.5px; font-weight:700; color:var(--ink2);
+}
+.src .k{width:8px;height:8px;border-radius:50%;flex:none}
+.note{
+  margin-top:14px; font-size:12.5px; color:var(--ink2); font-weight:600;
+  background:var(--paper3); border-radius:var(--r-m); padding:12px 16px; line-height:1.65;
+}
+
+/* ── 주간 스트립 ──────────────────────────────────────────────────────── */
+.week{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px}
+.wd{
+  flex:1; min-width:82px; border-radius:var(--r-m); border:1.5px solid var(--line);
+  background:var(--paper); padding:12px 8px; text-align:center;
+}
+.wd.today{background:var(--green); border-color:var(--green); color:#fff}
+[data-theme="dark"] .wd.today{background:var(--green-l); color:#1D2A1E}
+.wd .dw{font-size:11.5px; font-weight:800; opacity:.75}
+.wd .dd{font-family:var(--font-n); font-weight:800; font-size:19px; line-height:1.25}
+.wd .ic{font-size:17px}
+.wd .bar{height:5px; border-radius:5px; margin-top:8px; background:currentColor; opacity:.3}
+
+/* ── 밭 상세 ──────────────────────────────────────────────────────────── */
+.detail-head{display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap}
+.back{
+  border:1.5px solid var(--line); background:var(--paper2); border-radius:999px;
+  padding:10px 18px 10px 14px; font:inherit; font-weight:700; cursor:pointer; color:var(--ink);
+  display:flex; gap:7px; align-items:center;
+}
+.back:hover{background:var(--paper3)}
+.seg{display:flex; gap:4px; padding:5px; background:var(--paper3); border:1.5px solid var(--line); border-radius:999px}
+.seg button{border:0;background:none;font:inherit;font-weight:700;font-size:14px;padding:9px 18px;border-radius:999px;cursor:pointer;color:var(--ink2)}
+.seg button[aria-pressed="true"]{background:var(--soil-d); color:#fff}
+[data-theme="dark"] .seg button[aria-pressed="true"]{background:var(--sun); color:#2C2620}
+
+.months{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+.mo{
+  background:var(--paper2); border:1.5px solid var(--line); border-radius:var(--r-l);
+  padding:20px; text-align:center; position:relative; overflow:hidden;
+}
+.mo.best{border-color:var(--green-l); box-shadow:0 0 0 4px var(--green-wash)}
+.mo .mn{font-family:var(--font-d); font-size:16px; color:var(--ink2)}
+.mo .gauge{margin:6px auto 0}
+.mo .stg{font-size:13px; font-weight:700; margin-top:8px}
+.mo .tagline{font-size:11.5px; font-weight:800; color:var(--sky); background:var(--sky-wash); display:inline-block; padding:4px 10px; border-radius:999px; margin-top:8px}
+
+/* 점수 분해 바 */
+.decomp{display:flex; flex-direction:column; gap:13px}
+.dc{display:grid; grid-template-columns:104px 1fr 56px; gap:12px; align-items:center; font-size:13.5px; font-weight:700}
+.dc .track{display:block; height:14px; border-radius:999px; background:var(--paper3); overflow:hidden; position:relative}
+.dc .fill{display:block; height:100%; border-radius:999px}
+.dc .v{text-align:right; font-family:var(--font-n); font-weight:800}
+
+/* 주의 시기 */
+.alert{
+  display:flex; gap:14px; padding:17px; border-radius:var(--r-l);
+  background:var(--paper); border:1.5px solid var(--line); border-left:6px solid var(--warn);
+}
+.alert + .alert{margin-top:11px}
+.alert .mo-badge{font-family:var(--font-d); font-size:15px; color:var(--warn); flex:none; width:80px}
+.alert .why{font-size:13.5px; font-weight:600; color:var(--ink2)}
+.alert .why b{color:var(--ink)}
+.alert .act{margin-top:8px; font-size:13.5px; font-weight:700; color:var(--green)}
+[data-theme="dark"] .alert .act{color:var(--green-l)}
+
+/* LLM 추천 카드 */
+.llm{
+  background:linear-gradient(160deg,var(--green-wash),var(--paper2));
+  border:1.5px solid var(--green-l); border-radius:var(--r-l); padding:22px;
+  display:grid; grid-template-columns:auto 1fr; gap:16px;
+}
+.llm h4{font-size:16px; color:var(--green); margin-bottom:8px}
+[data-theme="dark"] .llm h4{color:var(--green-l)}
+.llm p{font-size:14.5px; font-weight:600}
+.llm .steps{list-style:none; margin-top:12px; display:flex; flex-direction:column; gap:8px}
+.llm .steps li{display:flex; gap:10px; font-size:14px; font-weight:600; align-items:flex-start}
+.llm .steps .n{
+  width:22px;height:22px;border-radius:8px;background:var(--green-mid);color:#fff;
+  font-family:var(--font-n);font-weight:800;font-size:12px;display:grid;place-items:center;flex:none;margin-top:1px;
+}
+
+/* ── 상담 ─────────────────────────────────────────────────────────────── */
+.chat-grid{display:grid; grid-template-columns:1fr 320px; gap:18px; align-items:start}
+.chatbox{background:var(--paper2); border:1.5px solid var(--line); border-radius:var(--r-xl); box-shadow:var(--shadow); overflow:hidden}
+.chat-head{
+  display:flex; align-items:center; gap:13px; padding:18px 22px;
+  background:linear-gradient(120deg,#EAF3E2,#F7EEDC); border-bottom:1.5px solid var(--line);
+}
+[data-theme="dark"] .chat-head{background:linear-gradient(120deg,#26332A,#3A2E24)}
+.chat-head .who{font-family:var(--font-d); font-size:19px; color:var(--green)}
+[data-theme="dark"] .chat-head .who{color:var(--green-l)}
+.chat-head .who small{display:block; font-family:var(--font-b); font-weight:600; font-size:12.5px; color:var(--ink2)}
+.chat-head .live{margin-left:auto; font-size:12px; font-weight:800; color:var(--green-mid); display:flex; align-items:center; gap:6px}
+.chat-head .live i{width:8px;height:8px;border-radius:50%;background:var(--green-mid);display:block; animation:pulse 1.8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.chat-body{padding:24px 22px; display:flex; flex-direction:column; gap:18px}
+.msg{display:flex; gap:12px; max-width:82%}
+.msg.me{margin-left:auto; flex-direction:row-reverse}
+.msg .av{width:44px;height:48px;flex:none}
+.bub{
+  padding:15px 18px; font-size:14.5px; font-weight:600; line-height:1.68;
+  background:var(--paper); border:1.5px solid var(--line); border-radius:22px 22px 22px 7px;
+}
+.msg.me .bub{background:var(--green); color:#fff; border-color:transparent; border-radius:22px 22px 7px 22px; font-weight:700}
+[data-theme="dark"] .msg.me .bub{background:var(--green-l); color:#1D2A1E}
+.bub h5{font-family:var(--font-d); font-size:15px; margin-bottom:6px; color:var(--soil-d)}
+[data-theme="dark"] .bub h5{color:var(--sun)}
+.bub ul{margin:8px 0 0 2px; list-style:none; display:flex; flex-direction:column; gap:6px}
+.bub ul li{padding-left:18px; position:relative}
+.bub ul li::before{content:'·'; position:absolute; left:6px; color:var(--green-l); font-weight:900}
+.bub .cite{
+  margin-top:12px; padding-top:11px; border-top:1.5px dashed var(--line);
+  display:flex; flex-wrap:wrap; gap:6px;
+}
+.bub .cite span{font-size:11.5px; font-weight:800; color:var(--soil); background:var(--soil-wash); padding:4px 9px; border-radius:999px}
+.quick{display:flex; gap:8px; flex-wrap:wrap; padding:0 22px 18px}
+.quick button{
+  font:inherit; font-weight:700; font-size:13px; cursor:pointer; color:var(--green);
+  background:var(--green-wash); border:1.5px solid var(--green-l); border-radius:999px; padding:9px 15px;
+}
+.quick button:hover{background:var(--green); color:#fff}
+.composer{display:flex; gap:10px; padding:16px 22px 22px; border-top:1.5px solid var(--line); background:var(--paper)}
+.composer input{
+  flex:1; font:inherit; font-size:15px; padding:15px 20px; border-radius:999px;
+  border:1.5px solid var(--line); background:var(--paper2); color:var(--ink);
+}
+.composer input:focus{outline:0; border-color:var(--green-l); box-shadow:0 0 0 4px var(--green-wash)}
+.send{
+  width:54px;height:54px;border-radius:50%;border:0;background:var(--green);color:#fff;
+  font-size:20px;cursor:pointer;flex:none; box-shadow:0 6px 16px -6px rgba(47,93,58,.8);
+}
+.ctx .kv{display:flex; justify-content:space-between; font-size:13.5px; font-weight:700; padding:9px 0; border-bottom:1.5px dashed var(--line)}
+.ctx .kv:last-child{border:0}
+.ctx .kv span{color:var(--ink2)}
+
+/* ── 디자인 노트 ──────────────────────────────────────────────────────── */
+.dnote{margin-top:34px; border-radius:var(--r-xl); border:1.5px dashed var(--line); background:var(--paper2); padding:8px 22px}
+.dnote summary{cursor:pointer; font-family:var(--font-d); font-size:16px; padding:14px 0; color:var(--soil-d)}
+[data-theme="dark"] .dnote summary{color:var(--sun)}
+.dnote .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:18px; padding:6px 0 22px}
+.dnote h5{font-size:13px; font-weight:800; color:var(--ink2); letter-spacing:.04em; margin-bottom:9px}
+.dnote li{font-size:13.5px; font-weight:600; margin-left:16px}
+.sw{display:flex; gap:6px; flex-wrap:wrap}
+.sw i{width:34px;height:34px;border-radius:12px;border:1.5px solid var(--line);display:block}
+
+@media (max-width:1080px){
+  .card.sp7,.card.sp5,.card.sp6,.card.sp4,.card.sp3,.card.sp8,.addfield{grid-column:span 12}
+  .chat-grid{grid-template-columns:1fr}
+  .months{grid-template-columns:1fr}
+  .hero{grid-template-columns:1fr}
+  .speech{position:static; width:auto; margin-bottom:10px}
+  .hero-mascot{display:flex; align-items:flex-end; gap:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ 상단 바 ════════════ -->
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#" onclick="return false">
+      <span id="logoMascot"></span>
+      <span class="mk">For Your Farm<small>내 땅의 오늘을 읽는 농사 동반자</small></span>
+    </a>
+    <nav class="navpill">
+      <button data-go="dash" aria-current="true">🌾 내 밭</button>
+      <button data-go="detail">📐 밭 상세</button>
+      <button data-go="chat">💬 상담</button>
+      <button data-go="dash">📓 기록</button>
+    </nav>
+    <div class="chip-user"><span class="av">🧑‍🌾</span> <b>터줏대감</b>님</div>
+    <button class="iconbtn" id="themeBtn" title="라이트/다크 전환">🌙</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ════════════ VIEW 1 · 대시보드 ════════════ -->
+<section class="view on" id="v-dash">
+
+  <div class="hero">
+    <div class="hero-txt">
+      <div class="kicker">2026년 8월 4일 화요일 · 김포시 하성면</div>
+      <h1>오늘 김포 사과밭은<br><em>물빠짐</em>을 살펴야 하는 날이에요.</h1>
+      <p class="sub">밤사이 12mm 비가 내렸고, 낮 기온이 31°C까지 오릅니다. 과습에 고온이 겹치면 결실비대기 낙과 위험이 올라갑니다.</p>
+      <div class="hero-strip">
+        <span class="mini">🌡️ 낮 <b class="num">31°</b> / 밤 <b class="num">23°</b></span>
+        <span class="mini">💧 어제 강수 <b class="num">12</b>mm</span>
+        <span class="mini">🧪 토양 EC <b class="num">1.1</b> mS/cm</span>
+        <span class="mini">📅 정식 후 <b class="num">128</b>일</span>
+      </div>
+    </div>
+    <div class="hero-mascot">
+      <div class="speech">
+        <b>고온 + 과습</b> 조합이에요.<br>물 대신 <b>배수로</b>를 먼저 보러 가요!<br>
+        <span class="speech-hand">— 텃밭이가 아침에 확인했어요</span>
+      </div>
+      <span id="heroMascot"></span>
+    </div>
+  </div>
+
+  <div class="bento">
+
+    <!-- 밭 카드 1 -->
+    <article class="card field sp7" data-go="detail">
+      <svg class="terrain" viewBox="0 0 600 96" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 62 C 90 22 160 84 250 54 S 420 12 600 50 L600 96 L0 96Z" fill="#EAF3E2"/>
+        <path d="M0 78 C 120 52 210 96 320 72 S 470 44 600 74 L600 96 L0 96Z" fill="#DCEBCF" opacity=".8"/>
+      </svg>
+      <div class="field-top">
+        <span class="crop-badge">🍎</span>
+        <div>
+          <div class="field-name">첫밭 · 사과</div>
+          <div class="field-loc">경기 김포시 <span class="sep">·</span> 하성면 <span class="sep">·</span> 후지 3년생</div>
+        </div>
+        <div class="gauge-wrap">
+          <svg class="gauge" viewBox="0 0 120 120" style="--p:.785">
+            <circle class="bg" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+            <circle class="fg" cx="60" cy="60" r="48" fill="none" stroke="#4C9A5B" stroke-width="13" stroke-linecap="round"/>
+          </svg>
+          <div class="gauge-val"><span class="num">78.5</span><small>적합도</small></div>
+        </div>
+      </div>
+
+      <svg class="stages" viewBox="0 0 560 74" aria-hidden="true">
+        <path d="M28 46 Q100 16 176 34 T324 26 Q412 8 532 38" fill="none" stroke="#E8DBC2" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 9"/>
+        <path d="M28 46 Q100 16 176 34 T324 26" fill="none" stroke="#8CC271" stroke-width="4.5" stroke-linecap="round"/>
+        <g fill="#FFFDF7" stroke="#8CC271" stroke-width="4">
+          <circle cx="28" cy="46" r="9"/><circle cx="176" cy="34" r="9"/>
+        </g>
+        <circle cx="324" cy="26" r="17" fill="#4E8B52"/>
+        <text x="324" y="33" text-anchor="middle" font-size="17">🍏</text>
+        <g fill="#FFFDF7" stroke="#E8DBC2" stroke-width="4">
+          <circle cx="428" cy="17" r="9"/><circle cx="532" cy="38" r="9"/>
+        </g>
+      </svg>
+      <div class="stage-labels">
+        <span>발아</span><span>개화</span><b>결실비대기 ●</b><span>착색</span><span>수확</span>
+      </div>
+
+      <div class="fc">
+        <div class="fc-day"><div class="d">오늘</div><div class="ic">🌦️</div><div class="t">31°<i>/23°</i></div></div>
+        <div class="fc-day"><div class="d">수</div><div class="ic">☀️</div><div class="t">33°<i>/24°</i></div></div>
+        <div class="fc-day"><div class="d">목</div><div class="ic">⛅</div><div class="t">30°<i>/22°</i></div></div>
+      </div>
+
+      <div class="risk">
+        <span class="ex">!</span>
+        <div><b>과습 + 고온 동시 위험</b> — 24시간 누적 12mm에 낮 최고 33°C 예보. 결실비대기 낙과·열과 주의.</div>
+      </div>
+    </article>
+
+    <!-- 우측 컬럼: 오늘의 할 일 -->
+    <aside class="card sp5">
+      <div class="card-h">
+        <span class="dot-ic" style="background:var(--green-wash)">✅</span>
+        <h3>오늘의 할 일</h3>
+        <span class="tag">3건 중 1건 완료</span>
+      </div>
+      <ul class="todo">
+        <li class="done"><span class="box">✓</span><span class="tx">배수로 막힘 확인<small>이랑 끝 2곳 · 사진 기록됨</small></span><span class="when">완료</span></li>
+        <li><span class="box">✓</span><span class="tx">관수 <b>건너뛰기</b><small>토양 수분 추정 82% — 추가 관수 불필요</small></span><span class="when">오늘</span></li>
+        <li><span class="box">✓</span><span class="tx">봉지씌우기 전 칼슘 엽면시비<small>열과 예방 · 흐린 날 오전 권장</small></span><span class="when">~목</span></li>
+      </ul>
+      <div class="note">🌱 체크한 행동은 토양 상태 추정에 반영되어 내일 점수를 다시 계산합니다.</div>
+    </aside>
+
+    <!-- 밭 카드 2 -->
+    <article class="card field sp5" data-go="detail">
+      <svg class="terrain" viewBox="0 0 600 96" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 70 C 110 34 190 92 300 62 S 470 30 600 64 L600 96 L0 96Z" fill="#F7EEDC"/>
+      </svg>
+      <div class="field-top">
+        <span class="crop-badge" style="background:var(--soil-wash)">🍎</span>
+        <div>
+          <div class="field-name">두번째밭 · 사과</div>
+          <div class="field-loc">충북 영동군 <span class="sep">·</span> 영동읍</div>
+        </div>
+      </div>
+      <div class="nodata" style="margin-top:16px">
+        <span style="font-size:22px">🕳️</span>
+        <div><b>토양 검정 표본이 아직 없어요.</b><br>읍면동 토양 데이터를 불러오면 점수가 계산됩니다.</div>
+      </div>
+      <div class="fc">
+        <div class="fc-day"><div class="d">오늘</div><div class="ic">☀️</div><div class="t">33°<i>/22°</i></div></div>
+        <div class="fc-day"><div class="d">수</div><div class="ic">☀️</div><div class="t">34°<i>/23°</i></div></div>
+        <div class="fc-day"><div class="d">목</div><div class="ic">🌤️</div><div class="t">32°<i>/22°</i></div></div>
+      </div>
+      <div class="note" style="margin-top:14px">📍 기상은 시/군 단위, 토양은 읍면동 단위로 조회됩니다.</div>
+    </article>
+
+    <!-- 최근 기록 -->
+    <aside class="card sp4">
+      <div class="card-h">
+        <span class="dot-ic" style="background:var(--soil-wash)">📓</span>
+        <h3>최근 기록</h3>
+      </div>
+      <ul class="tl">
+        <li class="warn"><div class="t">과습 위험 감지</div><div class="m">8/4 06:00 · 누적 강수 12mm</div></li>
+        <li><div class="t">관수 20분</div><div class="m">8/2 07:10 · 추정 수분 +14%</div></li>
+        <li><div class="t">적과 작업</div><div class="m">7/28 · 착과수 조절</div></li>
+        <li><div class="t">토양 기준값 갱신</div><div class="m">7/25 · 흙토람 하성면 표본</div></li>
+      </ul>
+    </aside>
+
+    <!-- 밭 추가 -->
+    <button class="addfield">
+      <div>
+        <div class="plus">＋</div>
+        밭 추가 등록<br><small style="font-weight:600; color:var(--ink3)">지역 · 작물 · 정식일 3단계</small>
+      </div>
+    </button>
+
+    <!-- 근거 -->
+    <aside class="card sp5">
+      <div class="card-h">
+        <span class="dot-ic" style="background:var(--sky-wash)">🔍</span>
+        <h3>이 화면의 근거</h3>
+        <span class="tag">7건</span>
+      </div>
+      <div class="chips">
+        <span class="src"><i class="k" style="background:var(--sky)"></i>기상청 단기예보</span>
+        <span class="src"><i class="k" style="background:var(--soil)"></i>흙토람 토양검정</span>
+        <span class="src"><i class="k" style="background:var(--green-mid)"></i>농사로 사과 안내책자</span>
+        <span class="src"><i class="k" style="background:var(--sun)"></i>기상청 3개월 전망</span>
+        <span class="src"><i class="k" style="background:var(--ink3)"></i>평년값(1991–2020)</span>
+      </div>
+      <div class="note">⚖️ <b>추정치 표기 원칙</b> — 실측(토양검정·실황)과 이론 추정(토양 변화 모델)을 항상 구분해 보여줍니다.</div>
+    </aside>
+
+    <!-- 주간 -->
+    <aside class="card sp7">
+      <div class="card-h">
+        <span class="dot-ic" style="background:var(--green-wash)">📅</span>
+        <h3>이번 주 밭 날씨</h3>
+        <span class="tag">6시간마다 갱신 · 최근 08:00</span>
+      </div>
+      <div class="week">
+        <div class="wd today"><div class="dw">화</div><div class="dd">4</div><div class="ic">🌦️</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">수</div><div class="dd">5</div><div class="ic">☀️</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">목</div><div class="dd">6</div><div class="ic">⛅</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">금</div><div class="dd">7</div><div class="ic">🌧️</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">토</div><div class="dd">8</div><div class="ic">🌧️</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">일</div><div class="dd">9</div><div class="ic">⛅</div><div class="bar"></div></div>
+        <div class="wd"><div class="dw">월</div><div class="dd">10</div><div class="ic">☀️</div><div class="bar"></div></div>
+      </div>
+      <div class="note">🔭 오늘~3일은 <b>단기예보(실시간)</b>, 이후는 <b>평년값 + 3개월 전망 보정</b> 기반 참고치입니다.</div>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ════════════ VIEW 2 · 밭 상세 ════════════ -->
+<section class="view" id="v-detail">
+  <div class="detail-head">
+    <button class="back" data-go="dash">← 내 밭</button>
+    <div>
+      <h2 style="font-size:24px">첫밭 · 사과 <span style="font-family:var(--font-b);font-size:14px;font-weight:700;color:var(--ink2)">경기 김포시 하성면</span></h2>
+    </div>
+    <div class="seg" style="margin-left:auto">
+      <button aria-pressed="false" data-seg="short">단기 (오늘~3일)</button>
+      <button aria-pressed="true" data-seg="long">장기 (앞으로 3개월)</button>
+    </div>
+  </div>
+
+  <!-- 장기 -->
+  <div id="seg-long">
+    <div class="bento">
+      <div class="card sp8">
+        <div class="card-h">
+          <span class="dot-ic" style="background:var(--green-wash)">🗓️</span>
+          <h3>2026년 8~10월 예상 적합도</h3>
+          <span class="tag">평년값 + 3개월 전망 보정</span>
+        </div>
+        <div class="months">
+          <div class="mo best">
+            <div class="mn">8월</div>
+            <svg class="gauge" viewBox="0 0 120 120" style="--p:.785;width:88px;height:88px">
+              <circle class="bg" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+              <circle class="fg" cx="60" cy="60" r="48" fill="none" stroke="#4C9A5B" stroke-width="13" stroke-linecap="round"/>
+            </svg>
+            <div class="gauge-val" style="position:relative;margin-top:-62px;margin-bottom:26px">
+              <span class="num" style="font-size:25px">78.5</span>
+            </div>
+            <span class="grade" style="background:var(--a)">A 양호</span>
+            <div class="stg">결실비대기</div>
+            <span class="tagline">전망 반영</span>
+          </div>
+          <div class="mo">
+            <div class="mn">9월</div>
+            <svg class="gauge" viewBox="0 0 120 120" style="--p:.65;width:88px;height:88px">
+              <circle class="bg" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+              <circle class="fg" cx="60" cy="60" r="48" fill="none" stroke="#DB9E33" stroke-width="13" stroke-linecap="round"/>
+            </svg>
+            <div class="gauge-val" style="position:relative;margin-top:-62px;margin-bottom:26px">
+              <span class="num" style="font-size:25px">65.0</span>
+            </div>
+            <span class="grade" style="background:var(--b)">B 보통</span>
+            <div class="stg">착색기</div>
+            <span class="tagline">전망 반영</span>
+          </div>
+          <div class="mo">
+            <div class="mn">10월</div>
+            <svg class="gauge" viewBox="0 0 120 120" style="--p:.678;width:88px;height:88px">
+              <circle class="bg" cx="60" cy="60" r="48" fill="none" stroke-width="13"/>
+              <circle class="fg" cx="60" cy="60" r="48" fill="none" stroke="#DB9E33" stroke-width="13" stroke-linecap="round"/>
+            </svg>
+            <div class="gauge-val" style="position:relative;margin-top:-62px;margin-bottom:26px">
+              <span class="num" style="font-size:25px">67.8</span>
+            </div>
+            <span class="grade" style="background:var(--b)">B 보통</span>
+            <div class="stg">착색기</div>
+            <span class="tagline">전망 반영</span>
+          </div>
+        </div>
+        <div class="note">📉 9월 하락의 주된 원인은 <b>낮 기온 이탈</b>입니다. 착색기 사과는 주야간 온도차가 중요해 고온이 지속되면 착색이 지연됩니다.</div>
+      </div>
+
+      <div class="card sp4">
+        <div class="card-h">
+          <span class="dot-ic" style="background:var(--soil-wash)">🧮</span>
+          <h3>8월 점수 분해</h3>
+        </div>
+        <div class="decomp">
+          <div class="dc"><span>낮 기온</span><span class="track"><span class="fill" style="width:72%;background:var(--b)"></span></span><span class="v">-8.4</span></div>
+          <div class="dc"><span>야간 최저</span><span class="track"><span class="fill" style="width:92%;background:var(--a)"></span></span><span class="v">-1.2</span></div>
+          <div class="dc"><span>강수·습도</span><span class="track"><span class="fill" style="width:64%;background:var(--c)"></span></span><span class="v">-6.1</span></div>
+          <div class="dc"><span>유기물</span><span class="track"><span class="fill" style="width:41%;background:var(--c)"></span></span><span class="v">-3.9</span></div>
+          <div class="dc"><span>유효인산</span><span class="track"><span class="fill" style="width:38%;background:var(--c)"></span></span><span class="v">-1.9</span></div>
+          <div class="dc"><span>pH · EC</span><span class="track"><span class="fill" style="width:96%;background:var(--s)"></span></span><span class="v">-0.0</span></div>
+        </div>
+        <div class="note">100점에서 지표별 이탈 정도만큼 차감합니다. 가중치는 작물별 문헌 지침에서 옵니다.</div>
+      </div>
+
+      <div class="card sp12">
+        <div class="card-h">
+          <span class="dot-ic" style="background:#FBE7D6">⚠️</span>
+          <h3>주의가 필요한 시기</h3>
+          <span class="tag">3개 구간</span>
+        </div>
+        <div class="alert">
+          <span class="mo-badge">8월<br><small style="font-weight:600;color:var(--ink2)">결실비대기</small></span>
+          <div>
+            <div class="why"><b>유기물 12 g/kg</b> — 권장 25~35 g/kg을 크게 벗어남 · <b>유효인산 96 mg/kg</b> — 권장 200~300 크게 미달</div>
+            <div class="act">→ 수확 후 퇴비 증량 계획을 지금 세워두세요. 생육기 중 급한 시비는 열과 위험을 높입니다.</div>
+          </div>
+        </div>
+        <div class="alert">
+          <span class="mo-badge">9월<br><small style="font-weight:600;color:var(--ink2)">착색기</small></span>
+          <div>
+            <div class="why"><b>낮 기온 평년 대비 +1.8°C 전망</b> · 유기물·유효인산 부족 지속</div>
+            <div class="act">→ 착색 지연 대비: 반사필름 시기를 1주 앞당기고, 잎 가림 가지를 미리 정리하세요.</div>
+          </div>
+        </div>
+        <div class="alert">
+          <span class="mo-badge">10월<br><small style="font-weight:600;color:var(--ink2)">착색·수확</small></span>
+          <div>
+            <div class="why"><b>낮 기온 상단 이탈 확률 41%</b> (3개월 전망 tercile)</div>
+            <div class="act">→ 수확기 판단은 착색도보다 <b>당도·경도</b>를 함께 보세요. 조기 수확 판단 기준을 미리 정해두면 좋습니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 단기 -->
+  <div id="seg-short" style="display:none">
+    <div class="bento">
+      <div class="card sp7">
+        <div class="card-h"><span class="dot-ic" style="background:var(--sky-wash)">🌦️</span><h3>오늘 실황 · 3일 예보</h3><span class="tag">08:00 발표 기준</span></div>
+        <svg viewBox="0 0 600 200" style="width:100%;height:auto">
+          <defs>
+            <linearGradient id="ar" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#EFA43A" stop-opacity=".38"/><stop offset="1" stop-color="#EFA43A" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="#E8DBC2" stroke-width="1.5" stroke-dasharray="2 7">
+            <line x1="40" y1="40" x2="580" y2="40"/><line x1="40" y1="90" x2="580" y2="90"/><line x1="40" y1="140" x2="580" y2="140"/>
+          </g>
+          <path d="M60 62 C 140 46 200 52 280 40 S 420 74 560 58 L560 175 L60 175 Z" fill="url(#ar)"/>
+          <path d="M60 62 C 140 46 200 52 280 40 S 420 74 560 58" fill="none" stroke="#EFA43A" stroke-width="4.5" stroke-linecap="round"/>
+          <path d="M60 128 C 150 118 210 132 280 120 S 430 140 560 126" fill="none" stroke="#6FA9CE" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="10 8"/>
+          <g fill="#FFFDF7" stroke="#EFA43A" stroke-width="4">
+            <circle cx="60" cy="62" r="7"/><circle cx="280" cy="40" r="7"/><circle cx="560" cy="58" r="7"/>
+          </g>
+          <g font-size="13" font-weight="700" fill="#75695C" font-family="Pretendard Variable,sans-serif">
+            <text x="52" y="196">오늘</text><text x="270" y="196">수요일</text><text x="540" y="196">목요일</text>
+            <text x="8" y="45">35°</text><text x="8" y="95">28°</text><text x="8" y="145">21°</text>
+          </g>
+        </svg>
+        <div class="note">🟠 낮 최고 · 🔵 야간 최저(점선). <b>야간 최저기온은 별도 지표로 분리</b>해 관리합니다 — 낮 평균만 보면 활착 실패의 원인을 놓칩니다.</div>
+      </div>
+
+      <div class="card sp5">
+        <div class="card-h"><span class="dot-ic" style="background:#FBE7D6">🚨</span><h3>감지된 위험신호</h3><span class="tag">2건</span></div>
+        <div class="risk"><span class="ex">!</span><div><b>과습</b> — 24h 누적 12mm, 토양 수분 추정 82% (권장 55~70%)</div></div>
+        <div class="risk" style="margin-top:10px"><span class="ex">!</span><div><b>고온</b> — 수요일 낮 33°C 예보, 결실비대기 적정 상한 30°C 초과</div></div>
+        <div class="note">☑️ 위험신호는 예보값과 작물 문헌 기준 구간을 비교한 <b>규칙 판정</b>입니다. LLM이 만들어낸 값이 아닙니다.</div>
+      </div>
+
+      <div class="card sp12" style="padding:0;border:0;background:none;box-shadow:none">
+        <div class="llm">
+          <span id="llmMascot"></span>
+          <div>
+            <h4>오늘의 추천 행동</h4>
+            <p>비가 그친 직후라 흙 속 공기가 부족한 상태예요. 지금은 물을 더 주는 것보다 <b>물을 빼는 일</b>이 먼저입니다.</p>
+            <ul class="steps">
+              <li><span class="n">1</span><div><b>오전 중 배수로 점검</b> — 이랑 끝 물 고임 여부를 보고, 고여 있으면 삽으로 물길만 열어주세요.</div></li>
+              <li><span class="n">2</span><div><b>오늘 관수는 건너뛰기</b> — 추정 수분이 82%입니다. 추가 관수는 뿌리 산소 부족을 키웁니다.</div></li>
+              <li><span class="n">3</span><div><b>내일 낮 33°C 대비</b> — 열과 예방을 위해 칼슘 엽면시비는 흐린 날 오전에, 한낮 살포는 피하세요.</div></li>
+            </ul>
+            <div class="chips" style="margin-top:16px">
+              <span class="src"><i class="k" style="background:var(--sky)"></i>기상청 단기예보 08:00</span>
+              <span class="src"><i class="k" style="background:var(--soil)"></i>토양 변화 추정 모델(이론치)</span>
+              <span class="src"><i class="k" style="background:var(--green-mid)"></i>농사로 사과 안내책자 p.42</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ VIEW 3 · 상담 ════════════ -->
+<section class="view" id="v-chat">
+  <div class="chat-grid">
+    <div class="chatbox">
+      <div class="chat-head">
+        <span id="chatMascot"></span>
+        <div class="who">텃밭이<small>당신의 밭에서 함께 일하는 이웃</small></div>
+        <div class="live"><i></i>첫밭 · 사과 연결됨</div>
+      </div>
+      <div class="chat-body">
+        <div class="msg me"><div class="bub">비 온 다음날인데 물 줘야 해?</div></div>
+        <div class="msg">
+          <span class="av" id="a1"></span>
+          <div class="bub">
+            <h5>지금은 주지 않는 게 좋아요 🙅</h5>
+            어젯밤 <b>12mm</b>가 내려서 첫밭 토양 수분이 <b>82%</b>로 추정됩니다. 사과 결실비대기 적정 범위는 55~70%예요.
+            <ul>
+              <li>물이 더 들어가면 뿌리에 산소가 부족해져 잔뿌리가 상합니다</li>
+              <li>대신 <b>배수로 물길</b>을 열어 고인 물을 빼주세요</li>
+              <li>다음 관수는 <b>금요일 이후</b>, 표면 3cm가 마른 걸 확인하고요</li>
+            </ul>
+            <div class="cite">
+              <span>내 밭 컨텍스트 · 첫밭</span><span>농사로 사과 안내책자 p.42</span><span>토양 추정 모델(이론치)</span>
+            </div>
+          </div>
+        </div>
+        <div class="msg me"><div class="bub">상추도 같이 심어보려는데 지금 괜찮아?</div></div>
+        <div class="msg">
+          <span class="av" id="a2"></span>
+          <div class="bub">
+            <h5>8월 김포는 상추에 조금 버거워요 🥲</h5>
+            상추 적정 생육 온도는 <b>15~20°C</b>인데, 이번 주 김포 낮 기온이 <b>31~33°C</b>입니다. 이 온도에서는 잎이 쓴맛이 나거나 웃자라기 쉬워요.
+            <ul>
+              <li>지금 심으려면 <b>한랭사·차광</b>으로 한낮 직사광을 막아주세요</li>
+              <li>발아 적온이 15~20°C라 파종 상자를 그늘에 두는 편이 안전합니다</li>
+              <li>가을 재배로 <b>8월 하순 파종</b>을 노리는 쪽이 훨씬 수월해요</li>
+            </ul>
+            <div class="cite"><span>농사로 상추 안내책자</span><span>기상청 단기예보</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="quick">
+        <button>배수로는 어떻게 만들어요?</button>
+        <button>유기물 12은 얼마나 부족한 거예요?</button>
+        <button>9월에 착색 잘 되게 하려면?</button>
+      </div>
+      <div class="composer">
+        <input placeholder="내 밭 이야기를 물어보세요 — 예: 봉지씌우기 언제 해요?">
+        <button class="send">↑</button>
+      </div>
+    </div>
+
+    <div class="card ctx" style="border-radius:var(--r-xl)">
+      <div class="card-h"><span class="dot-ic" style="background:var(--green-wash)">🧷</span><h3>답변에 쓰인 정보</h3></div>
+      <div class="kv"><span>연결된 밭</span><b>첫밭 · 사과</b></div>
+      <div class="kv"><span>지역</span><b>김포시 하성면</b></div>
+      <div class="kv"><span>생육 단계</span><b>결실비대기 (128일)</b></div>
+      <div class="kv"><span>적합도</span><b>78.5 · A</b></div>
+      <div class="kv"><span>토양 수분(추정)</span><b>82%</b></div>
+      <div class="kv"><span>검색된 문서</span><b>3조각</b></div>
+      <div class="note" style="margin-top:16px">🛡️ <b>모르면 모른다고 답합니다.</b> 신뢰 문서에서 근거를 찾지 못하면 지어내지 않고 전문가 상담을 권합니다.</div>
+      <div class="chips" style="margin-top:14px">
+        <span class="src"><i class="k" style="background:var(--green-mid)"></i>사과 안내책자</span>
+        <span class="src"><i class="k" style="background:var(--green-mid)"></i>상추 안내책자</span>
+        <span class="src"><i class="k" style="background:var(--ink3)"></i>+ 3종 확장 예정</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ 디자인 노트 ════════════ -->
+<details class="dnote">
+  <summary>🎨 시안 A 디자인 노트 — 무엇을 어떻게 바꿨는지</summary>
+  <div class="grid">
+    <div>
+      <h5>컨셉</h5>
+      <p style="font-size:13.5px;font-weight:600">“<b>따뜻한 흙</b>”. 종이·곡물·흙 계열의 웜톤 위에 새싹 초록만 포인트로. 직선과 직각을 최소화하고 모든 컨테이너에 18~34px 라운드를 적용.</p>
+    </div>
+    <div>
+      <h5>타이포</h5>
+      <ul>
+        <li>제목 = Cafe24 Ssurround (둥근 굵은 고딕)</li>
+        <li>본문 = Pretendard (가독성)</li>
+        <li>숫자 = Baloo 2 (통통한 라운드 숫자)</li>
+        <li>악센트 = 손글씨체 (마스코트 대사)</li>
+      </ul>
+    </div>
+    <div>
+      <h5>여백을 채운 방법</h5>
+      <ul>
+        <li>인사 히어로 + 마스코트 말풍선</li>
+        <li>12칼럼 비대칭 벤토 그리드</li>
+        <li>오늘의 할 일 / 최근 기록 / 근거 / 주간 스트립</li>
+        <li>카드 상단 언덕 실루엣, 배경 도트 텍스처</li>
+      </ul>
+    </div>
+    <div>
+      <h5>독창 요소</h5>
+      <ul>
+        <li>생육 단계를 <b>물결 곡선 스테퍼</b>로 (직선 프로그레스바 X)</li>
+        <li>적합도를 도넛 게이지 + 등급 알약으로 이중 표현</li>
+        <li>점수 <b>분해 바</b>로 감점 근거를 그대로 노출</li>
+        <li>상담 우측에 <b>주입된 컨텍스트 패널</b> — RAG 투명성</li>
+      </ul>
+    </div>
+    <div>
+      <h5>팔레트</h5>
+      <div class="sw">
+        <i style="background:#FAF3E6"></i><i style="background:#F3E9D6"></i><i style="background:#8CC271"></i>
+        <i style="background:#4E8B52"></i><i style="background:#2F5D3A"></i><i style="background:#A9703F"></i>
+        <i style="background:#7A4A2E"></i><i style="background:#EFA43A"></i><i style="background:#D46A3A"></i><i style="background:#6FA9CE"></i>
+      </div>
+    </div>
+  </div>
+</details>
+
+</div>
+
+<script>
+/* ═══ 마스코트 "텃밭이" 생성기 ═══════════════════════════════════════════ */
+function tetbat(opts){
+  var o=opts||{}, expr=o.expr||'happy', size=o.size||160, uid='m'+Math.random().toString(36).slice(2,8);
+  var faces={
+    happy:`<g fill="#4A3223"><ellipse cx="96" cy="150" rx="12" ry="14.5"/><ellipse cx="144" cy="150" rx="12" ry="14.5"/></g>
+      <g fill="#fff"><circle cx="100.5" cy="143.5" r="4.6"/><circle cx="148.5" cy="143.5" r="4.6"/>
+      <circle cx="91" cy="157" r="2.4" opacity=".7"/><circle cx="139" cy="157" r="2.4" opacity=".7"/></g>
+      <path d="M111 176 Q120 186 129 176" fill="none" stroke="#7A4A2E" stroke-width="4.6" stroke-linecap="round"/>`,
+    cheer:`<g fill="none" stroke="#4A3223" stroke-width="6.5" stroke-linecap="round"><path d="M85 152 Q96 137 107 152"/><path d="M133 152 Q144 137 155 152"/></g>
+      <path d="M107 172 Q120 194 133 172 Q120 180 107 172 Z" fill="#C4604F"/>
+      <g stroke="#F2A93B" stroke-width="4.5" stroke-linecap="round"><path d="M40 96 l-9 -9"/><path d="M46 84 l-3 -12"/><path d="M200 96 l9 -9"/><path d="M194 84 l3 -12"/></g>`,
+    worry:`<g fill="#4A3223"><ellipse cx="96" cy="152" rx="11" ry="13"/><ellipse cx="144" cy="152" rx="11" ry="13"/></g>
+      <g fill="#fff"><circle cx="100" cy="146" r="4"/><circle cx="148" cy="146" r="4"/></g>
+      <g fill="none" stroke="#7A4A2E" stroke-width="4.6" stroke-linecap="round"><path d="M83 133 Q94 126 105 131"/><path d="M157 133 Q146 126 135 131"/><path d="M109 180 Q114.5 173 120 180 T131 180"/></g>
+      <path d="M186 118 C 178 130 176 137 181 142 C 187 147 195 143 194 135 C 193 129 190 124 186 118 Z" fill="#8ECBE8" stroke="#4E9CC0" stroke-width="2.5"/>`,
+    think:`<g fill="#4A3223"><ellipse cx="96" cy="150" rx="12" ry="14.5"/></g><g fill="#fff"><circle cx="100.5" cy="143.5" r="4.6"/></g>
+      <path d="M132 152 Q144 158 156 152" fill="none" stroke="#4A3223" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="120" cy="178" r="5.5" fill="none" stroke="#7A4A2E" stroke-width="4.4"/>
+      <g fill="#7A4A2E" opacity=".55"><circle cx="196" cy="112" r="4"/><circle cx="209" cy="102" r="5.5"/><circle cx="224" cy="90" r="7"/></g>`
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 264" width="${size}" height="${size*1.1}" style="display:block;overflow:visible">
+  <defs>
+    <linearGradient id="bd${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF3DC"/><stop offset="1" stop-color="#F3CE99"/></linearGradient>
+    <linearGradient id="lf${uid}" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#4F8C41"/><stop offset="1" stop-color="#95D06C"/></linearGradient>
+    <radialGradient id="ck${uid}"><stop offset="0" stop-color="#EE8B74" stop-opacity=".9"/><stop offset="1" stop-color="#EE8B74" stop-opacity="0"/></radialGradient>
+    <radialGradient id="bl${uid}"><stop offset="0" stop-color="#FFFDF7" stop-opacity=".95"/><stop offset="1" stop-color="#FFFDF7" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="120" cy="249" rx="60" ry="9.5" fill="#7A4A2E" opacity=".12"/>
+  <g stroke="#7A4A2E" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M62 152 C 46 142 34 132 27 121" fill="none" stroke-width="26"/>
+    <path d="M178 166 C 194 168 206 173 212 179" fill="none" stroke-width="26"/>
+    <path d="M62 152 C 46 142 34 132 27 121" fill="none" stroke="#FFE9C4" stroke-width="16"/>
+    <path d="M178 166 C 194 168 206 173 212 179" fill="none" stroke="#FFE9C4" stroke-width="16"/>
+    <ellipse cx="95" cy="226" rx="21" ry="11" fill="#F1C892"/><ellipse cx="145" cy="226" rx="21" ry="11" fill="#F1C892"/>
+    <path d="M120 84 C 115 62 118 46 123 34" fill="none" stroke-width="7"/>
+    <path d="M117 62 C 95 34 64 38 58 53 C 56 74 94 82 116 65 Z" fill="url(#lf${uid})"/>
+    <path d="M125 47 C 143 23 175 25 179 42 C 181 61 147 67 123 51 Z" fill="url(#lf${uid})"/>
+    <path d="M112 63 C 94 57 76 51 64 52" fill="none" stroke="#33602A" stroke-width="3" opacity=".5"/>
+    <path d="M127 49 C 143 43 160 41 173 44" fill="none" stroke="#33602A" stroke-width="3" opacity=".5"/>
+    <path d="M120 80 C 78 80 52 114 52 154 C 52 198 82 224 120 224 C 158 224 188 198 188 154 C 188 114 162 80 120 80 Z" fill="url(#bd${uid})"/>
+    <circle cx="25" cy="118" r="14" fill="#FFE9C4"/><circle cx="214" cy="181" r="14" fill="#FFE9C4"/>
+  </g>
+  <ellipse cx="120" cy="184" rx="48" ry="36" fill="url(#bl${uid})"/>
+  <ellipse cx="88" cy="112" rx="17" ry="11" fill="#fff" opacity=".55" transform="rotate(-25 88 112)"/>
+  <ellipse cx="70" cy="168" rx="16" ry="10" fill="url(#ck${uid})"/><ellipse cx="170" cy="168" rx="16" ry="10" fill="url(#ck${uid})"/>
+  ${faces[expr]||faces.happy}</svg>`;
+}
+
+/* 마스코트 배치 */
+document.getElementById('logoMascot').innerHTML  = tetbat({size:36});
+document.getElementById('heroMascot').innerHTML  = tetbat({expr:'worry', size:168});
+document.getElementById('llmMascot').innerHTML   = tetbat({expr:'think', size:104});
+document.getElementById('chatMascot').innerHTML  = tetbat({expr:'cheer', size:48});
+document.getElementById('a1').innerHTML          = tetbat({size:44});
+document.getElementById('a2').innerHTML          = tetbat({expr:'worry', size:44});
+
+/* 뷰 전환 */
+function go(v){
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on', s.id==='v-'+v));
+  document.querySelectorAll('.navpill button').forEach(b=>b.setAttribute('aria-current', String(b.dataset.go===v)));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation(); go(el.dataset.go)}));
+
+/* 단기/장기 토글 */
+document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-seg]').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+  document.getElementById('seg-long').style.display  = b.dataset.seg==='long'  ? '' : 'none';
+  document.getElementById('seg-short').style.display = b.dataset.seg==='short' ? '' : 'none';
+}));
+
+/* 체크리스트 */
+document.querySelectorAll('.todo li').forEach(li=>li.addEventListener('click',()=>li.classList.toggle('done')));
+
+/* 테마 */
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  var d=document.documentElement, next=d.dataset.theme==='dark'?'light':'dark';
+  d.dataset.theme=next; document.getElementById('themeBtn').textContent = next==='dark'?'☀️':'🌙';
+});
+
+/* 해시 라우팅 (#detail, #chat 로 직접 진입 가능) */
+if(['#detail','#chat','#dash'].includes(location.hash)) go(location.hash.slice(1));
+
+/* 퀵 질문 → 입력창 */
+document.querySelectorAll('.quick button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelector('.composer input').value=b.textContent;
+  document.querySelector('.composer input').focus();
+}));
+</script>
+</body>
+</html>
