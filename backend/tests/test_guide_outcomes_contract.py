@@ -16,12 +16,14 @@ DB가 필요 없다 — 마이그레이션의 상수 표와 `outcomes/` JSON을 
 
 import importlib.util
 import json
+import re
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CROP_RULES = ROOT / "outcomes" / "memory" / "crop_rules"
 DISPERSION = ROOT / "outcomes" / "memory" / "indicator_dispersion.json"
+SCORING = ROOT / "outcomes" / "scripts" / "ml" / "scoring.py"
 VERSIONS = ROOT / "backend" / "alembic" / "versions"
 MIGRATION = VERSIONS / "0023_rda_handbook_soil_bands.py"
 MIGRATION_CATIONS = VERSIONS / "0024_soil_cations_k_ca_mg.py"
@@ -32,6 +34,8 @@ MIGRATION_CUCUMBER_POTATO = VERSIONS / "0031_cucumber_potato_soil_bands.py"
 # 2026-08-04 FarmML 동기화(사과 k·ca, 감자 ph·organic). **가장 마지막에 겹쳐 읽어야 한다** —
 # 위 마이그레이션들이 심은 값을 UPDATE로 덮는 것이라 순서가 뒤바뀌면 낡은 값이 이긴다.
 MIGRATION_BAND_SYNC = VERSIONS / "0035_farmml_20260804_band_sync.py"
+# P1 성격 메타 컬럼 백필 (0038이 컬럼만 만들고, 0039가 이 값을 채운다).
+MIGRATION_KIND_BACKFILL = VERSIONS / "0039_guide_boundary_kind_backfill.py"
 
 # `outcomes/` 지표명 → 백엔드 `crop_growth_guide.indicator`.
 # 이름이 다른 것은 역사적 이유다(백엔드 시드가 먼저 만들어졌다) — 매핑을 한 곳에 고정한다.
@@ -213,6 +217,147 @@ class TestRiskWidthContract(unittest.TestCase):
                     float(dispersion[indicator]),
                     f"'{indicator}' 감쇠폭이 outcomes와 다르다 — 0020 이후 산포도가 재산출됐다",
                 )
+
+
+def _shipped_allowed_kinds() -> frozenset[str]:
+    """`outcomes/scripts/ml/scoring.py`의 `ALLOWED_KINDS`를 텍스트로 파싱한다.
+
+    그 모듈을 직접 import하지 않는 이유는 `test_farmml_contract.py`와 같다 — pandas·numpy를
+    요구하는데 백엔드 `requirements.txt`에는 둘 다 없다(§14 불필요한 의존성 금지)."""
+    text = SCORING.read_text(encoding="utf-8")
+    match = re.search(r"ALLOWED_KINDS\s*=\s*frozenset\(\{(.*?)\}\)", text, re.DOTALL)
+    assert match, "scoring.py에서 ALLOWED_KINDS를 못 찾았다 — 이름이 바뀌었을 수 있다"
+    return frozenset(re.findall(r'"([a-z_]+)"', match.group(1)))
+
+
+def _load_kind_backfill():
+    return _load_module("m0039", MIGRATION_KIND_BACKFILL)
+
+
+# 백엔드 기온 지침 행의 실제 allowed_min/allowed_max. (crop_id, growth_stage) → (min, max),
+# None은 그 방향에 값이 없다는 뜻(예: 감자 tuber allowed_min). 값 출처:
+#   (1,*)      0021(fruit_growth min·maturity·coloring)+0012(fruit_growth max)
+#   (2,growing) 0004(그대로 유지, 0015는 생육기 day_of_year만 바꿨다)
+#   (3,growing) 0019(오이 온도 갱신 UPDATE)
+#   (4,early)   0012(min=-3)+0004(max=27) / (4,tuber) 0004(min NULL, max=27)
+#   (5,spring/fall) 0019(온도 갱신)+0025(fall은 spring을 그대로 복제)
+# 이 상수는 "같은 방향+같은 값" 규칙이 0039의 TEMP_ROWS에 실제로 지켜졌는지 검증하는 용도라
+# 0039 자체에는 없다(0039는 kind만 갖고 원본 allowed 값은 여러 과거 마이그레이션에 흩어져
+# 있어 이 파일에서 다시 손으로 옮겨 적는다 — 위 각주가 그 근거다).
+# 백엔드 기온 행의 허용경계. **여기서 다시 적지 않고 `0039`에서 읽는다** — 손으로 옮겨
+# 적으면 미래에 어떤 마이그레이션이 기온 밴드를 바꿀 때 이 상수만 옛 값에 남아, "밴드가
+# 성격 아래에서 움직였다"는 바로 이 테스트가 잡아야 할 드리프트를 놓친다. `0039`의 표는
+# upgrade가 실행 시점에 실제 DB 행과 대조하는 값이라 같은 사실의 단일 소스다.
+BACKEND_TEMP_ALLOWED: dict[tuple[int, str], tuple[float | None, float | None]] = {
+    key: (None if lo is None else float(lo), None if hi is None else float(hi))
+    for key, (lo, hi) in _load_module(
+        "m0039_bounds", MIGRATION_KIND_BACKFILL
+    ).EXPECTED_TEMP_BOUNDS.items()
+}
+
+
+class TestBoundaryKindBackfillContract(unittest.TestCase):
+    """0039가 채운 성격 메타 컬럼(cultivation_type/allowed_min_kind/allowed_max_kind/method)이
+    계약과 일치하는지, 그리고 "같은 방향+같은 값" 규칙이 실제로 지켜졌는지 검증한다."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.backfill = _load_kind_backfill()
+        cls.rules = {
+            filename: json.loads((CROP_RULES / filename).read_text(encoding="utf-8"))
+            for filename in CROP_ID
+        }
+        cls.crop_filename = {crop_id: filename for filename, crop_id in CROP_ID.items()}
+
+    def test_migration_files_exist(self):
+        for path in (
+            VERSIONS / "0038_guide_boundary_kind_columns.py",
+            MIGRATION_KIND_BACKFILL,
+        ):
+            with self.subTest(path=path.name):
+                self.assertTrue(path.is_file(), f"{path} 가 없다")
+
+    def test_soil_rows_match_outcomes_contract(self):
+        """0039.SOIL_ROWS의 4컬럼이 outcomes soil_overrides와 같은지 — 지표명은 INDICATOR_ALIAS로."""
+        alias_by_backend = {backend: outcome for outcome, backend in INDICATOR_ALIAS.items()}
+        checked = 0
+        for crop_id, indicator, cultivation_type, amink, amaxk, method in self.backfill.SOIL_ROWS:
+            filename = self.crop_filename[crop_id]
+            rules = self.rules[filename]
+            outcome_name = alias_by_backend[indicator]
+            band = rules["soil_overrides"][outcome_name]
+            with self.subTest(crop=filename, indicator=indicator):
+                self.assertEqual(cultivation_type, band["cultivation_type"])
+                self.assertEqual(amink, band.get("allowed_min_kind"))
+                self.assertEqual(amaxk, band.get("allowed_max_kind"))
+                self.assertEqual(method, band["method"])
+            checked += 1
+        self.assertEqual(checked, 33, f"토양 지표 33행을 기대했는데 {checked}행이다")
+
+    def test_temp_rows_kind_only_set_when_value_matches_contract(self):
+        """기온 행은 백엔드 allowed_min/max가 계약 allowed_min/max와 같은 방향에서 같은 값일
+        때만 그 방향의 kind를 갖는다 — 값이 다르면(구조가 달라 흔하다) NULL이어야 한다."""
+        checked = 0
+        for crop_id, stage, cultivation_type, amink, amaxk in self.backfill.TEMP_ROWS:
+            filename = self.crop_filename[crop_id]
+            band = self.rules[filename]["temperature_guides"][0]
+            backend_min, backend_max = BACKEND_TEMP_ALLOWED[(crop_id, stage)]
+            expected_min_kind = (
+                band["allowed_min_kind"]
+                if backend_min is not None and float(backend_min) == float(band["allowed_min"])
+                else None
+            )
+            expected_max_kind = (
+                band["allowed_max_kind"]
+                if backend_max is not None and float(backend_max) == float(band["allowed_max"])
+                else None
+            )
+            with self.subTest(crop=filename, stage=stage):
+                self.assertEqual(
+                    amink, expected_min_kind,
+                    f"{filename}.{stage} allowed_min_kind: 백엔드 {amink} vs 기대 {expected_min_kind} "
+                    f"(백엔드 allowed_min={backend_min}, 계약 allowed_min={band['allowed_min']})",
+                )
+                self.assertEqual(
+                    amaxk, expected_max_kind,
+                    f"{filename}.{stage} allowed_max_kind: 백엔드 {amaxk} vs 기대 {expected_max_kind} "
+                    f"(백엔드 allowed_max={backend_max}, 계약 allowed_max={band['allowed_max']})",
+                )
+                # 계약 기온 밴드는 5작물 전부 open_field다 — 값 대조 없이 지표 대응만으로 옮긴다.
+                self.assertEqual(cultivation_type, band["cultivation_type"])
+            checked += 1
+        self.assertEqual(checked, 9, f"기온 지표 9행을 기대했는데 {checked}행이다")
+
+    def test_apple_temp_allowed_min_kind_is_never_literature_limit(self):
+        """사과 기온 3행의 allowed_min_kind가 literature_limit이면 안 된다 — 이게 뒤집히면
+        구조가 다른 밴드(생육단계별 세분 vs 계약 단일 4~10월 밴드)의 값을 섞어 쓴 것이고,
+        사과 0점 지역이 93→121로 늘어난다(계약 문서에 실측으로 기록됨)."""
+        apple_rows = [row for row in self.backfill.TEMP_ROWS if row[0] == 1]
+        self.assertEqual(len(apple_rows), 3, "사과 기온 행이 3개가 아니다")
+        for crop_id, stage, _ct, amink, amaxk in apple_rows:
+            with self.subTest(stage=stage):
+                self.assertNotEqual(amink, "literature_limit")
+                # 검증용 검산: 지금 시점엔 min·max 모두 NULL이어야 한다(계약 allowed
+                # 13.5~33.0과 세 행 전부 값이 달라 어느 방향도 매칭이 안 된다).
+                self.assertIsNone(amink)
+                self.assertIsNone(amaxk)
+
+    def test_allowed_kind_values_are_within_scoring_allowed_kinds(self):
+        """오타 방어 — outcomes/scripts/ml/scoring.py가 모르는 kind에 ValueError를 낸다."""
+        shipped = _shipped_allowed_kinds()
+        self.assertGreaterEqual(len(shipped), 6, "ALLOWED_KINDS 파싱 결과가 비정상적으로 적다")
+        seen = set()
+        for _crop, _ind_or_stage, _ct, amink, amaxk, *_rest in (
+            [(c, i, ct, amink, amaxk, m) for c, i, ct, amink, amaxk, m in self.backfill.SOIL_ROWS]
+            + [(c, s, ct, amink, amaxk, None) for c, s, ct, amink, amaxk in self.backfill.TEMP_ROWS]
+        ):
+            seen.add(amink)
+            seen.add(amaxk)
+        seen.discard(None)
+        self.assertTrue(seen, "kind 값이 하나도 없다 — 백필이 비었는지 확인")
+        for kind in seen:
+            with self.subTest(kind=kind):
+                self.assertIn(kind, shipped)
 
 
 if __name__ == "__main__":
