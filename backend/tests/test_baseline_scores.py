@@ -501,12 +501,46 @@ class TestBaselineSnapshotMatches(unittest.TestCase):
                 )
         self.assertEqual([], mismatches, "\n" + "\n".join(mismatches))
 
+    def test_axis_membership_is_pinned(self):
+        """어느 지표가 기후 축이고 어느 것이 토양 축인지 고정한다.
+
+        C등급 부등식 테스트는 축 분류가 뒤바뀌어도 통과한다(산술적 필연). 축이 뒤집히면
+        `min(토양 평균, 기후 min)`의 의미가 통째로 달라지는데 — 예를 들어 `ph`가 기후 축에
+        들어가면 토양 지표 하나가 단독으로 min을 결속할 수 있다 — 그걸 잡는 건 이 테스트뿐이다.
+        장기 탭에 실제로 걸리는 기후 지표는 `temp_day`와 감자 `temp_night_min`뿐이다
+        (`rainfall_daily`는 SEASONAL_UNAVAILABLE_INDICATORS가 제외, `rainfall_monthly`는
+        0013이 삭제, `sunlight`는 지침 행이 0건).
+        """
+        self.assertEqual(
+            WEATHER_INDICATORS,
+            frozenset({"temp_day", "temp_night_min", "rainfall_monthly", "rainfall_daily", "sunlight"}),
+            "기후 축 멤버십이 바뀌었다 — min 구조의 의미가 달라진다",
+        )
+        scored_soil: set[str] = set()
+        scored_weather: set[str] = set()
+        for record in _build_records():
+            for indicator, score in record["indicator_scores"].items():
+                if score is None:
+                    continue
+                (scored_weather if indicator in WEATHER_INDICATORS else scored_soil).add(indicator)
+        self.assertEqual(scored_weather, {"temp_day", "temp_night_min"})
+        # 토양 축에 기상 지표가 섞이면 안 된다(그 반대도).
+        self.assertEqual(scored_soil & WEATHER_INDICATORS, set())
+        self.assertTrue(scored_soil >= {"ph", "organic", "p2o5", "k", "ca", "mg", "ec"})
+
     def test_national_structure_has_fewer_or_equal_c_grades_than_flat_min(self):
         """국가 3단 구조(축별로 나눠 min)는 "평탄 min"(전 지표를 한 번에 min)보다 총점이
         낮을 수 없다 — 토양 축이 **평균**(≥ 그 축의 최솟값)이기 때문이다. 그래서 C등급
         수는 국가구조 ≤ 평탄 min이어야 한다(계약 실측 방향: 사과 138→17, 상추 148→42 등,
         outcomes/README.md §2026-08-04 §2). 스냅샷 3지역(테스트 고정 픽스처)에서 작물별로
         확인하고, 등급 분포 before/after를 사람이 읽을 수 있게 출력한다.
+
+        ⚠️ **이 부등식은 산술적으로 필연이다**(평균 ≥ 최솟값 ≥ 전체 최솟값) — 축 분류가
+        틀려도 성립한다. 즉 이 테스트가 잡는 것은 "min 구조 자체가 사라지는 회귀"뿐이고,
+        어느 지표가 어느 축인지는 검증하지 못한다. 축 멤버십은
+        `test_axis_membership_is_pinned`이, 공식 일치는
+        `test_score_matches_independently_recomputed_national_total`이 담당한다.
+        분포 출력은 사람이 계약 실측 방향과 눈으로 대조하기 위한 것이다.
         """
         data = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
         pre_v6_grades: dict[int, Counter[str | None]] = {}

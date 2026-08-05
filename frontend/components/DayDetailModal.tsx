@@ -59,9 +59,14 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
                 <th scope="row">
                   {indicatorName(key)}
                   {/* 노지 밭이라도 시설재배 기준표로 채점된 지표일 수 있다 — 표기 없이는
-                      사용자가 이 밴드가 시설 기준인지 모른다(P6) */}
+                      사용자가 이 밴드가 시설 기준인지 모른다(P6).
+                      `{" "}`는 장식이 아니다: JSX는 개행뿐인 공백을 지워버려서 그게 없으면
+                      스크린리더·복사에서 "일 평균기온시설 기준"으로 붙어 읽힌다. */}
                   {isFacilityIndicator(b) && (
-                    <span className={styles.statusTag}>시설 기준</span>
+                    <>
+                      {" "}
+                      <span className={styles.statusTag}>시설 기준</span>
+                    </>
                   )}
                 </th>
                 <td>{b.value ?? "—"}</td>
@@ -70,11 +75,25 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
                 {/* 점수만 색으로 두지 않고 상태를 글자로 병기한다(§8 색만으로 구분 금지) */}
                 <td>
                   {b.score ?? "—"}
-                  {b.status ? <span className={styles.statusTag}>{b.status}</span> : null}
+                  {b.status ? (
+                    <>
+                      {" "}
+                      <span className={styles.statusTag}>{b.status}</span>
+                    </>
+                  ) : null}
                   {/* 역산 경계(derived) 밖 점수는 문헌 근거가 없다 — 점수 텍스트와 같은
-                      자리에 두지 않고 줄을 바꿔 강등 표기한다(P6) */}
+                      자리에 두지 않고 줄을 바꿔 강등 표기한다(P6).
+                      `display:block`은 눈에만 줄을 나눈다 — 접근성 트리에서는 여전히 같은
+                      셀의 이어지는 텍스트라, 구분자 없이 "72기준 초과…"로 낭독되면 강등
+                      표기가 점수와 한 덩어리로 읽혀 표기 목적이 무너진다. `role="note"`로
+                      경계를 주고 앞에 공백을 명시한다. */}
                   {isReferenceTierScore(b) && (
-                    <span className={styles.tierNote}>기준 초과 · 참고 점수(문헌 근거 없음)</span>
+                    <>
+                      {" "}
+                      <span role="note" className={styles.tierNote}>
+                        기준 초과 · 참고 점수(문헌 근거 없음)
+                      </span>
+                    </>
                   )}
                 </td>
               </tr>
