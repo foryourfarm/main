@@ -38,6 +38,20 @@ DECAY_CURVATURE = 9.0
 # 같은 이름 상수와 반드시 같아야 한다 — 두 구현의 점수가 갈리면 안 되는 계약이다.
 LITERATURE_LIMIT_KIND = "literature_limit"
 
+# allowed_min_kind/allowed_max_kind에 허용되는 값 전체(2026-08-05, 감사 P2). 뜻과 경계
+# 점수·실측 건수는 memory/crop_rules/_shared.json의 allowed_kind_enum이 문서 쪽 단일
+# 소스다 — 이 상수와 어긋나면 scripts/ml/test_physical_scoring.py가 실패한다. scoring.py는
+# 파일 I/O를 하지 않는 순수 곡선 모듈로 유지한다는 원칙(dispersion.py 분리 사유 참고) 때문에
+# _shared.json을 여기서 직접 읽지 않고 상수로 고정한다.
+ALLOWED_KINDS = frozenset({
+    "literature_limit",
+    "cultivable_range",
+    "literature_threshold",
+    "derived",
+    "heuristic",
+    "not_applicable",
+})
+
 
 def _log_falloff(x):
     """x=1 → 1, x=0 → 0인 로그 계수. 1 근처는 평평하고 0 근처에서 가파르다."""
@@ -55,7 +69,19 @@ def boundary_score(kind):
     성격은 밴드 JSON의 `allowed_min_kind`/`allowed_max_kind`에 **방향별로** 적혀 있다.
     한 밴드 안에서 두 경계의 성격이 갈리기 때문이다 — 사과 기온은 하한이 arccas 가능지
     문헌값이고 상한은 ±50% 휴리스틱이다.
+
+    `kind`가 `None`(밴드에 성격 표기 자체가 없는 경우)이면 종전과 동일하게 60점이다 —
+    표기가 없는 밴드의 채점을 바꾸지 않는다. 표기가 **있는데** `ALLOWED_KINDS`에 없으면
+    오타로 보고 즉시 실패한다 — 이 검증이 없으면 `literature_limit`의 오타가 조용히
+    60점(정상 완충)으로 채점된다(감사 P2).
     """
+    if kind is None:
+        return ALLOWED_BOUNDARY_SCORE
+    if kind not in ALLOWED_KINDS:
+        raise ValueError(
+            f"모르는 allowed_*_kind: {kind!r}. 허용값은 {sorted(ALLOWED_KINDS)} 중 하나여야 한다"
+            " (memory/crop_rules/_shared.json allowed_kind_enum 참고)."
+        )
     return 0.0 if kind == LITERATURE_LIMIT_KIND else ALLOWED_BOUNDARY_SCORE
 
 
