@@ -39,8 +39,13 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
   };
 
   return (
-    <>
-      <h4 className={styles.sectionTitle}>이 점수의 근거</h4>
+    // 접은 것이 기본이다 — 이 표는 "왜 이 점수인지" 따져보려는 사람만 펼치면 된다.
+    // 펼친 채로 두면 모달을 열자마자 숫자 표가 먼저 보여, 정작 봐야 할 기온·주의가 아래로 밀린다.
+    <details className={styles.fold}>
+      <summary>
+        점수가 이렇게 나온 이유
+        <span className={styles.foldHint}>지표 {Object.keys(breakdown).length}개</span>
+      </summary>
       <div className={styles.tableScroll}>
         <table className={styles.table}>
           <thead>
@@ -69,7 +74,7 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
           </tbody>
         </table>
       </div>
-    </>
+    </details>
   );
 }
 
@@ -105,9 +110,6 @@ export default function DayDetailModal({
       <DayTempChart
         hourly={day.hourly_temp ?? []}
         tempAvg={day.temp_avg === null ? null : Number(day.temp_avg)}
-        tempMax={day.temp_max === null ? null : Number(day.temp_max)}
-        tempNightMin={day.temp_night_min === null ? null : Number(day.temp_night_min)}
-        band={day.breakdown?.temp_day ?? null}
         isPartial={day.is_imputed}
       />
 

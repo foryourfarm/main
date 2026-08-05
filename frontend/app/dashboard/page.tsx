@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarCheck, CheckSquare, CircleSlash, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
+import { CalendarCheck, CheckSquare, CircleSlash, MessageSquare, Plus, Scale, Sprout, Square, TreeDeciduous } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,22 +14,66 @@ import { Card, CardHeader, CardNote } from "@/components/ui/Card";
 import EmptyState from "@/components/ui/EmptyState";
 import Gauge from "@/components/ui/Gauge";
 import { useAuth } from "@/lib/auth-context";
+import { fetchChatSessions } from "@/lib/chat";
 import { fetchDashboard } from "@/lib/farm";
 import { petImage } from "@/lib/pet";
 import { fetchQuestProgress } from "@/lib/quest";
-import { statusLabel } from "@/types/farm";
-import type { DashboardCard, DashboardResponse, Grade } from "@/types/farm";
+import { formatSessionWhen, type ChatSessionSummary } from "@/types/chat";
+import { GRADE_COLOR, statusLabel } from "@/types/farm";
+import type { DashboardCard, DashboardResponse } from "@/types/farm";
 import type { QuestProgress } from "@/types/quest";
 
 import styles from "./dashboard.module.css";
 
-/** 게이지 원호색 — 등급 토큰(globals.css --grade-*). 색만으로 구분하지 않고 GradeBadge 라벨 병기(§10). */
-const GRADE_COLOR: Record<Grade, string> = {
-  S: "var(--grade-s)",
-  A: "var(--grade-a)",
-  B: "var(--grade-b)",
-  C: "var(--grade-c)",
-};
+/**
+ * 챗봇과 나눈 이야기 — 지워진 "최근 기록" 자리를 대신한다(UI 시안 v2 ②).
+ *
+ * **행동기록과 다르다.** 행동기록은 유저가 직접 입력해야 해서 만들 계획이 없어 통째로
+ * 지웠는데(`chore/remove-history-tab`), 대화 기록은 **이미 서버에 쌓여 있다**
+ * (`GET /chat/sessions` — `chat_message` 집계). 만들 것이 없고 연결만 하면 되는 자리다.
+ *
+ * 대화가 없으면 카드를 아예 그리지 않는다 — 빈 칸으로 "곧 채워질 것"을 약속하지 않는다.
+ * 조회 실패도 같다: 대시보드의 다른 카드를 막지 않고 이 카드만 빠진다(§18-5).
+ */
+function ChatSessionsCard() {
+  const [sessions, setSessions] = useState<ChatSessionSummary[] | null>(null);
+
+  useEffect(() => {
+    fetchChatSessions()
+      .then(setSessions)
+      .catch(() => setSessions([]));
+  }, []);
+
+  if (sessions === null || sessions.length === 0) return null;
+
+  return (
+    <Card span={5}>
+      <CardHeader
+        icon={<MessageSquare size={17} />}
+        title="챗봇과 나눈 이야기"
+        tag={`${sessions.length}개`}
+      />
+      <ul className={styles.threadList}>
+        {sessions.map((s) => (
+          <li key={s.session_id}>
+            {/* 카드가 아니라 링크가 눌린다 — 목록 항목마다 목적지가 다르다. */}
+            <Link href={`/chat?session=${encodeURIComponent(s.session_id)}`} className={styles.thread}>
+              <span className={styles.threadBody}>
+                <span className={styles.threadTitle}>{s.title}</span>
+                <span className={styles.threadMeta}>
+                  {formatSessionWhen(s.last_at)} · {s.message_count}개 메시지
+                </span>
+              </span>
+              <span className={styles.threadGo} aria-hidden="true">
+                이어서 →
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
 
 /**
  * 오늘의 할 일 = 데일리 퀘스트(comUI .todo 배치). 완료는 발화 지점(탭 열람·질문)이 자동으로
@@ -144,8 +188,13 @@ function FarmCard({ card, span }: { card: DashboardCard; span: 5 | 7 }) {
           </div>
           {card.score !== null && (
             <div className={styles.gaugeWrap}>
+              {/* 가운데는 점수가 아니라 등급이다 — 원호가 이미 점수를 그리고 있고,
+                  대시보드에서 필요한 판단은 "78"이 아니라 "그래서 괜찮은가"다.
+                  점수는 이 카드를 눌러 들어가는 밭 상세에서 근거와 함께 본다. */}
               <Gauge
                 value={card.score}
+                grade={card.grade}
+                status={card.status}
                 color={card.grade !== null ? GRADE_COLOR[card.grade] : "var(--muted)"}
               />
             </div>
@@ -158,7 +207,9 @@ function FarmCard({ card, span }: { card: DashboardCard; span: 5 | 7 }) {
           </div>
         )}
         <div className={styles.fieldFoot}>
-          <GradeBadge grade={card.grade} status={card.status} />
+          {/* 등급 배지를 뺐다 — 도넛 안에 이미 "A 적합"이 있어 같은 말이 한 카드에 두 번 나왔다.
+              점수가 없어 도넛을 못 그리는 밭만 배지로 사유를 알린다. */}
+          {card.score === null && <GradeBadge grade={card.grade} status={card.status} />}
           <span className={styles.stage}>{card.growth_stage_label ?? "—"}</span>
         </div>
       </article>
@@ -245,7 +296,7 @@ function DashboardBody() {
             지키지 않는 것이 "아직 준비 중"이라는 정직한 표기보다 나쁘다. */}
         <QuestCard />
 
-        {/* comUI .addfield — dashed 큰 카드. 위 칸 제거로 남은 폭을 받아 sp5가 됐다(7+5=12). */}
+        {/* comUI .addfield — dashed 큰 카드. 오늘의 할 일(7) + 이 카드(5) = 12열. */}
         <Link href="/onboarding" className={`sp5 ${styles.addField}`}>
           <span>
             <span className={styles.addPlus} aria-hidden="true">
@@ -255,6 +306,10 @@ function DashboardBody() {
             <small>지역과 작물을 골라 등록합니다</small>
           </span>
         </Link>
+
+        {/* 지워진 "최근 기록" 자리 — 이제 챗봇 대화 목록이다(시안 v2 ②).
+            아래 "이 화면의 근거"(7)와 한 행을 채운다. 대화가 없으면 렌더 자체를 안 한다. */}
+        <ChatSessionsCard />
 
         {/* comUI "이 화면의 근거" 카드. 밭마다 한계가 다르다(예: 어떤 밭만 유기물이 채점 안 됨).
             하나로 합쳐 보여주면 그 사실이 어느 밭 얘기인지 사라져 다른 밭에도 적용되는 것처럼

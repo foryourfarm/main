@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -83,7 +84,8 @@ export default function ChatDock() {
             onClick={() => setOpen(false)}
             aria-label="상담 닫기"
           >
-            ✕
+            {/* 문자 기호가 아니라 아이콘 — 이모지·기호는 폰트에 따라 크기·굵기가 흔들린다. */}
+            <X size={18} aria-hidden />
           </button>
           <ChatPanel embedded />
         </div>

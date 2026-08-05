@@ -344,6 +344,11 @@
   border-radius: 12px;
   padding: 12px;
   background: var(--surface);
+  /* 도넛이 카드의 주인공이 되면서 세로 흐름이 생겼다 — 게이지를 가운데 세운다. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 .dayCard:hover {
   border-color: var(--primary);
@@ -397,10 +402,18 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 6px;
+  width: 100%;
 }
 .dayDate {
   font-size: var(--fs-sub);
   font-weight: 700;
+}
+/* 점수 — 등급 도넛에 자리를 내주고 작게. 지우지는 않는다(모달 근거표와 이어지는 값이다). */
+.dayScore {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 .dayStage {
   font-size: 14px;
@@ -475,6 +488,23 @@
 .moStage {
   font-size: var(--fs-sub);
   font-weight: 700;
+}
+/* 점수 — 등급이 주인공이므로 작게. 달끼리 등급이 같을 때(A vs A) 비교 근거로만 쓴다. */
+.moScore {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: -2px;
+}
+/* "가장 좋은 달" — 종전엔 테두리 색(.moBest)만으로 알렸다. 색각 이상에서 안 보여 글자를 병기한다(§8). */
+.moBestTag {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--on-primary);
+  background: var(--primary);
+  padding: 3px 10px;
+  border-radius: 999px;
 }
 .moTag {
   font-size: 13px;

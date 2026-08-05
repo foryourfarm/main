@@ -210,6 +210,28 @@ export function stageLabel(stage: string | null, status: SuitabilityStatus): str
   return "전기간";
 }
 
+/**
+ * 등급 → 뜻. **정의는 여기 한 곳뿐이다** — 도넛 게이지·배지·리포트가 같은 말을 써야 한다.
+ * 종전엔 GradeBadge 안에만 있어서, 다른 화면이 등급을 표시하려면 같은 표를 다시 적어야 했다.
+ */
+export const GRADE_MEANING: Record<Grade, string> = {
+  S: "매우 적합",
+  A: "적합",
+  B: "주의",
+  C: "부적합",
+};
+
+/**
+ * 등급 → globals.css의 등급 토큰. 대시보드·단기·장기 세 화면이 같은 도넛을 쓰므로 여기 한 곳에 둔다
+ * (같은 표를 세 번째로 복사하게 된 시점에 합쳤다). 색은 **보조 신호**다 — 도넛 안의 글자·뜻이 본체다(§8).
+ */
+export const GRADE_COLOR: Record<Grade, string> = {
+  S: "var(--grade-s)",
+  A: "var(--grade-a)",
+  B: "var(--grade-b)",
+  C: "var(--grade-c)",
+};
+
 /** 등급 없는 칸의 사유를 사용자 문구로. */
 export function statusLabel(status: SuitabilityStatus): string {
   if (status === "out_of_season") return "제철 아님";

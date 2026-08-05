@@ -1,5 +1,6 @@
 "use client";
 
+import { Sprout } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -55,14 +56,21 @@ function FarmPicker({
 
   // 밭이 하나면 백엔드가 자동으로 그 밭을 쓴다 — 고를 것이 없으니 무엇을 쓰는지만 알린다.
   if (farms.length === 1) {
+    // 이모지 대신 아이콘(시안 v2) — 이모지는 OS·폰트마다 모양이 달라진다.
     return (
-      <p className={styles.farmNote}>🌱 {farmLabel(farms[0])} 기준으로 답해요</p>
+      <p className={styles.farmNote}>
+        <Sprout size={15} aria-hidden />
+        {farmLabel(farms[0])} 기준으로 답해요
+      </p>
     );
   }
 
   return (
     <div className={styles.farmPicker}>
-      <label htmlFor="chat-farm">🌱 어느 밭</label>
+      <label htmlFor="chat-farm">
+        <Sprout size={15} aria-hidden />
+        어느 밭
+      </label>
       <select
         id="chat-farm"
         className={styles.farmSelect}
@@ -91,9 +99,12 @@ function FarmPicker({
  */
 export default function ChatPanel({
   initialFarmId,
+  initialSessionId,
   embedded = false,
 }: {
   initialFarmId?: number;
+  /** 지난 대화를 이어서 열 때(대시보드 "챗봇과 나눈 이야기"). 없으면 계정의 기본 스레드. */
+  initialSessionId?: string;
   embedded?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -146,7 +157,13 @@ export default function ChatPanel({
       setSessions([]);
       return;
     }
-    const sid = chatSessionId(user.id);
+    // URL로 특정 대화를 지정해 들어왔으면 그것을 연다(대시보드 "이어서 →"). 그때는
+    // localStorage의 현재 스레드도 그쪽으로 옮긴다 — 안 옮기면 새로고침이나 도크 전환에서
+    // 기본 스레드로 되돌아가 "이어서 열었는데 딴 대화"가 된다.
+    const sid =
+      initialSessionId !== undefined
+        ? switchChatSession(user.id, initialSessionId)
+        : chatSessionId(user.id);
     setSessionId(sid);
     refreshSessions();
     fetchChatHistory(sid)
@@ -157,7 +174,8 @@ export default function ChatPanel({
         scrollToEnd(); // 복원된 대화는 맨 아래(=가장 최근)부터 보여야 한다
       })
       .catch(() => {}); // 복원 실패는 빈 대화로 — 상담 자체를 막지 않는다
-  }, [loading, user]);
+    // initialSessionId도 의존성이다 — 다른 대화를 눌러 들어오면 그 스레드로 다시 열려야 한다.
+  }, [loading, user, initialSessionId]);
 
   /** 스레드 전환. 여기서는 화면을 **덮는 게 맞다** — 유저가 명시적으로 다른 대화를 연 것이다. */
   function openSession(sid: string) {
@@ -241,7 +259,9 @@ export default function ChatPanel({
       <header className={styles.header}>
         {/* 펫이 곧 텃밭이의 외형이다 — 레벨에 따라 이 자리가 자란다(게스트는 기본 얼굴). */}
         <span className={styles.avatar} aria-hidden>
-          {/* 단계 일러스트로 보여주고, 모르는 단계 코드는 서버 emoji로 떨어진다(lib/pet의 STAGE_IMAGE). */}
+          {/* 단계 일러스트로 보여주고, 모르는 단계 코드(서버가 단계를 추가한 경우)는 단계
+              이름 글자로 떨어진다 — 시안 v2가 이모지를 전면 제거했고, 시안의 펫 자리도
+              그림이 없을 때 "제비" 같은 글자를 넣는다(lib/pet의 STAGE_IMAGE). */}
           {petImageSrc !== null ? (
             <Image
               src={petImageSrc}
@@ -251,7 +271,7 @@ export default function ChatPanel({
               className={styles.avatarImg}
             />
           ) : (
-            (progress?.pet.emoji ?? "🥚")
+            <span className={styles.avatarText}>{progress?.pet.stage_label ?? petName}</span>
           )}
         </span>
         <div>

@@ -4,19 +4,19 @@ import { CalendarDays, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import DayDetailModal from "@/components/DayDetailModal";
-import { gradeTone } from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
 import { Card, CardHeader } from "@/components/ui/Card";
+import Gauge from "@/components/ui/Gauge";
 import styles from "@/components/farm.module.css";
 import { fetchAdvice, fetchShortTerm } from "@/lib/farm";
 import type { DailyAdvice, FarmShortTerm, PersistentRisk, ShortTermDay } from "@/types/farm";
 import {
+  GRADE_COLOR,
   describeRiskFlag,
   formatBaseAt,
   formatDayLabel,
   stageLabel,
-  statusLabel,
 } from "@/types/farm";
 
 /**
@@ -100,7 +100,6 @@ function AdviceCard({ farmId }: { farmId: number }) {
  * 일평균으로 매기므로(채점 무변경) 두 값이 다르다는 설명은 모달이 맡는다.
  */
 function DayCard({ day, onOpen }: { day: ShortTermDay; onOpen: () => void }) {
-  const tone = gradeTone(day.grade);
   // 결측(missing)은 위험이 아니라 데이터 없음이므로 카드에 경고로 띄우지 않는다.
   const risks = day.risk_flags.filter((f) => f.endsWith(":outside_allowed"));
   return (
@@ -111,11 +110,17 @@ function DayCard({ day, onOpen }: { day: ShortTermDay; onOpen: () => void }) {
     <div className={styles.dayCard}>
       <div className={styles.dayHead}>
         <span className={styles.dayDate}>{formatDayLabel(day.target_date)}</span>
-        <span className={`${styles.cellGrade} ${tone}`}>
-          {day.grade ?? statusLabel(day.status)}
-        </span>
+        {/* 점수는 등급에 자리를 내주고 작게 남는다 — 완전히 없애면 근거표와 이어지지 않는다. */}
+        {day.score !== null && <span className={styles.dayScore}>{day.score}점</span>}
       </div>
-      <div className={`${styles.cellScore} ${tone} num`}>{day.score ?? "—"}</div>
+      {/* 대시보드·장기 탭과 같은 도넛. 34px 점수 대신 등급이 카드의 주인공이 된다. */}
+      <Gauge
+        value={day.score}
+        size={76}
+        grade={day.grade}
+        status={day.status}
+        color={day.grade !== null ? GRADE_COLOR[day.grade] : "var(--muted)"}
+      />
       <div className={styles.dayStage}>{stageLabel(day.growth_stage, day.status)}</div>
       <dl className={styles.metrics}>
         <div>
@@ -184,9 +189,22 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
         {formatBaseAt(data.base_at)} · {data.label}
         {data.is_stale && <span className={styles.staleTag}>최신 아님</span>}
       </p>
-      {/* comUI VIEW 2 단기 배치: 예보 sp7 + 위험 sp5 + LLM 추천 sp12 */}
+      {/* 순서: 위험신호 → 행동추천 → 예보.
+          이 탭의 존재 이유가 "봄철 야간저온 3일을 미리 몰라 활착에 실패했다"는 A씨 사례라
+          (PRD 철학 3 선제적 안내) **가장 급한 것이 가장 위**에 와야 한다. 종전에는 예보 카드가
+          먼저고 위험이 옆에 붙어 있어서, 스크롤 없이 보이는 자리를 숫자가 차지했다.
+          위험이 없는 날은 배너가 "연속 위험 없음" 한 줄로 접혀 화면이 조용해진다. */}
       <div className="bento">
-        <Card span={7}>
+        <Card span={12}>
+          <CardHeader
+            icon={<TriangleAlert size={16} />}
+            title="감지된 위험신호"
+            tag={`${data.persistent_risks.length}건`}
+          />
+          <RiskBanner risks={data.persistent_risks} />
+        </Card>
+        <AdviceCard farmId={farmId} />
+        <Card span={12}>
           <CardHeader
             icon={<CalendarDays size={16} />}
             title={`${days.length}일 예보`}
@@ -198,15 +216,6 @@ export default function ShortTermPanel({ farmId }: { farmId: number }) {
             ))}
           </div>
         </Card>
-        <Card span={5}>
-          <CardHeader
-            icon={<TriangleAlert size={16} />}
-            title="감지된 위험신호"
-            tag={`${data.persistent_risks.length}건`}
-          />
-          <RiskBanner risks={data.persistent_risks} />
-        </Card>
-        <AdviceCard farmId={farmId} />
       </div>
       <Limitations items={data.limitations} />
       {openDate !== null && (() => {

@@ -3,7 +3,6 @@
 import { CalendarRange, TriangleAlert } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
-import GradeBadge from "@/components/GradeBadge";
 import Limitations from "@/components/Limitations";
 import Loading from "@/components/Loading";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -11,15 +10,7 @@ import Gauge from "@/components/ui/Gauge";
 import styles from "@/components/farm.module.css";
 import { fetchLongTermAdvice, fetchMonthlyOutlook } from "@/lib/farm";
 import type { FarmMonthlyOutlook, LongTermAdvice, MonthlyOutlookEntry } from "@/types/farm";
-import { describeRiskFlag, stageLabel } from "@/types/farm";
-
-/* 게이지 원호색 — 등급 라벨(GradeBadge)과 항상 병기되므로 색은 보조 신호다(§10). */
-const GRADE_COLOR: Record<string, string> = {
-  S: "var(--grade-s)",
-  A: "var(--grade-a)",
-  B: "var(--grade-b)",
-  C: "var(--grade-c)",
-};
+import { GRADE_COLOR, describeRiskFlag, stageLabel } from "@/types/farm";
 
 /** 창이 해를 넘기면 "11월 · 12월 · 1월"이 되어 1월이 앞선 달로 읽힌다. 연도가 바뀌는
  *  칸에만 연도를 붙여 순서를 드러낸다(모든 칸에 붙이면 시끄럽다). */
@@ -41,13 +32,20 @@ function MonthCell({
   return (
     <div className={`${styles.mo} ${best ? styles.moBest : ""}`}>
       <div className={styles.moName}>{label}</div>
+      {/* 대시보드·단기 탭과 같은 도넛을 쓴다 — 화면마다 등급이 다르게 생기면 그때마다 새로 배운다. */}
       <Gauge
         value={entry.score}
         size={88}
+        grade={entry.grade}
+        status={entry.status}
         color={entry.grade !== null ? GRADE_COLOR[entry.grade] : "var(--muted)"}
       />
-      <GradeBadge grade={entry.grade} status={entry.status} />
+      {/* GradeBadge를 뺐다 — 도넛 안에 이미 등급과 뜻이 있다. 대신 점수를 작게 남긴다:
+          달끼리 비교할 때는 등급이 같아도(A vs A) 점수 차가 판단 근거가 된다. */}
+      {entry.score !== null && <div className={styles.moScore}>{entry.score}점</div>}
       <div className={styles.moStage}>{stageLabel(entry.growth_stage, entry.status)}</div>
+      {/* 색만으로 "가장 좋은 달"을 알리지 않는다 — 테두리 색은 색각 이상에서 안 보인다(§8). */}
+      {best && <div className={styles.moBestTag}>가장 좋은 달</div>}
       {/* 어느 칸이 전망 반영인지 구분해 보여준다 — 나머지는 평년치만 쓴 칸이다. */}
       {entry.outlook_applied && <div className={styles.moTag}>전망 반영</div>}
     </div>
