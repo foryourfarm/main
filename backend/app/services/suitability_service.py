@@ -634,8 +634,10 @@ def _log_national_total_climate_delta(
             crop_id, region_id, year, month, score, soil_total, temp_score,
             round(score - soil_total, 2),
         )
-    except Exception:  # ponytail: 감시용 로그, 실패해도 응답 경로를 막지 않는다
-        pass
+    except Exception:
+        # 감시용 로그라 실패해도 응답 경로를 막지 않는다. 다만 통째로 삼키면 이 감시 자체가
+        # 조용히 영구 중단돼도 아무도 모른다 — 최소한 트레이스는 남긴다.
+        logger.debug("national_total climate_delta 로깅 실패", exc_info=True)
 
 
 def derive_status(

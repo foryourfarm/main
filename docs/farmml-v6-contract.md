@@ -614,7 +614,32 @@ raise SystemExit(bad)
 
 ## FE가 해야 할 것 (요약)
 
-### 🔴 P6 신규 UI 표기 4건
+### ✅ 이번 릴리스에서 구현 완료된 것
+
+아래 4건은 이미 반영됐다(`54586c0`). 다시 만들 필요 없다.
+
+| # | 구현 위치 |
+|---|---|
+| 1 시설 기준 꼬리표 | `components/DayDetailModal.tsx` ScoreRows 지표명 옆 + `limitations` 문구(장기 탭엔 지표 UI가 없어 이 경로로도 낸다) |
+| 2 참고 점수 강등 | 같은 표 점수 셀, `role="note"`로 분리 |
+| 3 토성 순위 안내 | `limitations` 배열 — `Limitations.tsx`가 자동 렌더, FE 코드 변경 없음 |
+| 4 EC 경고 | 같음 |
+
+조건 판정은 `frontend/lib/disclosure.ts`의 순수 함수(`isFacilityIndicator`·`isReferenceTierScore`)에 있다. 컴포넌트에 인라인하지 말고 그 함수를 쓴다(`CLAUDE.md` §8).
+
+### 🔴 아직 화면에 안 나오는 신규 필드 3개 — 다음 라운드 작업
+
+백엔드가 내려주고 `types/farm.ts`에 타입도 있으나 **렌더하는 곳이 없다.** 이번 릴리스 범위(계획 P6은 표기 4건만 규정)에 포함되지 않았다.
+
+| 필드 | 왜 필요한가 | 제안 위치 |
+|---|---|---|
+| `limiting_factor` | v6로 총점 정의가 바뀌어 점수가 크게 떨어진 달이 생기는데, 사용자는 게이지 숫자와 등급만 보고 **왜 떨어졌는지**를 알 수 없다. 이 필드가 정확히 그 답이다 | `LongTermPanel.tsx` `MonthCell` — 예: 「제한요인: 유효인산」 |
+| `limiting_layer` | 제한요인이 토양 얘기인지 기온 얘기인지 먼저 알려준다 | 같음 |
+| `score_weighted` | 종전 가중평균. 구조 변경 전후를 비교해 보여주고 싶을 때만 | 상세 화면(선택) |
+
+⚠️ 표시할 때 `limiting_layer`를 먼저 읽어라 — `limiting_factor`가 `"기온"`이면 그것이 곧 층 이름이고, 토양이면 그 층 **안의 최악 지표명**이다.
+
+### P6 신규 UI 표기 4건 — 조건 명세 (참고)
 
 1. **「시설 기준 적용 중」 꼬리표**  
    - 조건: breakdown의 지표가 `cultivation_type == "facility"`
