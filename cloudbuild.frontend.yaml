@@ -16,14 +16,25 @@ steps:
       - Dockerfile
       - --build-arg
       - NEXT_PUBLIC_API_BASE=${_API_BASE}
+      - --build-arg
+      - NEXT_PUBLIC_KAKAO_REST_API_KEY=${_KAKAO_REST_API_KEY}
+      - --build-arg
+      - NEXT_PUBLIC_KAKAO_REDIRECT_URI=${_KAKAO_REDIRECT_URI}
       - -t
       - gcr.io/$PROJECT_ID/foryourfarm-frontend
       - .
 
 # 기본값을 localhost로 두지 않는다 — 빈 채로 빌드되면 프로덕션 번들이 조용히
 # localhost를 가리키고, 배포 후에야 브라우저 콘솔에서 발견된다.
+#
+# 카카오 둘은 **빈 문자열이 정상 상태**라 MUST_BE_SET으로 막지 않는다 — 카카오 앱을 아직
+# 등록하지 않은 환경도 배포는 되어야 하고, 그때 `isKakaoEnabled`가 버튼을 숨겨 "눌러도
+# 실패하는 버튼"을 만들지 않는다(lib/kakao.ts). 대신 **넘기는 것을 잊으면 버튼이 조용히
+# 사라지므로** README ⑥이 두 값을 포함한 명령을 정본으로 싣는다.
 substitutions:
   _API_BASE: MUST_BE_SET
+  _KAKAO_REST_API_KEY: ""
+  _KAKAO_REDIRECT_URI: ""
 
 images:
   - gcr.io/$PROJECT_ID/foryourfarm-frontend

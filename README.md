@@ -349,6 +349,27 @@ CORS가 `localhost:3000`으로 돌아가 **프론트의 모든 요청이 차단*
 
 일부만 바꿔야 하면 `--set-env-vars`가 아니라 `--update-env-vars`를 쓴다(지정한 것만 덮어씀).
 
+#### ⑤-b 카카오 로그인 env — **서비스에 없으면 한 번만 넣는다**
+
+`0037`로 카카오 로그인이 들어왔다. 백엔드는 인가코드를 카카오에 교환하므로 세 값이 필요하고,
+없으면 콜백이 실패한다. 위 ⑤는 env를 아예 붙이지 않으므로 **이 단계가 따로 있어야 한다.**
+
+```bash
+gcloud run services describe foryourfarm-backend --region asia-northeast3 \
+  --format='value(spec.template.spec.containers[0].env)' | tr ',' '\n' | grep -i kakao
+```
+
+비어 있으면 넣는다(`--update-env-vars` — 지정한 것만 덮으므로 기존 env는 안전하다):
+
+```bash
+gcloud run services update foryourfarm-backend --region asia-northeast3 --update-env-vars \
+KAKAO_REST_API_KEY=<REST API 키>,KAKAO_CLIENT_SECRET=<client secret>,KAKAO_REDIRECT_URI=https://<프론트URL>/login/kakao
+```
+
+`KAKAO_REDIRECT_URI`는 **프론트** 주소다(백엔드가 아니다) — 카카오가 FE 콜백 페이지로
+돌려보내고 FE가 인가코드를 백엔드에 POST한다(`docs/auth-security.md` §카카오). 이 값은
+카카오 개발자센터의 **Redirect URI 등록값과 문자 단위로 같아야** 한다(끝 슬래시 포함).
+
 `--tag` 방식은 쓸 수 없다. 그건 컨텍스트 루트의 `Dockerfile`만 찾는데 우리 것은
 `backend/Dockerfile`이고 컨텍스트는 리포 루트여야 한다(`backend/Dockerfile` 주석 참고).
 그 조합을 만들려고 `cloudbuild.yaml`을 둔다.
@@ -356,13 +377,20 @@ CORS가 `localhost:3000`으로 돌아가 **프론트의 모든 요청이 차단*
 ### ⑥ 프론트 빌드·배포 — 백엔드 URL을 **빌드 시점에** 넣는다
 
 ```bash
+export BE=$(gcloud run services describe foryourfarm-backend --region asia-northeast3 --format='value(status.url)')
+export FE=$(gcloud run services describe foryourfarm-frontend --region asia-northeast3 --format='value(status.url)')
 gcloud builds submit --config cloudbuild.frontend.yaml --project <PROJECT_ID> \
-  --substitutions=_API_BASE=$(gcloud run services describe foryourfarm-backend \
-    --region asia-northeast3 --format='value(status.url)') frontend
+  --substitutions=_API_BASE=$BE,_KAKAO_REST_API_KEY=<REST API 키>,_KAKAO_REDIRECT_URI=$FE/login/kakao frontend
 gcloud run deploy foryourfarm-frontend \
   --image gcr.io/<PROJECT_ID>/foryourfarm-frontend \
   --project <PROJECT_ID> --region asia-northeast3
 ```
+
+**카카오 두 값을 빠뜨리면 로그인 버튼이 조용히 사라진다.** `NEXT_PUBLIC_KAKAO_*`도
+`NEXT_PUBLIC_API_BASE`와 같이 빌드 시점에 굳는 값인데, 비면 `isKakaoEnabled`가 false가 되어
+버튼을 숨긴다(`frontend/lib/kakao.ts` — 눌러도 실패하는 버튼을 보여주지 않는 의도적 동작).
+에러가 아니라 **없어짐**이라 배포 로그에는 아무것도 안 남는다. `_KAKAO_REDIRECT_URI`는
+⑤-b의 `KAKAO_REDIRECT_URI`와 **같은 값**이어야 한다.
 
 `NEXT_PUBLIC_*`은 `next build` 때 클라이언트 번들에 굳는다. **`gcloud run deploy
 --set-env-vars`로는 못 바꾼다** — 런타임에 주입해도 이미 빌드된 번들은 기본값
