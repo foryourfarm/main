@@ -25,6 +25,12 @@ class FarmSuitability(BaseModel):
 
     status: ok(정상) | dormant(기상 판정 근거 없는 달 — 토양 지침만 걸림, 점수 미노출)
     | out_of_season(해당 단계 지침 없음 — 예: 배 겨울) | insufficient_data(지표 전부 결측/이상).
+
+    P3(2026-08-05): `score`는 국가 적지평가 3단 구조 `min(토양 축, 기후 축)`이다(심교문
+    2016, outcomes/README.md §2026-08-04 §2) — 종전 가중평균이 아니다. 토양/기온 각 축의
+    실제 값(soil_total/temp_score)은 응답에 내지 않는다 — G11(기후 축 무동작 감시)은
+    로그(`app/core/log_config.py`) 쪽에서 집계하고, 프론트가 그 값을 쓰지 않으므로 breakdown과
+    중복되는 필드를 새로 늘리지 않는다(YAGNI).
     """
 
     farm_id: int
@@ -35,6 +41,17 @@ class FarmSuitability(BaseModel):
     status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
     score: float | None
     grade: str | None  # S | A | B | C | null
+    score_weighted: float | None = None
+    """종전 토양60/기온40 가중평균 총점. P3 도입 후 주 총점(`score`)이 min 구조로 바뀌면서
+    부차 지표로만 병기한다 — min에는 가중 개념이 없어 주 판정에는 쓰지 않는다."""
+    limiting_factor: str | None = None
+    """총점을 결속한 축 **안에서** 가장 낮은 지표. 토양 축이 결속했으면 그 지표의 한글명
+    (`INDICATOR_NAMES`), 기후 축이 결속했으면 `"기온"`(계약이 그렇게 규정,
+    outcomes/README.md §2026-08-04 §2). 두 축 다 비었거나 dormant/미채점이면 `None`."""
+    limiting_layer: str | None = None
+    """총점을 결속한 축 — `"토양"` | `"기온"`. `limiting_factor`가 어느 층 얘기인지 먼저
+    가리켜야 한다 — 그래야 대시보드와 히트맵이 같은 밭·같은 달에 "무엇이 원인인지"를
+    같게 말한다."""
     label: str
     breakdown: dict[str, IndicatorBreakdown]
     risk_flags: list[str]
@@ -42,7 +59,12 @@ class FarmSuitability(BaseModel):
 
 
 class MonthlyOutlookEntry(BaseModel):
-    """한 달의 전망 한 칸(히트맵 셀). 지표별 breakdown은 응답 비대를 피해 생략 — 상세는 일자 조회로."""
+    """한 달의 전망 한 칸(히트맵 셀). 지표별 breakdown은 응답 비대를 피해 생략 — 상세는 일자 조회로.
+
+    P3(2026-08-05): `score`는 국가 적지평가 3단 구조 `min(토양 축, 기후 축)`이다(심교문
+    2016, outcomes/README.md §2026-08-04 §2) — `compute_farm_suitability`와 같은 총점
+    축이라 같은 밭·같은 달이면 대시보드와 히트맵이 같은 점수를 보여준다.
+    """
 
     year: int
     """창이 해를 넘기므로(11월 조회 → 11·12·1월) 칸마다 연도를 갖는다. 응답 최상위에 하나로
@@ -52,6 +74,12 @@ class MonthlyOutlookEntry(BaseModel):
     status: Literal["ok", "dormant", "out_of_season", "insufficient_data"]
     score: float | None
     grade: str | None
+    score_weighted: float | None = None
+    """종전 토양60/기온40 가중평균 총점(부차 지표). min 구조인 `score`가 주 총점이다."""
+    limiting_factor: str | None = None
+    """총점을 결속한 축 안에서 가장 낮은 지표명(토양) 또는 `"기온"`(기후). 결측이면 `None`."""
+    limiting_layer: str | None = None
+    """총점을 결속한 축 — `"토양"` | `"기온"`."""
     risk_flags: list[str]
     # 그 달 기온·강수에 3개월전망 보정이 반영됐는지. false면 평년치만 쓴 칸이다.
     outlook_applied: bool = False
