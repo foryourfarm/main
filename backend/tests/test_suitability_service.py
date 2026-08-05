@@ -3,6 +3,7 @@ import unittest
 from decimal import Decimal
 
 from app.models import CropGrowthGuide
+from app.services import suitability_service as svc
 from app.services.suitability_service import (
     ALLOWED_BOUNDARY_SCORE,
     ALLOWED_KINDS,
@@ -385,6 +386,34 @@ class TestBreakdownEvidenceFields(unittest.TestCase):
         result = calculate_suitability([g1, g2], {"ph": 6.5, "subsoil_texture": 1})
         self.assertEqual(result["breakdown"]["ph"]["score_tier"], "literature")
         self.assertEqual(result["breakdown"]["subsoil_texture"]["score_tier"], "literature")
+
+
+class TestIndicatorLimitations(unittest.TestCase):
+    """지표 때문에 붙는 한계 표기 3건(계약 체크리스트 6·9번, §4-1).
+
+    장기 탭은 지표별 breakdown UI가 없어 꼬리표를 붙일 자리가 없다 — 이 경로로 내야
+    두 탭 모두에서 사용자가 근거를 볼 수 있다.
+    """
+
+    def test_facility_bands_are_named_in_korean(self):
+        out = svc.indicator_limitations(
+            [{"ph": {"cultivation_type": "facility"}, "temp_day": {"cultivation_type": "open_field"}}]
+        )
+        self.assertEqual(len(out), 1)
+        self.assertIn("토양 산도(pH)", out[0])
+        # 노지 밴드는 이름이 올라가면 안 된다 — 안내가 사실과 달라진다.
+        self.assertNotIn("일 평균기온", out[0])
+
+    def test_subsoil_texture_notice_fires_even_when_missing(self):
+        """적재 배선 부재로 심토토성은 현재 항상 결측이다 — 채점 여부를 조건에 걸면
+        사과·배 순위 역전 안내가 영구히 안 뜬다."""
+        out = svc.indicator_limitations([{"subsoil_texture": {"status": "missing"}}])
+        self.assertEqual(len(out), 1)
+        self.assertIn("작물마다 순위가 다릅니다", out[0])
+
+    def test_ec_scale_warning_only_for_crops_with_ec_guide(self):
+        self.assertTrue(svc.indicator_limitations([{"ec": {}}]))
+        self.assertEqual(svc.indicator_limitations([{"ph": {}}]), [])
 
 
 if __name__ == "__main__":

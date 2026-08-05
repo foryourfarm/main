@@ -13,6 +13,7 @@ import {
   stageLabel,
   statusLabel,
 } from "@/types/farm";
+import { isFacilityIndicator, isReferenceTierScore } from "@/lib/disclosure";
 
 /**
  * 날짜 카드 상세. 카드가 좁아 담을 수 없던 두 가지를 여기서 설명한다.
@@ -55,7 +56,14 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
           <tbody>
             {Object.entries(breakdown).map(([key, b]) => (
               <tr key={key}>
-                <th scope="row">{indicatorName(key)}</th>
+                <th scope="row">
+                  {indicatorName(key)}
+                  {/* 노지 밭이라도 시설재배 기준표로 채점된 지표일 수 있다 — 표기 없이는
+                      사용자가 이 밴드가 시설 기준인지 모른다(P6) */}
+                  {isFacilityIndicator(b) && (
+                    <span className={styles.statusTag}>시설 기준</span>
+                  )}
+                </th>
                 <td>{b.value ?? "—"}</td>
                 <td>{band(b.optimal_min, b.optimal_max)}</td>
                 <td>{band(b.allowed_min, b.allowed_max)}</td>
@@ -63,6 +71,11 @@ function ScoreRows({ day }: { day: ShortTermDay }) {
                 <td>
                   {b.score ?? "—"}
                   {b.status ? <span className={styles.statusTag}>{b.status}</span> : null}
+                  {/* 역산 경계(derived) 밖 점수는 문헌 근거가 없다 — 점수 텍스트와 같은
+                      자리에 두지 않고 줄을 바꿔 강등 표기한다(P6) */}
+                  {isReferenceTierScore(b) && (
+                    <span className={styles.tierNote}>기준 초과 · 참고 점수(문헌 근거 없음)</span>
+                  )}
                 </td>
               </tr>
             ))}

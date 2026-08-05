@@ -90,6 +90,30 @@ MONTHLY_STAGE_LIMITATION = (
 MONTHLY_SOIL_LIMITATION = (
     "토양 지표는 3개월 전체에 현재 추정값을 동일 적용합니다(월별 토양 변화는 반영하지 않음)."
 )
+FACILITY_CULTIVATION = "facility"
+# 계약 §4-1(감사 §20). `cultivation_type`이 밴드에 적혀 있어도 그 값을 보고 분기하는 코드가
+# 어느 쪽에도 없었다 — 오이·상추는 토양 7개 전부, 감자는 6개가 RDA 「시설재배토양」 진단
+# 기준표로 **노지 시군구 실측을 채점**하고 있다. 값은 바꾸지 않는 것이 사용자 결정이고,
+# 대신 그 사실을 노출한다. 지표별 꼬리표는 breakdown을 그리는 화면에만 뜨는데 장기 탭은
+# 지표 UI가 없으므로 여기 한계 표기로도 함께 낸다 — 두 탭 다 덮으려면 이 경로가 필요하다.
+FACILITY_BAND_LIMITATION_TEMPLATE = (
+    "다음 지표는 시설재배 기준표로 채점합니다(노지 기준표가 없어 그대로 사용) — {names}. "
+    "노지 밭이면 실제보다 후하거나 박하게 나올 수 있습니다."
+)
+# 계약 체크리스트 9번. 같은 밭 같은 흙에서 사과 100점·배 75점이 나온다 — 토성엔 단조 순위가
+# 없고 국가 배점표가 작물별로 다르기 때문이다(사과 최적은 사양질, 배 최적은 식양질). 근거를
+# 안 밝히면 사용자가 버그로 오인한다. 문구를 프론트에 두지 않고 여기 두는 이유는 다른 모든
+# 한계 표기와 같은 경로를 쓰기 위해서다 — 두 곳에 적으면 반드시 갈린다(§18-2와 같은 취지).
+SUBSOIL_TEXTURE_RANK_LIMITATION = (
+    "심토 토성 점수는 작물마다 순위가 다릅니다 — 같은 흙이 사과에서는 최적, 배에서는 보통이 "
+    "될 수 있습니다. 국가 토양 적지평가 배점표가 작물별로 다르기 때문이며 오류가 아닙니다."
+)
+# 계약 체크리스트 6번([확인 필요] 유지). 흙토람 elcd가 1:5 비환산인지 지도자료용 ×5 환산인지
+# 미확인이다. ×5라면 EC 밴드가 통째로 어긋난다 — 확정 전까지 제품 설명에 유지한다.
+EC_SCALE_LIMITATION = (
+    "토양 염류(EC)는 측정 환산 방식이 확정되지 않아 값이 실제보다 크거나 작을 수 있습니다 — "
+    "EC 점수는 참고로만 보십시오."
+)
 OUTLOOK_APPLIED_LIMITATION = (
     "기온·강수는 과거 평균에 기상청 3개월전망(확률예보)을 반영해 보정했습니다. "
     "전망이 없는 월·지표(야간최저기온·일조 등)는 과거 평균을 그대로 씁니다."
@@ -118,6 +142,33 @@ INDICATOR_NAMES: dict[str, str] = {
     # 라는 raw 키가 사용자 화면까지 그대로 나간다(0041).
     "subsoil_texture": "심토 토성",
 }
+
+
+def indicator_limitations(
+    breakdowns: Iterable[Mapping[str, Mapping[str, object]]],
+) -> list[str]:
+    """그 밭의 지침에 걸린 지표 때문에 붙는 한계 표기(계약 체크리스트 6·9번).
+
+    지침이 **걸렸는지**만 보고 채점 여부는 보지 않는다 — 결측이어도 그 작물이 그 지표로
+    평가되는 축이라는 사실은 같고, 심토토성은 적재 배선 부재로 현재 항상 결측이라
+    채점 여부를 조건에 걸면 안내가 영구히 안 뜬다.
+    """
+    indicators: set[str] = set()
+    facility: set[str] = set()
+    for breakdown in breakdowns:
+        for indicator, entry in breakdown.items():
+            indicators.add(indicator)
+            if entry.get("cultivation_type") == FACILITY_CULTIVATION:
+                facility.add(indicator)
+    out: list[str] = []
+    if facility:
+        names = "·".join(INDICATOR_NAMES.get(i, i) for i in sorted(facility))
+        out.append(FACILITY_BAND_LIMITATION_TEMPLATE.format(names=names))
+    if "subsoil_texture" in indicators:
+        out.append(SUBSOIL_TEXTURE_RANK_LIMITATION)
+    if "ec" in indicators:
+        out.append(EC_SCALE_LIMITATION)
+    return out
 
 
 def coverage_limitation(breakdowns: Iterable[Mapping[str, Mapping[str, object]]]) -> str | None:
@@ -677,6 +728,7 @@ def compute_farm_suitability(
         limitations.append(APPLE_STAGE_LIMITATION)
     if stage in ("spring", "fall"):
         limitations.append(LETTUCE_SEASON_LIMITATION)
+    limitations.extend(indicator_limitations([result["breakdown"]]))
 
     # 휴면기는 기상 판정 근거가 없어 점수를 내보내지 않는다(§18-4). breakdown은 남겨
     # 토양 지표가 어떻게 평가됐는지는 확인할 수 있게 한다.
@@ -948,6 +1000,7 @@ def compute_monthly_outlook(
         limitations.append(APPLE_STAGE_LIMITATION)
     if any(m["growth_stage"] in ("spring", "fall") for m in months):
         limitations.append(LETTUCE_SEASON_LIMITATION)
+    limitations.extend(indicator_limitations(m["breakdown"] for m in months))
     # 창이 전부 비었으면 화면이 통째로 "제철 아님"이라 유저가 다음에 언제 보러 와야 할지
     # 알 수 없다. 창을 늘려 채우지 않고 문구로만 알린다(PRD §4.4).
     following: tuple[int, int] | None = None
