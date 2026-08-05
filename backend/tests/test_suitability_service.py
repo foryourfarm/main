@@ -24,6 +24,7 @@ def guide(
     allowed_min_kind: str | None = None,
     allowed_max_kind: str | None = None,
     code_scores: dict[str, float | None] | None = None,
+    cultivation_type: str | None = None,
 ) -> CropGrowthGuide:
     return CropGrowthGuide(
         crop_id=1,
@@ -38,6 +39,7 @@ def guide(
         allowed_min_kind=allowed_min_kind,
         allowed_max_kind=allowed_max_kind,
         code_scores=code_scores,
+        cultivation_type=cultivation_type,
     )
 
 
@@ -288,6 +290,101 @@ class TestRefutedRainfallMonthlyNeverBackfilled(unittest.TestCase):
             f"rainfall_monthly가 0013 이후 다시 INSERT됐다: {offenders} — "
             "이 지표는 refuted 확정(outcomes/README.md 체크리스트 10번)이라 채점 대상이 아니다.",
         )
+
+
+class TestBreakdownEvidenceFields(unittest.TestCase):
+    """`IndicatorBreakdown`의 P6 근거 3필드(cultivation_type/boundary_kind/score_tier).
+
+    finalplan.md P6: FE가 "이 기준은 시설재배 기준입니다"·"이 점수는 역산치를 넘은
+    참고 점수입니다" 등을 표기하려면 breakdown 항목별로 근거가 실려야 한다.
+    """
+
+    def test_cultivation_type_is_passed_through_from_guide(self):
+        g = guide("ph", "6.0", "7.0", cultivation_type="facility")
+        result = calculate_suitability([g], {"ph": 6.5})
+        self.assertEqual(result["breakdown"]["ph"]["cultivation_type"], "facility")
+
+    def test_cultivation_type_none_when_guide_has_none(self):
+        g = guide("ph", "6.0", "7.0")
+        result = calculate_suitability([g], {"ph": 6.5})
+        self.assertIsNone(result["breakdown"]["ph"]["cultivation_type"])
+
+    def test_boundary_kind_is_none_for_optimal(self):
+        g = guide("ph", "6.0", "7.0", "5.0", "8.0", allowed_min_kind="heuristic")
+        result = calculate_suitability([g], {"ph": 6.5})
+        self.assertEqual(result["breakdown"]["ph"]["status"], "optimal")
+        self.assertIsNone(result["breakdown"]["ph"]["boundary_kind"])
+
+    def test_boundary_kind_binds_to_lower_direction(self):
+        """하한 이탈이면 allowed_min_kind가 나온다 — allowed_max_kind가 달라도 상관없다."""
+        g = guide(
+            "ph", "6.0", "7.0", "5.0", "8.0",
+            allowed_min_kind="cultivable_range", allowed_max_kind="heuristic",
+        )
+        result = calculate_suitability([g], {"ph": 5.5})  # allowed구간, 하한 쪽
+        self.assertEqual(result["breakdown"]["ph"]["status"], "allowed")
+        self.assertEqual(result["breakdown"]["ph"]["boundary_kind"], "cultivable_range")
+
+    def test_boundary_kind_binds_to_upper_direction(self):
+        """상한 이탈이면 allowed_max_kind가 나온다 — 두 방향을 합치지 않는다."""
+        g = guide(
+            "ph", "6.0", "7.0", "5.0", "8.0",
+            allowed_min_kind="cultivable_range", allowed_max_kind="heuristic",
+        )
+        result = calculate_suitability([g], {"ph": 7.5})  # allowed구간, 상한 쪽
+        self.assertEqual(result["breakdown"]["ph"]["status"], "allowed")
+        self.assertEqual(result["breakdown"]["ph"]["boundary_kind"], "heuristic")
+
+    def test_boundary_kind_is_none_for_category(self):
+        g = guide("subsoil_texture", None, None, code_scores={"1": 100.0, "2": 75.0})
+        result = calculate_suitability([g], {"subsoil_texture": 2})
+        self.assertEqual(result["breakdown"]["subsoil_texture"]["status"], "category")
+        self.assertIsNone(result["breakdown"]["subsoil_texture"]["boundary_kind"])
+
+    def test_score_tier_absent_for_unscored_statuses(self):
+        """missing/invalid/invalid_guide/unscored_code는 3필드 전부 실리지 않는다(=None)."""
+        missing_g = guide("ph", "6.0", "7.0")
+        invalid_g = guide("ph", "6.0", "7.0")
+        invalid_guide_g = guide("temp_day", None, None)
+        unscored_g = guide("subsoil_texture", None, None, code_scores={"1": 100.0})
+        result = calculate_suitability(
+            [missing_g], {},
+        )
+        self.assertNotIn("score_tier", result["breakdown"]["ph"])
+        result = calculate_suitability([invalid_g], {"ph": 20})
+        self.assertNotIn("score_tier", result["breakdown"]["ph"])
+        result = calculate_suitability([invalid_guide_g], {"temp_day": 20})
+        self.assertNotIn("score_tier", result["breakdown"]["temp_day"])
+        result = calculate_suitability([unscored_g], {"subsoil_texture": 99})
+        self.assertNotIn("score_tier", result["breakdown"]["subsoil_texture"])
+
+    def test_score_tier_reference_only_for_risk_beyond_derived_boundary(self):
+        """사과 ca 상한(derived, 실제 DB값 5.0/6.0/4.5/6.5) 밖 위험 점수만 reference — 체크리스트 12번."""
+        g = guide("ca", "5.0", "6.0", "4.5", "6.5", allowed_max_kind="derived")
+        result = calculate_suitability([g], {"ca": 7.23})  # 전국 중앙값, 상한(6.5) 밖
+        self.assertEqual(result["breakdown"]["ca"]["status"], "risk")
+        self.assertEqual(result["breakdown"]["ca"]["score_tier"], "reference")
+
+    def test_score_tier_literature_when_within_derived_allowed_band(self):
+        """같은 derived 경계라도 허용구간 안(status=allowed)이면 literature다."""
+        g = guide("ca", "5.0", "6.0", "4.5", "6.5", allowed_max_kind="derived")
+        result = calculate_suitability([g], {"ca": 6.2})  # optimal_max(6.0)~allowed_max(6.5) 사이
+        self.assertEqual(result["breakdown"]["ca"]["status"], "allowed")
+        self.assertEqual(result["breakdown"]["ca"]["score_tier"], "literature")
+
+    def test_score_tier_literature_when_risk_beyond_heuristic_boundary(self):
+        """derived가 아닌 성격(예: heuristic)의 위험구간은 literature다."""
+        g = guide("ph", "6.0", "7.0", "5.0", "8.0", allowed_max_kind="heuristic")
+        result = calculate_suitability([g], {"ph": 8.5})  # 허용경계(8.0) 밖
+        self.assertEqual(result["breakdown"]["ph"]["status"], "risk")
+        self.assertEqual(result["breakdown"]["ph"]["score_tier"], "literature")
+
+    def test_score_tier_literature_for_optimal_and_category(self):
+        g1 = guide("ph", "6.0", "7.0")
+        g2 = guide("subsoil_texture", None, None, code_scores={"1": 100.0})
+        result = calculate_suitability([g1, g2], {"ph": 6.5, "subsoil_texture": 1})
+        self.assertEqual(result["breakdown"]["ph"]["score_tier"], "literature")
+        self.assertEqual(result["breakdown"]["subsoil_texture"]["score_tier"], "literature")
 
 
 if __name__ == "__main__":

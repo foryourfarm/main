@@ -18,6 +18,30 @@ class IndicatorBreakdown(BaseModel):
     # 잠정치라 UI가 표현을 약하게 해야 한다(§18-4).
     confidence: str | None = None
     source_ref: str | None = None
+    cultivation_type: str | None = None
+    """그 지표 밴드 기준표의 출처 — `open_field`(노지) | `facility`(시설), `guide.cultivation_type`
+    그대로. 오이·상추는 토양 7개 전부, 감자는 6개가 **시설재배 기준표로 노지 실측을 채점**한다
+    (outcomes/README.md 적용 체크리스트 4-1) — 사용자가 노지 밭 점수를 보면서 그 기준이 시설
+    기준인지 모르면 안 된다. 채점되지 않은 지표(missing/invalid/invalid_guide/unscored_code)는
+    다른 근거 필드(`confidence`/`source_ref`)와 마찬가지로 싣지 않아 `None`이다."""
+    boundary_kind: str | None = None
+    """점수를 정한 **방향**의 허용경계 성격 — `value < optimal_min`으로 이탈했으면
+    `guide.allowed_min_kind`, `value > optimal_max`로 이탈했으면 `guide.allowed_max_kind`.
+    한 밴드 안에서 하한·상한의 성격이 다를 수 있어(사과 기온: 하한 `cultivable_range`, 상한
+    `heuristic`) 두 컬럼을 합쳐 내면 반드시 한쪽이 거짓 표기가 된다 — **결속한 쪽만** 낸다.
+    `status`가 `optimal`(최적구간 안, 방향 없음)·`category`(등급코드 조회, 밴드 자체가 없음)·
+    `missing`/`invalid`/`invalid_guide`/`unscored_code`(채점 자체가 없음)면 결속한 방향이
+    없으므로 `None`이다."""
+    score_tier: Literal["literature", "reference"] | None = None
+    """이 점수가 문헌 기반(`literature`)인지 참고용(`reference`)인지. `reference`는
+    `status == "risk"`이면서 결속한 방향의 kind가 `"derived"`인 경우뿐이다 — 문헌값이 아니라
+    우리가 역산한 경계를 넘어선 구간의 점수라는 뜻이다(outcomes/README.md 적용 체크리스트
+    12번). 현재 유일한 대상은 사과 `ca.allowed_max = 6.5`다: 문헌값이 아니라 역산치(염기포화도
+    80% × CEC 10.0)이고, **그 상한 밖 감점 기울기는 국내외 근거 0건**인데 전국 치환성 Ca
+    중앙값(7.23)이 그 상한 밖이라 다수 밭이 이 근거 없는 기울기로 감점된다. 판정은 `derived`
+    kind 여부만 보므로 다른 지표가 향후 `derived`가 되어도 자동으로 이 판정을 따라간다 —
+    "사과 ca"를 코드로 특별취급하지 않는다. 그 외 채점된 지표(`optimal`/`allowed`/`risk`
+    non-derived/`category`)는 `literature`. 채점되지 않은 항목은 `None`."""
 
 
 class FarmSuitability(BaseModel):
